@@ -177,7 +177,7 @@ import { deserializeMessages } from '../utils/conversationRecovery.js';
 import { extractReadFilesFromMessages, extractBashToolsFromMessages } from '../utils/queryHelpers.js';
 import { resetMicrocompactState } from '../services/compact/microCompact.js';
 import { runPostCompactCleanup } from '../services/compact/postCompactCleanup.js';
-import { provisionContentReplacementState, reconstructContentReplacementState, type ContentReplacementRecord } from '../utils/toolResultStorage.js';
+import { applyToolResultReplacementsToMessages, provisionContentReplacementState, reconstructContentReplacementState, type ContentReplacementRecord } from '../utils/toolResultStorage.js';
 import { partialCompactConversation } from '../services/compact/compact.js';
 import type { LogOption } from '../types/logs.js';
 import type { AgentColorName } from '../tools/AgentTool/agentColorManager.js';
@@ -1174,7 +1174,11 @@ export function REPL({
     registerLeaderToolUseConfirmQueue(setToolUseConfirmQueue);
     return () => unregisterLeaderToolUseConfirmQueue();
   }, [setToolUseConfirmQueue]);
-  const [messages, rawSetMessages] = useState<MessageType[]>(initialMessages ?? []);
+  const [messages, rawSetMessages] = useState<MessageType[]>(() => {
+    if (!initialMessages) return [];
+    const initialReplacementState = provisionContentReplacementState(initialMessages, initialContentReplacements);
+    return initialReplacementState ? applyToolResultReplacementsToMessages(initialMessages, initialReplacementState.replacements) : initialMessages;
+  });
   const messagesRef = useRef(messages);
   // Stores the willowMode variant that was shown (or false if no hint shown).
   // Captured at hint_shown time so hint_converted telemetry reports the same
@@ -1226,6 +1230,10 @@ export function REPL({
     }
     setUserInputOnProcessingRaw(input);
   }, []);
+  const syncToolResultReplacements = useCallback((replacements: ReadonlyMap<string, string>) => {
+    if (replacements.size === 0) return;
+    setMessages(current => applyToolResultReplacementsToMessages(current, replacements));
+  }, [setMessages]);
   // Fullscreen: track the unseen-divider position. dividerIndex changes
   // only ~twice/scroll-session (first scroll-away + repin). pillVisible
   // and stickyPrompt now live in FullscreenLayout — they subscribe to
@@ -1918,10 +1926,11 @@ export function REPL({
       if (contentReplacementStateRef.current && entrypoint !== 'fork') {
         contentReplacementStateRef.current = reconstructContentReplacementState(messages, log.contentReplacements ?? []);
       }
+      const hydratedMessages = contentReplacementStateRef.current ? applyToolResultReplacementsToMessages(messages, contentReplacementStateRef.current.replacements) : messages;
 
       // Reset messages to the provided initial messages
       // Use a callback to ensure we're not dependent on stale state
-      setMessages(() => messages);
+      setMessages(() => hydratedMessages);
 
       // Clear any active tool JSX
       setToolJSX(null);
@@ -2513,9 +2522,10 @@ export function REPL({
       resume,
       setConversationId,
       requestPrompt: feature('HOOK_PROMPTS') ? requestPrompt : undefined,
-      contentReplacementState: contentReplacementStateRef.current
+      contentReplacementState: contentReplacementStateRef.current,
+      syncToolResultReplacements
     };
-  }, [commands, combinedInitialTools, mainThreadAgentDefinition, debug, initialMcpClients, ideInstallationStatus, dynamicMcpConfig, theme, allowedAgentTypes, store, setAppState, reverify, addNotification, setMessages, onChangeDynamicMcpConfig, resume, requestPrompt, disabled, customSystemPrompt, appendSystemPrompt, setConversationId]);
+  }, [commands, combinedInitialTools, mainThreadAgentDefinition, debug, initialMcpClients, ideInstallationStatus, dynamicMcpConfig, theme, allowedAgentTypes, store, setAppState, reverify, addNotification, setMessages, onChangeDynamicMcpConfig, resume, requestPrompt, disabled, customSystemPrompt, appendSystemPrompt, setConversationId, syncToolResultReplacements]);
 
   // Session backgrounding (Ctrl+B to background/foreground)
   const handleBackgroundQuery = useCallback(() => {

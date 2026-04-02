@@ -312,3 +312,77 @@ test('preserves Gemini tool call extra_content from streaming chunks', async () 
     },
   })
 })
+
+test('sanitizes malformed MCP tool schemas before sending them to OpenAI', async () => {
+  let requestBody: Record<string, unknown> | undefined
+
+  globalThis.fetch = (async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body))
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-1',
+        model: 'gpt-4o',
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: 'ok',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 1,
+          total_tokens: 11,
+        },
+      }),
+      {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    )
+  }) as FetchType
+
+  const client = createOpenAIShimClient({}) as OpenAIShimClient
+
+  await client.beta.messages.create({
+    model: 'gpt-4o',
+    system: 'test system',
+    messages: [{ role: 'user', content: 'hello' }],
+    tools: [
+      {
+        name: 'mcp__clientry__create_task',
+        description: 'Create a task',
+        input_schema: {
+          type: 'object',
+          properties: {
+            priority: {
+              type: 'integer',
+              description: 'Priority: 0=low, 1=medium, 2=high, 3=urgent',
+              default: true,
+              enum: [false, 0, 1, 2, 3],
+            },
+          },
+        },
+      },
+    ],
+    max_tokens: 64,
+    stream: false,
+  })
+
+  const parameters = (
+    requestBody?.tools as Array<{ function?: { parameters?: Record<string, unknown> } }>
+  )?.[0]?.function?.parameters
+  const properties = parameters?.properties as
+    | Record<string, { default?: unknown; enum?: unknown[]; type?: string }>
+    | undefined
+
+  expect(parameters?.additionalProperties).toBe(false)
+  expect(parameters?.required).toEqual(['priority'])
+  expect(properties?.priority?.type).toBe('integer')
+  expect(properties?.priority?.enum).toEqual([0, 1, 2, 3])
+  expect(properties?.priority).not.toHaveProperty('default')
+})

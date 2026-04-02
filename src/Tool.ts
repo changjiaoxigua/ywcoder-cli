@@ -291,6 +291,14 @@ export type ToolUseContext = {
    */
   contentReplacementState?: ContentReplacementState
   /**
+   * Interactive REPL only: mirror persisted tool-result replacements back
+   * into the live transcript so the original oversized payloads can be
+   * released from heap once the replacement decision is known.
+   */
+  syncToolResultReplacements?: (
+    replacements: ReadonlyMap<string, string>,
+  ) => void
+  /**
    * Parent's rendered system prompt bytes, frozen at turn start.
    * Used by fork subagents to share the parent's prompt cache — re-calling
    * getSystemPrompt() at fork-spawn time can diverge (GrowthBook cold→warm)

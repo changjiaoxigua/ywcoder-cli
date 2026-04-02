@@ -698,17 +698,22 @@ function selectFreshToReplace(
  */
 function replaceToolResultContents(
   messages: Message[],
-  replacementMap: Map<string, string>,
+  replacementMap: ReadonlyMap<string, string>,
 ): Message[] {
-  return messages.map(message => {
+  let changed = false
+  const nextMessages = messages.map(message => {
     if (message.type !== 'user' || !Array.isArray(message.message.content)) {
       return message
     }
     const content = message.message.content
     const needsReplace = content.some(
-      b => b.type === 'tool_result' && replacementMap.has(b.tool_use_id),
+      b =>
+        b.type === 'tool_result' &&
+        replacementMap.has(b.tool_use_id) &&
+        b.content !== replacementMap.get(b.tool_use_id),
     )
     if (!needsReplace) return message
+    changed = true
     return {
       ...message,
       message: {
@@ -716,13 +721,28 @@ function replaceToolResultContents(
         content: content.map(block => {
           if (block.type !== 'tool_result') return block
           const replacement = replacementMap.get(block.tool_use_id)
-          return replacement === undefined
+          return replacement === undefined || block.content === replacement
             ? block
             : { ...block, content: replacement }
         }),
       },
     }
   })
+  return changed ? nextMessages : messages
+}
+
+/**
+ * Mirror already-known tool-result replacements back into an in-memory
+ * transcript. Used by the interactive REPL so once a large result has been
+ * persisted/replaced for model use, the original oversized string can be
+ * dropped from live session state as well.
+ */
+export function applyToolResultReplacementsToMessages(
+  messages: Message[],
+  replacements: ReadonlyMap<string, string>,
+): Message[] {
+  if (replacements.size === 0) return messages
+  return replaceToolResultContents(messages, replacements)
 }
 
 async function buildReplacement(
@@ -926,13 +946,16 @@ export async function applyToolResultBudget(
   state: ContentReplacementState | undefined,
   writeToTranscript?: (records: ToolResultReplacementRecord[]) => void,
   skipToolNames?: ReadonlySet<string>,
-): Promise<Message[]> {
-  if (!state) return messages
+): Promise<{
+  messages: Message[]
+  newlyReplaced: ToolResultReplacementRecord[]
+}> {
+  if (!state) return { messages, newlyReplaced: [] }
   const result = await enforceToolResultBudget(messages, state, skipToolNames)
   if (result.newlyReplaced.length > 0) {
     writeToTranscript?.(result.newlyReplaced)
   }
-  return result.messages
+  return result
 }
 
 /**

@@ -376,7 +376,7 @@ async function* queryLoop(
     const persistReplacements =
       querySource.startsWith('agent:') ||
       querySource.startsWith('repl_main_thread')
-    messagesForQuery = await applyToolResultBudget(
+    const toolResultBudgetResult = await applyToolResultBudget(
       messagesForQuery,
       toolUseContext.contentReplacementState,
       persistReplacements
@@ -392,6 +392,12 @@ async function* queryLoop(
           .map(t => t.name),
       ),
     )
+    messagesForQuery = toolResultBudgetResult.messages
+    if (toolResultBudgetResult.newlyReplaced.length > 0) {
+      toolUseContext.syncToolResultReplacements?.(
+        toolUseContext.contentReplacementState?.replacements ?? new Map(),
+      )
+    }
 
     // Apply snip before microcompact (both may run — they are not mutually exclusive).
     // snipTokensFreed is plumbed to autocompact so its threshold check reflects

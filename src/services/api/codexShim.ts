@@ -3,6 +3,7 @@ import type {
   ResolvedCodexCredentials,
   ResolvedProviderRequest,
 } from './providerConfig.js'
+import { sanitizeSchemaForOpenAICompat } from './openaiSchemaSanitizer.js'
 
 export interface AnthropicUsage {
   input_tokens: number
@@ -306,15 +307,8 @@ export function convertAnthropicMessagesToResponsesInput(
  * - Nested schemas (properties, items, anyOf/oneOf/allOf) are processed too
  */
 function enforceStrictSchema(schema: unknown): Record<string, unknown> {
-  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
-    return (schema ?? {}) as Record<string, unknown>
-  }
+  const record = sanitizeSchemaForOpenAICompat(schema)
 
-  const record = { ...(schema as Record<string, unknown>) }
-
-  // Codex API strict schemas reject these JSON schema keywords
-  delete record.$schema
-  delete record.propertyNames
   // Codex Responses rejects JSON Schema's standard `uri` string format.
   // Keep URL validation in the tool layer and send a plain string here.
   if (record.format === 'uri') {

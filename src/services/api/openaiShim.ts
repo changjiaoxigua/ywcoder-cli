@@ -39,6 +39,7 @@ import {
   resolveProviderRequest,
 } from './providerConfig.js'
 import { redactSecretValueForDisplay } from '../../utils/providerProfile.js'
+import { sanitizeSchemaForOpenAICompat } from './openaiSchemaSanitizer.js'
 
 const GITHUB_MODELS_DEFAULT_BASE = 'https://models.github.ai/inference'
 const GITHUB_API_VERSION = '2022-11-28'
@@ -270,11 +271,7 @@ function normalizeSchemaForOpenAI(
   schema: Record<string, unknown>,
   strict = true,
 ): Record<string, unknown> {
-  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) {
-    return (schema ?? {}) as Record<string, unknown>
-  }
-
-  const record = { ...schema }
+  const record = sanitizeSchemaForOpenAICompat(schema)
 
   if (record.type === 'object' && record.properties) {
     const properties = record.properties as Record<string, Record<string, unknown>>

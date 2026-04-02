@@ -180,6 +180,47 @@ describe('Codex request translation', () => {
     ])
   })
 
+  test('sanitizes malformed enum/default values for Responses tool schemas', () => {
+    const tools = convertToolsToResponsesTools([
+      {
+        name: 'mcp__clientry__create_task',
+        description: 'Create a task',
+        input_schema: {
+          type: 'object',
+          properties: {
+            priority: {
+              type: 'integer',
+              description: 'Priority: 0=low, 1=medium, 2=high, 3=urgent',
+              default: true,
+              enum: [false, 0, 1, 2, 3],
+            },
+          },
+        },
+      },
+    ])
+
+    expect(tools).toEqual([
+      {
+        type: 'function',
+        name: 'mcp__clientry__create_task',
+        description: 'Create a task',
+        parameters: {
+          type: 'object',
+          properties: {
+            priority: {
+              type: 'integer',
+              description: 'Priority: 0=low, 1=medium, 2=high, 3=urgent',
+              enum: [0, 1, 2, 3],
+            },
+          },
+          required: ['priority'],
+          additionalProperties: false,
+        },
+        strict: true,
+      },
+    ])
+  })
+
   test('converts assistant tool use and user tool result into Responses items', () => {
     const items = convertAnthropicMessagesToResponsesInput([
       {
