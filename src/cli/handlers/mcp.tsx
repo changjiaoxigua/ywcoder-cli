@@ -12,6 +12,7 @@ import { render } from '../../ink.js';
 import { KeybindingSetup } from '../../keybindings/KeybindingProviderSetup.js';
 import { type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS, logEvent } from '../../services/analytics/index.js';
 import { clearMcpClientConfig, clearServerTokensFromLocalStorage, getMcpClientConfig, readClientSecret, saveMcpClientSecret } from '../../services/mcp/auth.js';
+import { doctorAllServers, doctorServer, type McpDoctorReport, type McpDoctorScopeFilter } from '../../services/mcp/doctor.js';
 import { connectToServer, getMcpServerConnectionBatchSize } from '../../services/mcp/client.js';
 import { addMcpConfig, getAllMcpConfigs, getMcpConfigByName, getMcpConfigsByScope, removeMcpConfig } from '../../services/mcp/config.js';
 import type { ConfigScope, ScopedMcpServerConfig } from '../../services/mcp/types.js';
@@ -23,6 +24,102 @@ import { gracefulShutdown } from '../../utils/gracefulShutdown.js';
 import { safeParseJSON } from '../../utils/json.js';
 import { getPlatform } from '../../utils/platform.js';
 import { cliError, cliOk } from '../exit.js';
+
+function formatDoctorReport(report: McpDoctorReport): string {
+  const lines: string[] = []
+  lines.push('MCP Doctor')
+  lines.push('')
+  lines.push('Summary')
+  lines.push(`- ${report.summary.totalReports} server reports generated`)
+  lines.push(`- ${report.summary.healthy} healthy`)
+  lines.push(`- ${report.summary.warnings} warnings`)
+  lines.push(`- ${report.summary.blocking} blocking issues`)
+
+  if (report.targetName) {
+    lines.push(`- target: ${report.targetName}`)
+  }
+
+  for (const server of report.servers) {
+    lines.push('')
+    lines.push(server.serverName)
+
+    const activeDefinition = server.definitions.find(definition => definition.runtimeActive)
+    if (activeDefinition) {
+      lines.push(`- Active source: ${activeDefinition.sourceType}`)
+      lines.push(`- Transport: ${activeDefinition.transport ?? 'unknown'}`)
+    }
+
+    if (server.definitions.length > 1) {
+      const extraDefinitions = server.definitions
+        .filter(definition => !definition.runtimeActive)
+        .map(definition => definition.sourceType)
+      if (extraDefinitions.length > 0) {
+        lines.push(`- Additional definitions: ${extraDefinitions.join(', ')}`)
+      }
+    }
+
+    if (server.liveCheck.result) {
+      const stateLikeResults = new Set(['disabled', 'pending', 'skipped'])
+      const label = stateLikeResults.has(server.liveCheck.result)
+        ? 'State'
+        : 'Live check'
+      lines.push(`- ${label}: ${server.liveCheck.result}`)
+    }
+
+    if (server.liveCheck.error) {
+      lines.push(`- Error: ${server.liveCheck.error}`)
+    }
+
+    for (const finding of server.findings) {
+      lines.push(`- ${finding.message}`)
+      if (finding.remediation) {
+        lines.push(`- Fix: ${finding.remediation}`)
+      }
+    }
+  }
+
+  if (report.findings.length > 0) {
+    lines.push('')
+    lines.push('Global findings')
+    for (const finding of report.findings) {
+      lines.push(`- ${finding.message}`)
+      if (finding.remediation) {
+        lines.push(`- Fix: ${finding.remediation}`)
+      }
+    }
+  }
+
+  return lines.join('\n')
+}
+
+export async function mcpDoctorHandler(name: string | undefined, options: {
+  scope?: string;
+  configOnly?: boolean;
+  json?: boolean;
+}): Promise<void> {
+  try {
+    const scopeFilter = options.scope ? ensureConfigScope(options.scope) as McpDoctorScopeFilter : undefined
+    const configOnly = !!options.configOnly
+    const report = name
+      ? await doctorServer(name, { configOnly, scopeFilter })
+      : await doctorAllServers({ configOnly, scopeFilter })
+
+    if (options.json) {
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`)
+    } else {
+      process.stdout.write(`${formatDoctorReport(report)}\n`)
+    }
+
+    // On Windows, exiting immediately after a single failed HTTP MCP health check
+    // can trip a libuv assertion while async handle shutdown is still settling.
+    // Let the event loop drain briefly before exiting this one-shot command.
+    await new Promise(resolve => setTimeout(resolve, 50))
+    process.exit(report.summary.blocking > 0 ? 1 : 0)
+    return
+  } catch (error) {
+    cliError((error as Error).message)
+  }
+}
 async function checkMcpServerHealth(name: string, server: ScopedMcpServerConfig): Promise<string> {
   try {
     const result = await connectToServer(name, server);

@@ -139,6 +139,7 @@ import { validateUuid } from './utils/uuid.js';
 // Plugin startup checks are now handled non-blockingly in REPL.tsx
 
 import { registerMcpAddCommand } from 'src/commands/mcp/addCommand.js';
+import { registerMcpDoctorCommand } from 'src/commands/mcp/doctorCommand.js';
 import { registerMcpXaaIdpCommand } from 'src/commands/mcp/xaaIdpCommand.js';
 import { logPermissionContextForAnts } from 'src/services/internalLogging.js';
 import { fetchClaudeAIMcpConfigsIfEligible } from 'src/services/mcp/claudeai.js';
@@ -3887,6 +3888,7 @@ async function run(): Promise<CommanderCommand> {
 
   // Register the mcp add subcommand (extracted for testability)
   registerMcpAddCommand(mcp);
+  registerMcpDoctorCommand(mcp);
   if (isXaaEnabled()) {
     registerMcpXaaIdpCommand(mcp);
   }
