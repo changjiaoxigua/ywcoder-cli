@@ -21,13 +21,14 @@ import type {
   SessionState,
 } from '../../utils/sessionState.js'
 import { sleep } from '../../utils/sleep.js'
-import { getClaudeCodeUserAgent } from '../../utils/userAgent.js'
+import { getYwCoderUserAgent } from '../../utils/userAgent.js'
 import {
   RetryableError,
   SerialBatchEventUploader,
 } from './SerialBatchEventUploader.js'
 import type { SSETransport, StreamClientEvent } from './SSETransport.js'
 import { WorkerStateUploader } from './WorkerStateUploader.js'
+import { getYwCoderEnv } from '../../utils/envUtils.js'
 
 /** Default interval between heartbeat events (20s; server TTL is 60s). */
 const DEFAULT_HEARTBEAT_INTERVAL_MS = 20_000
@@ -462,7 +463,7 @@ export class CCRClient {
       throw new CCRInitError('no_auth_headers')
     }
     if (epoch === undefined) {
-      const rawEpoch = process.env.CLAUDE_CODE_WORKER_EPOCH
+      const rawEpoch = getYwCoderEnv('WORKER_EPOCH')
       epoch = rawEpoch ? parseInt(rawEpoch, 10) : NaN
     }
     if (isNaN(epoch)) {
@@ -572,7 +573,7 @@ export class CCRClient {
             ...authHeaders,
             'Content-Type': 'application/json',
             'anthropic-version': '2023-06-01',
-            'User-Agent': getClaudeCodeUserAgent(),
+            'User-Agent': getYwCoderUserAgent(),
           },
           validateStatus: alwaysValidStatus,
           timeout,
@@ -914,7 +915,7 @@ export class CCRClient {
           headers: {
             ...authHeaders,
             'anthropic-version': '2023-06-01',
-            'User-Agent': getClaudeCodeUserAgent(),
+            'User-Agent': getYwCoderUserAgent(),
           },
           validateStatus: alwaysValidStatus,
           timeout: 30_000,

@@ -2,7 +2,7 @@ import { spawnSync } from 'child_process'
 import { getIsInteractive } from '../bootstrap/state.js'
 import { getGlobalConfig } from './config.js'
 import { logForDebugging } from './debug.js'
-import { isEnvDefinedFalsy, isEnvTruthy } from './envUtils.js'
+import { isEnvDefinedFalsy, isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import { execFileNoThrow } from './execFileNoThrow.js'
 
 let loggedTmuxCcDisable = false
@@ -119,9 +119,9 @@ export function _resetTmuxControlModeProbeForTesting(): void {
  */
 export function isFullscreenEnvEnabled(): boolean {
   // Explicit env opt-out always wins.
-  if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_NO_FLICKER)) return false
+  if (isEnvDefinedFalsy(getYwCoderEnv('NO_FLICKER'))) return false
   // Explicit env opt-in overrides everything including tmux -CC.
-  if (isEnvTruthy(process.env.CLAUDE_CODE_NO_FLICKER)) return true
+  if (isEnvTruthy(getYwCoderEnv('NO_FLICKER'))) return true
   // Auto-disable under tmux -CC: alt-screen + mouse tracking corrupts
   // terminal state on double-click and mouse wheel is dead.
   if (isTmuxControlMode()) {

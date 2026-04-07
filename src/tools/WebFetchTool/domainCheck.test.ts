@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import axios from 'axios'
+import { getYwCoderEnv } from '../../utils/envUtils.js'
 
 const originalEnv = { ...process.env }
 
@@ -9,6 +10,7 @@ async function importFreshModule() {
 }
 
 beforeEach(() => {
+  mock.restore()
   process.env = { ...originalEnv }
 })
 
@@ -19,10 +21,7 @@ afterEach(() => {
 
 describe('checkDomainBlocklist', () => {
   test('returns allowed without API call in OpenAI mode', async () => {
-    process.env.CLAUDE_CODE_USE_OPENAI = '1'
-    mock.module('../../utils/model/providers.js', () => ({
-      getAPIProvider: () => 'openai',
-    }))
+    process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
     const getSpy = mock(() =>
       Promise.resolve({ status: 200, data: { can_fetch: true } }),
     )
@@ -36,10 +35,7 @@ describe('checkDomainBlocklist', () => {
   })
 
   test('returns allowed without API call in Gemini mode', async () => {
-    process.env.CLAUDE_CODE_USE_GEMINI = '1'
-    mock.module('../../utils/model/providers.js', () => ({
-      getAPIProvider: () => 'gemini',
-    }))
+    process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = '1'
     const getSpy = mock(() =>
       Promise.resolve({ status: 200, data: { can_fetch: true } }),
     )
@@ -53,13 +49,13 @@ describe('checkDomainBlocklist', () => {
   })
 
   test('calls Anthropic domain check in first-party mode', async () => {
+    delete process.env.YWCODER_USE_OPENAI
     delete process.env.CLAUDE_CODE_USE_OPENAI
+    delete process.env.YWCODER_USE_GEMINI
     delete process.env.CLAUDE_CODE_USE_GEMINI
+    delete process.env.YWCODER_USE_GITHUB
     delete process.env.CLAUDE_CODE_USE_GITHUB
 
-    mock.module('../../utils/model/providers.js', () => ({
-      getAPIProvider: () => 'firstParty',
-    }))
     const getSpy = mock(() =>
       Promise.resolve({ status: 200, data: { can_fetch: true } }),
     )

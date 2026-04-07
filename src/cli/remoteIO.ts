@@ -7,7 +7,7 @@ import { registerCleanup } from '../utils/cleanupRegistry.js'
 import { setCommandLifecycleListener } from '../utils/commandLifecycle.js'
 import { isDebugMode, logForDebugging } from '../utils/debug.js'
 import { logForDiagnosticsNoPII } from '../utils/diagLogs.js'
-import { isEnvTruthy } from '../utils/envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from '../utils/envUtils.js'
 import { errorMessage } from '../utils/errors.js'
 import { gracefulShutdown } from '../utils/gracefulShutdown.js'
 import { logError } from '../utils/log.js'
@@ -93,7 +93,7 @@ export class RemoteIO extends StructuredIO {
     )
 
     // Set up data callback
-    this.isBridge = process.env.CLAUDE_CODE_ENVIRONMENT_KIND === 'bridge'
+    this.isBridge = getYwCoderEnv('ENVIRONMENT_KIND') === 'bridge'
     this.isDebug = isDebugMode()
     this.transport.setOnData((data: string) => {
       this.inputStream.write(data)
@@ -113,7 +113,7 @@ export class RemoteIO extends StructuredIO {
     // synchronously, so new CCRClient() MUST run before transport.connect() —
     // otherwise early SSE frames hit an unwired onEventCallback and their
     // 'received' delivery acks are silently dropped.
-    if (isEnvTruthy(process.env.CLAUDE_CODE_USE_CCR_V2)) {
+    if (isEnvTruthy(getYwCoderEnv('USE_CCR_V2'))) {
       // CCR v2 is SSE+POST by definition. getTransportForUrl returns
       // SSETransport under the same env var, but the two checks live in
       // different files — assert the invariant so a future decoupling

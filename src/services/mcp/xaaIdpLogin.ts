@@ -20,7 +20,7 @@ import { createServer, type Server } from 'http'
 import { parse } from 'url'
 import xss from 'xss'
 import { openBrowser } from '../../utils/browser.js'
-import { isEnvTruthy } from '../../utils/envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from '../../utils/envUtils.js'
 import { toError } from '../../utils/errors.js'
 import { logMCPDebug } from '../../utils/log.js'
 import { getPlatform } from '../../utils/platform.js'
@@ -30,7 +30,7 @@ import { jsonParse } from '../../utils/slowOperations.js'
 import { buildRedirectUri, findAvailablePort } from './oauthPort.js'
 
 export function isXaaEnabled(): boolean {
-  return isEnvTruthy(process.env.CLAUDE_CODE_ENABLE_XAA)
+  return isEnvTruthy(getYwCoderEnv('ENABLE_XAA'))
 }
 
 export type XaaIdpSettings = {

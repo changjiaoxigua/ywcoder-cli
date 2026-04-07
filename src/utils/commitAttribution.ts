@@ -16,6 +16,7 @@ import { findGitRoot, gitExe } from './git.js'
 import { logError } from './log.js'
 import { getCanonicalName, type ModelName } from './model/model.js'
 import { sequential } from './sequential.js'
+import { getYwCoderEnv } from './envUtils.js'
 
 /**
  * List of repos where internal model names are allowed in trailers.
@@ -227,7 +228,7 @@ export type AttributionData = {
  * Get the current client surface from environment.
  */
 export function getClientSurface(): string {
-  return process.env.CLAUDE_CODE_ENTRYPOINT ?? 'cli'
+  return getYwCoderEnv('ENTRYPOINT') ?? 'cli'
 }
 
 /**

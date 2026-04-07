@@ -1,5 +1,5 @@
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
-import { isEnvTruthy } from './envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 
 /**
  * Check if --agent-teams flag is provided via CLI.
@@ -29,7 +29,7 @@ export function isAgentSwarmsEnabled(): boolean {
 
   // External: require opt-in via env var or --agent-teams flag
   if (
-    !isEnvTruthy(process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS) &&
+    !isEnvTruthy(getYwCoderEnv('EXPERIMENTAL_AGENT_TEAMS')) &&
     !isAgentTeamsFlagSet()
   ) {
     return false

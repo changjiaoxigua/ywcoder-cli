@@ -1,7 +1,7 @@
 import React, { PureComponent, type ReactNode } from 'react';
 import { updateLastInteractionTime } from '../../bootstrap/state.js';
 import { stopCapturingEarlyInput } from '../../utils/earlyInput.js';
-import { isEnvTruthy } from '../../utils/envUtils.js';
+import { getYwCoderEnv, isEnvTruthy } from '../../utils/envUtils.js';
 import { isMouseClicksDisabled } from '../../utils/fullscreen.js';
 import { logError } from '../../utils/log.js';
 import { EventEmitter } from '../events/emitter.js';
@@ -115,7 +115,7 @@ export default class App extends PureComponent<Props, State> {
   keyParseState = INITIAL_STATE;
   // Timer for flushing incomplete escape sequences
   incompleteEscapeTimer: NodeJS.Timeout | null = null;
-  stdinMode: 'readable' | 'data' = process.env.OPENCLAUDE_USE_READABLE_STDIN === '1' ? 'readable' : 'data';
+  stdinMode: 'readable' | 'data' = getYwCoderEnv('USE_READABLE_STDIN') === '1' ? 'readable' : 'data';
   // Timeout durations for incomplete sequences (ms)
   readonly NORMAL_TIMEOUT = 50; // Short timeout for regular esc sequences
   readonly PASTE_TIMEOUT = 500; // Longer timeout for paste operations

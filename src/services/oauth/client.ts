@@ -12,9 +12,9 @@ import {
 } from '../../constants/oauth.js'
 import {
   checkAndRefreshOAuthTokenIfNeeded,
-  getClaudeAIOAuthTokens,
+  getYwCoderOAuthTokens,
   hasProfileScope,
-  isClaudeAISubscriber,
+  isYwCoderSubscriber,
   saveApiKey,
 } from '../../utils/auth.js'
 import type { AccountInfo } from '../../utils/config.js'
@@ -198,7 +198,7 @@ export async function refreshOAuthToken(
     // the re-login path writes cached ?? wiped ?? null = cached; and if secure
     // storage was already empty we fall through to the fetch.
     const config = getGlobalConfig()
-    const existing = getClaudeAIOAuthTokens()
+    const existing = getYwCoderOAuthTokens()
     const haveProfileAlready =
       config.oauthAccount?.billingType !== undefined &&
       config.oauthAccount?.accountCreatedAt !== undefined &&
@@ -432,7 +432,7 @@ export async function getOrganizationUUID(): Promise<string | null> {
   }
 
   // Fall back to fetching from profile (requires user:profile scope)
-  const accessToken = getClaudeAIOAuthTokens()?.accessToken
+  const accessToken = getYwCoderOAuthTokens()?.accessToken
   if (accessToken === undefined || !hasProfileScope()) {
     return null
   }
@@ -480,13 +480,13 @@ export async function populateOAuthAccountInfoIfNeeded(): Promise<boolean> {
       config.oauthAccount.billingType !== undefined &&
       config.oauthAccount.accountCreatedAt !== undefined &&
       config.oauthAccount.subscriptionCreatedAt !== undefined) ||
-    !isClaudeAISubscriber() ||
+    !isYwCoderSubscriber() ||
     !hasProfileScope()
   ) {
     return false
   }
 
-  const tokens = getClaudeAIOAuthTokens()
+  const tokens = getYwCoderOAuthTokens()
   if (tokens?.accessToken) {
     const profile = await getOauthProfileFromOauthToken(tokens.accessToken)
     if (profile) {

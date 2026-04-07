@@ -1,4 +1,5 @@
 import { feature } from 'bun:bundle';
+import { getYwCoderEnv } from '../utils/envUtils.js'
 import {
   applyProfileEnvToProcessEnv,
   buildStartupEnvFromProfile,
@@ -36,12 +37,28 @@ if (typeof globalThis.File === 'undefined') {
   }
 }
 
+// OpenClaude: polyfill globalThis.crypto for Node < 19.
+// @anthropic-ai/sdk uses globalThis.crypto which doesn't exist in Node 18.
+// eslint-disable-next-line custom-rules/no-top-level-side-effects
+if (typeof globalThis.crypto === 'undefined') {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { webcrypto } = require('node:crypto')
+    // @ts-expect-error -- polyfilling missing global
+    globalThis.crypto = webcrypto
+  } catch {
+    // Fallback: should not reach here in Node 18+
+    console.error('Failed to polyfill crypto. Please use Node.js 19+ or ensure crypto is available.')
+    process.exit(1)
+  }
+}
+
 // OpenClaude: disable experimental API betas by default.
 // Tool search (defer_loading), global cache scope, and context management
 // require internal API support not available to external accounts → 500.
 // Users can opt-in with CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=false.
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
-process.env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS ??= 'true'
+process.env.YWCODER_DISABLE_EXPERIMENTAL_BETAS ??= process.env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS ??= 'true'
 
 // Bugfix for corepack auto-pinning, which adds yarnpkg to peoples' package.jsons
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
@@ -49,7 +66,7 @@ process.env.COREPACK_ENABLE_AUTO_PIN = '0';
 
 // Set max heap size for child processes in CCR environments (containers have 16GB)
 // eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level, custom-rules/safe-env-boolean-check
-if (process.env.CLAUDE_CODE_REMOTE === 'true') {
+if (getYwCoderEnv('REMOTE') === 'true') {
   // eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
   const existing = process.env.NODE_OPTIONS || '';
   // eslint-disable-next-line custom-rules/no-top-level-side-effects, custom-rules/no-process-env-top-level
@@ -80,8 +97,15 @@ async function main(): Promise<void> {
   if (args.length === 1 && (args[0] === '--version' || args[0] === '-v' || args[0] === '-V')) {
     // MACRO.VERSION is inlined at build time
     // biome-ignore lint/suspicious/noConsole:: intentional console output
-    console.log(`${MACRO.DISPLAY_VERSION ?? MACRO.VERSION} (Open Claude)`);
+    console.log(`v${MACRO.DISPLAY_VERSION ?? MACRO.VERSION} (YwCoder)`);
     return;
+  }
+
+  // Fast-path for --migrate-config: migrate config from old directories
+  if (args.length === 1 && args[0] === '--migrate-config') {
+    const { migrateConfig } = await import('../utils/configMigration.js')
+    await migrateConfig()
+    return
   }
 
   // --provider: set provider env vars early so saved-profile resolution,
@@ -220,9 +244,9 @@ async function main(): Promise<void> {
     // getBridgeDisabledReason awaits GB init, so the returned value is fresh
     // (not the stale disk cache), but init still needs auth headers to work.
     const {
-      getClaudeAIOAuthTokens
+      getYwCoderOAuthTokens
     } = await import('../utils/auth.js');
-    if (!getClaudeAIOAuthTokens()?.accessToken) {
+    if (!getYwCoderOAuthTokens()?.accessToken) {
       exitWithError(BRIDGE_LOGIN_ERROR);
     }
     const disabledReason = await getBridgeDisabledReason();
@@ -367,11 +391,11 @@ async function main(): Promise<void> {
   // --bare: set SIMPLE early so gates fire during module eval / commander
   // option building (not just inside the action handler).
   if (args.includes('--bare')) {
-    process.env.CLAUDE_CODE_SIMPLE = '1';
+    process.env.YWCODER_SIMPLE = process.env.CLAUDE_CODE_SIMPLE = '1';
   }
 
   // No special flags detected, load and run the full CLI
-  if (process.env.OPENCLAUDE_DISABLE_EARLY_INPUT !== '1') {
+  if (getYwCoderEnv('DISABLE_EARLY_INPUT') !== '1') {
     const {
       startCapturingEarlyInput
     } = await import('../utils/earlyInput.js');

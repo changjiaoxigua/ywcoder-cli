@@ -6,6 +6,7 @@ import type * as undici from 'undici'
 import { getCACertificates } from './caCerts.js'
 import { logForDebugging } from './debug.js'
 import { getFsImplementation } from './fsOperations.js'
+import { getYwCoderEnv } from './envUtils.js'
 
 export type MTLSConfig = {
   cert?: string
@@ -27,10 +28,10 @@ export const getMTLSConfig = memoize((): MTLSConfig | undefined => {
   // We don't need to manually load it - Node.js appends it to the built-in CAs automatically
 
   // Client certificate
-  if (process.env.CLAUDE_CODE_CLIENT_CERT) {
+  if (getYwCoderEnv('CLIENT_CERT')) {
     try {
       config.cert = getFsImplementation().readFileSync(
-        process.env.CLAUDE_CODE_CLIENT_CERT,
+        getYwCoderEnv('CLIENT_CERT'),
         { encoding: 'utf8' },
       )
       logForDebugging(
@@ -44,10 +45,10 @@ export const getMTLSConfig = memoize((): MTLSConfig | undefined => {
   }
 
   // Client key
-  if (process.env.CLAUDE_CODE_CLIENT_KEY) {
+  if (getYwCoderEnv('CLIENT_KEY')) {
     try {
       config.key = getFsImplementation().readFileSync(
-        process.env.CLAUDE_CODE_CLIENT_KEY,
+        getYwCoderEnv('CLIENT_KEY'),
         { encoding: 'utf8' },
       )
       logForDebugging('mTLS: Loaded client key from CLAUDE_CODE_CLIENT_KEY')
@@ -59,8 +60,8 @@ export const getMTLSConfig = memoize((): MTLSConfig | undefined => {
   }
 
   // Key passphrase
-  if (process.env.CLAUDE_CODE_CLIENT_KEY_PASSPHRASE) {
-    config.passphrase = process.env.CLAUDE_CODE_CLIENT_KEY_PASSPHRASE
+  if (getYwCoderEnv('CLIENT_KEY_PASSPHRASE')) {
+    config.passphrase = getYwCoderEnv('CLIENT_KEY_PASSPHRASE')
     logForDebugging('mTLS: Using client key passphrase')
   }
 

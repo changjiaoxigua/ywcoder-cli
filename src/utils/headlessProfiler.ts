@@ -18,13 +18,13 @@ import {
   logEvent,
 } from '../services/analytics/index.js'
 import { logForDebugging } from './debug.js'
-import { isEnvTruthy } from './envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import { getPerformance } from './profilerBase.js'
 import { jsonStringify } from './slowOperations.js'
 
 // Detailed profiling mode - same env var as startupProfiler
 // eslint-disable-next-line custom-rules/no-process-env-top-level
-const DETAILED_PROFILING = isEnvTruthy(process.env.CLAUDE_CODE_PROFILE_STARTUP)
+const DETAILED_PROFILING = isEnvTruthy(getYwCoderEnv('PROFILE_STARTUP'))
 
 // Sampling for Statsig logging: 100% ant, 5% external
 // Decision made once at module load - non-sampled users pay no profiling cost
@@ -157,8 +157,8 @@ export function logHeadlessProfilerTurn(): void {
   metadata.checkpoint_count = marks.length
 
   // Add entrypoint for segmentation (sdk-ts, sdk-py, sdk-cli, or undefined)
-  if (process.env.CLAUDE_CODE_ENTRYPOINT) {
-    metadata.entrypoint = process.env.CLAUDE_CODE_ENTRYPOINT
+  if (getYwCoderEnv('ENTRYPOINT')) {
+    metadata.entrypoint = getYwCoderEnv('ENTRYPOINT')
   }
 
   // Log to Statsig if sampled

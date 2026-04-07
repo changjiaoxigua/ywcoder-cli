@@ -1,6 +1,7 @@
 import { coerce } from 'semver'
 import type { Writable } from 'stream'
 import { env } from '../utils/env.js'
+import { getYwCoderEnv } from '../utils/envUtils.js'
 import { gte } from '../utils/semver.js'
 import { getClearTerminalSequence } from './clearTerminal.js'
 import type { Diff } from './frame.js'
@@ -168,7 +169,7 @@ export function supportsExtendedKeys(): boolean {
   // Open Claude defaults this off because some real terminals render the UI
   // but stop delivering normal typing once kitty/modifyOtherKeys negotiation
   // is enabled. Power users can opt back in explicitly.
-  if (process.env.OPENCLAUDE_ENABLE_EXTENDED_KEYS !== '1') {
+  if (getYwCoderEnv('ENABLE_EXTENDED_KEYS') !== '1') {
     return false
   }
   return EXTENDED_KEYS_TERMINALS.includes(env.terminal ?? '')

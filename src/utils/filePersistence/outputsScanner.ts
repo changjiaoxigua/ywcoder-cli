@@ -12,6 +12,7 @@ import * as path from 'path'
 import { logForDebugging } from '../debug.js'
 import type { EnvironmentKind } from '../teleport/environments.js'
 import type { TurnStartTime } from './types.js'
+import { getYwCoderEnv } from '../envUtils.js'
 
 /** Shared debug logger for file persistence modules */
 export function logDebug(message: string): void {
@@ -23,7 +24,7 @@ export function logDebug(message: string): void {
  * Returns null if not set or not a recognized value.
  */
 export function getEnvironmentKind(): EnvironmentKind | null {
-  const kind = process.env.CLAUDE_CODE_ENVIRONMENT_KIND
+  const kind = getYwCoderEnv('ENVIRONMENT_KIND')
   if (kind === 'byoc' || kind === 'anthropic_cloud') {
     return kind
   }

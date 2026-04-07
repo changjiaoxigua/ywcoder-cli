@@ -1,9 +1,10 @@
 import { afterEach, expect, test } from 'bun:test'
 
 import { getProviderValidationError } from './providerValidation.ts'
+import { getYwCoderEnv } from '../utils/envUtils.js'
 
 const originalEnv = {
-  CLAUDE_CODE_USE_GEMINI: process.env.CLAUDE_CODE_USE_GEMINI,
+  CLAUDE_CODE_USE_GEMINI: getYwCoderEnv('USE_GEMINI'),
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   GOOGLE_API_KEY: process.env.GOOGLE_API_KEY,
   GEMINI_ACCESS_TOKEN: process.env.GEMINI_ACCESS_TOKEN,
@@ -32,7 +33,7 @@ afterEach(() => {
 })
 
 test('accepts GEMINI_ACCESS_TOKEN as valid Gemini auth', async () => {
-  process.env.CLAUDE_CODE_USE_GEMINI = '1'
+  process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = '1'
   process.env.GEMINI_AUTH_MODE = 'access-token'
   delete process.env.GEMINI_API_KEY
   delete process.env.GOOGLE_API_KEY
@@ -42,7 +43,7 @@ test('accepts GEMINI_ACCESS_TOKEN as valid Gemini auth', async () => {
 })
 
 test('accepts ADC credentials for Gemini auth', async () => {
-  process.env.CLAUDE_CODE_USE_GEMINI = '1'
+  process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = '1'
   process.env.GEMINI_AUTH_MODE = 'adc'
   delete process.env.GEMINI_API_KEY
   delete process.env.GOOGLE_API_KEY
@@ -60,7 +61,7 @@ test('accepts ADC credentials for Gemini auth', async () => {
 })
 
 test('still errors when no Gemini credential source is available', async () => {
-  process.env.CLAUDE_CODE_USE_GEMINI = '1'
+  process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = '1'
   process.env.GEMINI_AUTH_MODE = 'access-token'
   delete process.env.GEMINI_API_KEY
   delete process.env.GOOGLE_API_KEY

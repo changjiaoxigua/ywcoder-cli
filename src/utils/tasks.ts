@@ -4,7 +4,7 @@ import { z } from 'zod/v4'
 import { getIsNonInteractiveSession, getSessionId } from '../bootstrap/state.js'
 import { uniq } from './array.js'
 import { logForDebugging } from './debug.js'
-import { getClaudeConfigHomeDir, getTeamsDir, isEnvTruthy } from './envUtils.js'
+import { getYwCoderConfigHomeDir, getTeamsDir, isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import { errorMessage, getErrnoCode } from './errors.js'
 import { lazySchema } from './lazySchema.js'
 import * as lockfile from './lockfile.js'
@@ -197,8 +197,8 @@ export async function resetTaskList(taskListId: string): Promise<void> {
  * 5. Session ID - fallback for standalone sessions
  */
 export function getTaskListId(): string {
-  if (process.env.CLAUDE_CODE_TASK_LIST_ID) {
-    return process.env.CLAUDE_CODE_TASK_LIST_ID
+  if (getYwCoderEnv('TASK_LIST_ID')) {
+    return getYwCoderEnv('TASK_LIST_ID')
   }
   // In-process teammates use the leader's team name so they share the same
   // task list that tmux/iTerm2 teammates also resolve to.
@@ -220,7 +220,7 @@ export function sanitizePathComponent(input: string): string {
 
 export function getTasksDir(taskListId: string): string {
   return join(
-    getClaudeConfigHomeDir(),
+    getYwCoderConfigHomeDir(),
     'tasks',
     sanitizePathComponent(taskListId),
   )

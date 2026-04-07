@@ -1,102 +1,76 @@
 /**
- * OpenClaude startup screen — filled-block text logo with sunset gradient.
- * Called once at CLI startup before the Ink UI renders.
- *
- * Addresses: https://github.com/Gitlawb/openclaude/issues/55
+ * OpenClaude startup screen — clean YW logo.
+ * Uses 256-color codes for broad terminal compatibility (including macOS Terminal.app).
  */
 
 import { isLocalProviderUrl } from '../services/api/providerConfig.js'
+import { getYwCoderEnv } from '../utils/envUtils.js'
 import { getLocalOpenAICompatibleProviderLabel } from '../utils/providerDiscovery.js'
 
 declare const MACRO: { VERSION: string; DISPLAY_VERSION?: string }
 
 const ESC = '\x1b['
-const RESET = `${ESC}0m`
-const DIM = `${ESC}2m`
+const RESET  = `${ESC}0m`
+const DIM    = `${ESC}2m`
+const BOLD   = `${ESC}1m`
 
-type RGB = [number, number, number]
-const rgb = (r: number, g: number, b: number) => `${ESC}38;2;${r};${g};${b}m`
+// 256-color foreground: \x1b[38;5;Nm
+const c = (n: number) => `${ESC}38;5;${n}m`
 
-function lerp(a: RGB, b: RGB, t: number): RGB {
-  return [
-    Math.round(a[0] + (b[0] - a[0]) * t),
-    Math.round(a[1] + (b[1] - a[1]) * t),
-    Math.round(a[2] + (b[2] - a[2]) * t),
-  ]
-}
+// Palette (256-color, works on macOS Terminal.app + all modern terminals)
+const COL_LOGO    = c(167)  // Indian Red  — warm rose
+const COL_ACCENT  = c(173)  // LightSalmon — tagline / bullet / version
+const COL_LABEL   = c(244)  // medium gray — Provider / Model / Endpoint keys
+const COL_VALUE   = c(252)  // light gray  — values
+const COL_BORDER  = c(238)  // dark gray   — box lines
+const COL_DIM     = c(240)  // dimmer gray — cloud/local, dimmed text
+const COL_LOCAL   = c(108)  // sage green  — local provider
 
-function gradAt(stops: RGB[], t: number): RGB {
-  const c = Math.max(0, Math.min(1, t))
-  const s = c * (stops.length - 1)
-  const i = Math.floor(s)
-  if (i >= stops.length - 1) return stops[stops.length - 1]
-  return lerp(stops[i], stops[i + 1], s - i)
-}
+// Single-line box-drawing chars (safe on all terminals)
+const H = '\u2500'  // ─
+const TL = '\u250c' // ┌
+const TR = '\u2510' // ┐
+const BL = '\u2514' // └
+const BR = '\u2518' // ┘
+const LM = '\u251c' // ├
+const RM = '\u2524' // ┤
+const V  = '\u2502' // │
 
-function paintLine(text: string, stops: RGB[], lineT: number): string {
-  let out = ''
-  for (let i = 0; i < text.length; i++) {
-    const t = text.length > 1 ? lineT * 0.5 + (i / (text.length - 1)) * 0.5 : lineT
-    const [r, g, b] = gradAt(stops, t)
-    out += `${rgb(r, g, b)}${text[i]}`
-  }
-  return out + RESET
-}
+// ─── YW Block Logo ───────────────────────────────────────────────────────────
+// '#' chars are replaced with U+2588 (█) which renders as a solid block.
+// Only foreground color is set — no background — so no color bleed.
 
-// ─── Colors ───────────────────────────────────────────────────────────────────
-
-const SUNSET_GRAD: RGB[] = [
-  [255, 180, 100],
-  [240, 140, 80],
-  [217, 119, 87],
-  [193, 95, 60],
-  [160, 75, 55],
-  [130, 60, 50],
-]
-
-const ACCENT: RGB = [240, 148, 100]
-const CREAM: RGB = [220, 195, 170]
-const DIMCOL: RGB = [120, 100, 82]
-const BORDER: RGB = [100, 80, 65]
-
-// ─── Filled Block Text Logo ───────────────────────────────────────────────────
-
-const LOGO_OPEN = [
-  `  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557  \u2588\u2588\u2557`,
-  `  \u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2551 \u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2551 \u2588\u2588\u2554\u2550\u2550\u2550\u2550\u2550\u255d \u2588\u2588\u2588\u2557 \u2588\u2588\u2551`,
-  `  \u2588\u2588\u2551   \u2588\u2588\u2551 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551 \u2588\u2588\u2588\u2588\u2588\u2588\u2557   \u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2551`,
-  `  \u2588\u2588\u2551   \u2588\u2588\u2551 \u2588\u2588\u2554\u2550\u2550\u2550\u2550\u2550\u255d \u2588\u2588\u2554\u2550\u2550\u2550\u255d   \u2588\u2588\u2554\u2588\u2588\u2588\u2588\u2551`,
-  `  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551 \u2588\u2588\u2551       \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2551 \u255a\u2588\u2588\u2588\u2551`,
-  `  \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d \u255a\u2550\u255d       \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d \u255a\u2550\u255d  \u255a\u2550\u2550\u255d`,
-]
-
-const LOGO_CLAUDE = [
-  `  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557      \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2557   \u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557`,
-  `  \u2588\u2588\u2554\u2550\u2550\u2550\u2550\u2550\u255d \u2588\u2588\u2551      \u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2551 \u2588\u2588\u2551   \u2588\u2588\u2551 \u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2551 \u2588\u2588\u2554\u2550\u2550\u2550\u2550\u2550\u255d`,
-  `  \u2588\u2588\u2551       \u2588\u2588\u2551      \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551 \u2588\u2588\u2551   \u2588\u2588\u2551 \u2588\u2588\u2551   \u2588\u2588\u2551 \u2588\u2588\u2588\u2588\u2588\u2588\u2557  `,
-  `  \u2588\u2588\u2551       \u2588\u2588\u2551      \u2588\u2588\u2554\u2550\u2550\u2550\u2588\u2588\u2551 \u2588\u2588\u2551   \u2588\u2588\u2551 \u2588\u2588\u2551   \u2588\u2588\u2551 \u2588\u2588\u2554\u2550\u2550\u2550\u255d  `,
-  `  \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557\u2588\u2588\u2551   \u2588\u2588\u2551 \u255a\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255d \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2551 \u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2557`,
-  `  \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d\u255a\u2550\u255d   \u255a\u2550\u255d  \u255a\u2550\u2550\u2550\u2550\u2550\u255d  \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d \u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d`,
-]
+const LOGO_LINES = [
+  ' ##   ##  ##       ##',
+  '  ## ##   ##       ##',
+  '   ###    ## ## ## ##',
+  '   ##      ###  ###  ',
+  '   ##      ###  ###  ',
+].map(line => line.replace(/#/g, '\u2588'))
 
 // ─── Provider detection ───────────────────────────────────────────────────────
 
 function detectProvider(): { name: string; model: string; baseUrl: string; isLocal: boolean } {
-  const useGemini = process.env.CLAUDE_CODE_USE_GEMINI === '1' || process.env.CLAUDE_CODE_USE_GEMINI === 'true'
-  const useGithub = process.env.CLAUDE_CODE_USE_GITHUB === '1' || process.env.CLAUDE_CODE_USE_GITHUB === 'true'
-  const useOpenAI = process.env.CLAUDE_CODE_USE_OPENAI === '1' || process.env.CLAUDE_CODE_USE_OPENAI === 'true'
+  const useGemini = getYwCoderEnv('USE_GEMINI') === '1' || getYwCoderEnv('USE_GEMINI') === 'true'
+  const useGithub = getYwCoderEnv('USE_GITHUB') === '1' || getYwCoderEnv('USE_GITHUB') === 'true'
+  const useOpenAI = getYwCoderEnv('USE_OPENAI') === '1' || getYwCoderEnv('USE_OPENAI') === 'true'
 
   if (useGemini) {
-    const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash'
-    const baseUrl = process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai'
-    return { name: 'Google Gemini', model, baseUrl, isLocal: false }
+    return {
+      name: 'Google Gemini',
+      model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+      baseUrl: process.env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai',
+      isLocal: false,
+    }
   }
 
   if (useGithub) {
-    const model = process.env.OPENAI_MODEL || 'github:copilot'
-    const baseUrl =
-      process.env.OPENAI_BASE_URL || 'https://models.github.ai/inference'
-    return { name: 'GitHub Models', model, baseUrl, isLocal: false }
+    return {
+      name: 'GitHub Models',
+      model: process.env.OPENAI_MODEL || 'github:copilot',
+      baseUrl: process.env.OPENAI_BASE_URL || 'https://models.github.ai/inference',
+      isLocal: false,
+    }
   }
 
   if (useOpenAI) {
@@ -104,110 +78,115 @@ function detectProvider(): { name: string; model: string; baseUrl: string; isLoc
     const baseUrl = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
     const isLocal = isLocalProviderUrl(baseUrl)
     let name = 'OpenAI'
-    if (/deepseek/i.test(baseUrl) || /deepseek/i.test(rawModel))       name = 'DeepSeek'
-    else if (/openrouter/i.test(baseUrl))                             name = 'OpenRouter'
-    else if (/together/i.test(baseUrl))                               name = 'Together AI'
-    else if (/groq/i.test(baseUrl))                                   name = 'Groq'
-    else if (/mistral/i.test(baseUrl) || /mistral/i.test(rawModel))     name = 'Mistral'
-    else if (/azure/i.test(baseUrl))                                  name = 'Azure OpenAI'
-    else if (/llama/i.test(rawModel))                                    name = 'Meta Llama'
-    else if (isLocal)                                                  name = getLocalOpenAICompatibleProviderLabel(baseUrl)
-    
-    // Resolve model alias to actual model name + reasoning effort
+    if (/deepseek/i.test(baseUrl) || /deepseek/i.test(rawModel))   name = 'DeepSeek'
+    else if (/openrouter/i.test(baseUrl))                          name = 'OpenRouter'
+    else if (/together/i.test(baseUrl))                            name = 'Together AI'
+    else if (/groq/i.test(baseUrl))                                name = 'Groq'
+    else if (/mistral/i.test(baseUrl) || /mistral/i.test(rawModel)) name = 'Mistral'
+    else if (/azure/i.test(baseUrl))                               name = 'Azure OpenAI'
+    else if (/llama/i.test(rawModel))                              name = 'Meta Llama'
+    else if (isLocal)                                              name = getLocalOpenAICompatibleProviderLabel(baseUrl)
+
+    // Resolve model aliases
     let displayModel = rawModel
-    const codexAliases: Record<string, { model: string; reasoningEffort?: string }> = {
-      codexplan: { model: 'gpt-5.4', reasoningEffort: 'high' },
-      'gpt-5.4': { model: 'gpt-5.4', reasoningEffort: 'high' },
-      'gpt-5.3-codex': { model: 'gpt-5.3-codex', reasoningEffort: 'high' },
+    const aliases: Record<string, { model: string; reasoningEffort?: string }> = {
+      codexplan:              { model: 'gpt-5.4', reasoningEffort: 'high' },
+      'gpt-5.4':             { model: 'gpt-5.4', reasoningEffort: 'high' },
+      'gpt-5.3-codex':       { model: 'gpt-5.3-codex', reasoningEffort: 'high' },
       'gpt-5.3-codex-spark': { model: 'gpt-5.3-codex-spark' },
-      codexspark: { model: 'gpt-5.3-codex-spark' },
-      'gpt-5.2-codex': { model: 'gpt-5.2-codex', reasoningEffort: 'high' },
-      'gpt-5.1-codex-max': { model: 'gpt-5.1-codex-max', reasoningEffort: 'high' },
-      'gpt-5.1-codex-mini': { model: 'gpt-5.1-codex-mini' },
-      'gpt-5.4-mini': { model: 'gpt-5.4-mini', reasoningEffort: 'medium' },
-      'gpt-5.2': { model: 'gpt-5.2', reasoningEffort: 'medium' },
+      codexspark:            { model: 'gpt-5.3-codex-spark' },
+      'gpt-5.2-codex':       { model: 'gpt-5.2-codex', reasoningEffort: 'high' },
+      'gpt-5.1-codex-max':   { model: 'gpt-5.1-codex-max', reasoningEffort: 'high' },
+      'gpt-5.1-codex-mini':  { model: 'gpt-5.1-codex-mini' },
+      'gpt-5.4-mini':        { model: 'gpt-5.4-mini', reasoningEffort: 'medium' },
+      'gpt-5.2':             { model: 'gpt-5.2', reasoningEffort: 'medium' },
     }
-    const alias = rawModel.toLowerCase()
-    if (alias in codexAliases) {
-      const resolved = codexAliases[alias]
-      displayModel = resolved.model
-      if (resolved.reasoningEffort) {
-        displayModel = `${displayModel} (${resolved.reasoningEffort})`
-      }
+    const resolved = aliases[rawModel.toLowerCase()]
+    if (resolved) {
+      displayModel = resolved.reasoningEffort
+        ? `${resolved.model} (${resolved.reasoningEffort})`
+        : resolved.model
     }
-    
+
     return { name, model: displayModel, baseUrl, isLocal }
   }
 
-  // Default: Anthropic
-  const model = process.env.ANTHROPIC_MODEL || process.env.CLAUDE_MODEL || 'claude-sonnet-4-6'
-  return { name: 'Anthropic', model, baseUrl: 'https://api.anthropic.com', isLocal: false }
+  return {
+    name: 'Anthropic',
+    model: process.env.ANTHROPIC_MODEL || process.env.CLAUDE_MODEL || 'claude-sonnet-4-6',
+    baseUrl: 'https://api.anthropic.com',
+    isLocal: false,
+  }
 }
 
-// ─── Box drawing ──────────────────────────────────────────────────────────────
+// ─── Box helpers ─────────────────────────────────────────────────────────────
 
-function boxRow(content: string, width: number, rawLen: number): string {
-  const pad = Math.max(0, width - 2 - rawLen)
-  return `${rgb(...BORDER)}\u2502${RESET}${content}${' '.repeat(pad)}${rgb(...BORDER)}\u2502${RESET}`
+function hLine(w: number): string {
+  return `${COL_BORDER}${H.repeat(w)}${RESET}`
+}
+
+function boxRow(inner: string, innerRawLen: number, boxW: number): string {
+  const pad = Math.max(0, boxW - 2 - innerRawLen)
+  return `${COL_BORDER}${V}${RESET}${inner}${' '.repeat(pad)}${COL_BORDER}${V}${RESET}`
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function printStartupScreen(): void {
-  // Skip in non-interactive / CI / print mode
   if (process.env.CI || !process.stdout.isTTY) return
 
   const p = detectProvider()
-  const W = 62
+  const W = 50  // total box width including side borders
   const out: string[] = []
 
   out.push('')
 
-  // Gradient logo
-  const allLogo = [...LOGO_OPEN, '', ...LOGO_CLAUDE]
-  const total = allLogo.length
-  for (let i = 0; i < total; i++) {
-    const t = total > 1 ? i / (total - 1) : 0
-    if (allLogo[i] === '') {
-      out.push('')
-    } else {
-      out.push(paintLine(allLogo[i], SUNSET_GRAD, t))
-    }
+  // YW logo — single color, no per-character gradient (avoids color issues)
+  for (const line of LOGO_LINES) {
+    out.push(`  ${COL_LOGO}${line}${RESET}`)
   }
 
   out.push('')
 
   // Tagline
-  out.push(`  ${rgb(...ACCENT)}\u2726${RESET} ${rgb(...CREAM)}Any model. Every tool. Zero limits.${RESET} ${rgb(...ACCENT)}\u2726${RESET}`)
+  out.push(
+    `  ${COL_ACCENT}\u2726${RESET} ${COL_VALUE}数据中心·运维支持部出品 ｜ 智能编码，无限可能${RESET} ${COL_ACCENT}\u2726${RESET}`
+  )
   out.push('')
 
-  // Provider info box
-  out.push(`${rgb(...BORDER)}\u2554${'\u2550'.repeat(W - 2)}\u2557${RESET}`)
+  // ┌── info box ──┐
+  out.push(`  ${COL_BORDER}${TL}${H.repeat(W - 2)}${TR}${RESET}`)
 
-  const lbl = (k: string, v: string, c: RGB = CREAM): [string, number] => {
-    const padK = k.padEnd(9)
-    return [` ${DIM}${rgb(...DIMCOL)}${padK}${RESET} ${rgb(...c)}${v}${RESET}`, ` ${padK} ${v}`.length]
+  const row = (key: string, val: string, valColor = COL_VALUE): void => {
+    const k = key.padEnd(10)
+    const inner = ` ${COL_LABEL}${k}${RESET}${valColor}${val}${RESET}`
+    const rawLen = ` ${k}${val}`.length
+    out.push(`  ${boxRow(inner, rawLen, W)}`)
   }
 
-  const provC: RGB = p.isLocal ? [130, 175, 130] : ACCENT
-  let [r, l] = lbl('Provider', p.name, provC)
-  out.push(boxRow(r, W, l))
-  ;[r, l] = lbl('Model', p.model)
-  out.push(boxRow(r, W, l))
-  const ep = p.baseUrl.length > 38 ? p.baseUrl.slice(0, 35) + '...' : p.baseUrl
-  ;[r, l] = lbl('Endpoint', ep)
-  out.push(boxRow(r, W, l))
+  row('Provider', p.name, p.isLocal ? COL_LOCAL : COL_ACCENT)
+  row('Model',    p.model)
+  const ep = p.baseUrl.length > 32 ? p.baseUrl.slice(0, 29) + '...' : p.baseUrl
+  row('Endpoint', ep)
 
-  out.push(`${rgb(...BORDER)}\u2560${'\u2550'.repeat(W - 2)}\u2563${RESET}`)
+  // ├── divider ──┤
+  out.push(`  ${COL_BORDER}${LM}${H.repeat(W - 2)}${RM}${RESET}`)
 
-  const sC: RGB = p.isLocal ? [130, 175, 130] : ACCENT
-  const sL = p.isLocal ? 'local' : 'cloud'
-  const sRow = ` ${rgb(...sC)}\u25cf${RESET} ${DIM}${rgb(...DIMCOL)}${sL}${RESET}    ${DIM}${rgb(...DIMCOL)}Ready \u2014 type ${RESET}${rgb(...ACCENT)}/help${RESET}${DIM}${rgb(...DIMCOL)} to begin${RESET}`
-  const sLen = ` \u25cf ${sL}    Ready \u2014 type /help to begin`.length
-  out.push(boxRow(sRow, W, sLen))
+  // status row
+  const sColor = p.isLocal ? COL_LOCAL : COL_ACCENT
+  const sLabel = p.isLocal ? 'local' : 'cloud'
+  const statusInner =
+    ` ${sColor}\u25cf${RESET} ${COL_DIM}${sLabel}${RESET}` +
+    `    ${COL_DIM}Ready \u2014 type ${RESET}${COL_ACCENT}/help${RESET}${COL_DIM} to begin${RESET}`
+  const statusRaw = ` \u25cf ${sLabel}    Ready \u2014 type /help to begin`.length
+  out.push(`  ${boxRow(statusInner, statusRaw, W)}`)
 
-  out.push(`${rgb(...BORDER)}\u255a${'\u2550'.repeat(W - 2)}\u255d${RESET}`)
-  out.push(`  ${DIM}${rgb(...DIMCOL)}openclaude ${RESET}${rgb(...ACCENT)}v${MACRO.DISPLAY_VERSION ?? MACRO.VERSION}${RESET}`)
+  // └────────────┘
+  out.push(`  ${COL_BORDER}${BL}${H.repeat(W - 2)}${BR}${RESET}`)
+
+  // version footer
+  const ver = MACRO.DISPLAY_VERSION ?? MACRO.VERSION
+  out.push(`  ${DIM}${COL_DIM}ywcoder${RESET} ${COL_ACCENT}v${ver}${RESET}`)
   out.push('')
 
   process.stdout.write(out.join('\n') + '\n')

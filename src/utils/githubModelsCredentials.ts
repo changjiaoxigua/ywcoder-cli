@@ -1,4 +1,4 @@
-import { isBareMode, isEnvTruthy } from './envUtils.js'
+import { isBareMode, isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import { getSecureStorage } from './secureStorage/index.js'
 
 /** JSON key in the shared OpenClaude secure storage blob. */
@@ -28,7 +28,7 @@ export function readGithubModelsToken(): string | undefined {
  * stored token into process.env so the OpenAI shim and validation see it.
  */
 export function hydrateGithubModelsTokenFromSecureStorage(): void {
-  if (!isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB)) {
+  if (!isEnvTruthy(getYwCoderEnv('USE_GITHUB'))) {
     delete process.env[GITHUB_MODELS_HYDRATED_ENV_MARKER]
     return
   }

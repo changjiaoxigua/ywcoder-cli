@@ -39,7 +39,7 @@ import type { AppState } from '../state/AppState.js'
 import { runCleanupFunctions } from './cleanupRegistry.js'
 import { logForDebugging } from './debug.js'
 import { logForDiagnosticsNoPII } from './diagLogs.js'
-import { isEnvTruthy } from './envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import { getCurrentSessionTitle, sessionIdExists } from './sessionStorage.js'
 import { sleep } from './sleep.js'
 import { profileReport } from './startupProfiler.js'
@@ -127,7 +127,7 @@ function cleanupTerminalModes(skipUnmount: boolean = false): void {
     // Clear terminal title so the tab doesn't show stale session info.
     // Respect CLAUDE_CODE_DISABLE_TERMINAL_TITLE — if the user opted out of
     // title changes, don't clear their existing title on exit either.
-    if (!isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE)) {
+    if (!isEnvTruthy(getYwCoderEnv('DISABLE_TERMINAL_TITLE'))) {
       if (process.platform === 'win32') {
         process.title = ''
       } else {

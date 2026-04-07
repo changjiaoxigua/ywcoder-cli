@@ -1,10 +1,11 @@
 {
-  "name": "@gitlawb/openclaude",
-  "version": "0.1.8",
-  "description": "Claude Code opened to any LLM — OpenAI, Gemini, DeepSeek, Ollama, and 200+ models",
+  "name": "@dcywzc/ywcoder",
+  "version": "1.0.0",
+  "description": "YwCoder - AI coding agent CLI supporting OpenAI, Gemini, DeepSeek, Ollama, and 200+ models",
   "type": "module",
   "bin": {
-    "openclaude": "./bin/openclaude"
+    "ywcoder": "./bin/ywcoder",
+    "claude": "./bin/claude"
   },
   "files": [
     "bin/",
@@ -140,17 +141,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://gitlawb.com/z6MkqDnb7Siv3Cwj7pGJq4T5EsUisECqR8KpnDLwcaZq5TPr/openclaude"
+    "url": "https://github.com/dcywzc/ywcoder"
   },
   "keywords": [
-    "claude-code",
+    "ywcoder",
+    "ai-coding",
     "openai",
     "llm",
     "cli",
     "agent",
     "deepseek",
     "ollama",
-    "gemini"
+    "gemini",
+    "claude-code"
   ],
   "license": "SEE LICENSE FILE",
   "publishConfig": {

@@ -10,3 +10,6 @@ GEMINI.md
 package-lock.json
 /.claude
 coverage/
+note/
+.omc/
+.DS_Store

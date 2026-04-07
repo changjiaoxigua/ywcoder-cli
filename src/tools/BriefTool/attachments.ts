@@ -11,7 +11,7 @@ import { stat } from 'fs/promises'
 import type { ValidationResult } from '../../Tool.js'
 
 import { getCwd } from '../../utils/cwd.js'
-import { isEnvTruthy } from '../../utils/envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from '../../utils/envUtils.js'
 import { getErrnoCode } from '../../utils/errors.js'
 import { IMAGE_EXTENSION_REGEX } from '../../utils/imagePaste.js'
 import { expandPath } from '../../utils/path.js'
@@ -92,7 +92,7 @@ export async function resolveAttachments(
     // which already passes CLAUDE_CODE_OAUTH_TOKEN for auth.
     const shouldUpload =
       uploadCtx.replBridgeEnabled ||
-      isEnvTruthy(process.env.CLAUDE_CODE_BRIEF_UPLOAD)
+      isEnvTruthy(getYwCoderEnv('BRIEF_UPLOAD'))
     const { uploadBriefAttachment } = await import('./upload.js')
     const uuids = await Promise.all(
       stated.map(a =>

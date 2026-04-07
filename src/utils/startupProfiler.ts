@@ -16,14 +16,14 @@ import {
   logEvent,
 } from '../services/analytics/index.js'
 import { logForDebugging } from './debug.js'
-import { getClaudeConfigHomeDir, isEnvTruthy } from './envUtils.js'
+import { getYwCoderConfigHomeDir, isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import { getFsImplementation } from './fsOperations.js'
 import { formatMs, formatTimelineLine, getPerformance } from './profilerBase.js'
 import { writeFileSync_DEPRECATED } from './slowOperations.js'
 
 // Module-level state - decided once at module load
 // eslint-disable-next-line custom-rules/no-process-env-top-level
-const DETAILED_PROFILING = isEnvTruthy(process.env.CLAUDE_CODE_PROFILE_STARTUP)
+const DETAILED_PROFILING = isEnvTruthy(getYwCoderEnv('PROFILE_STARTUP'))
 
 // Sampling for Statsig logging: 100% ant, 0.5% external
 // Decision made once at startup - non-sampled users pay no profiling cost
@@ -149,7 +149,7 @@ export function isDetailedProfilingEnabled(): boolean {
 }
 
 export function getStartupPerfLogPath(): string {
-  return join(getClaudeConfigHomeDir(), 'startup-perf', `${getSessionId()}.txt`)
+  return join(getYwCoderConfigHomeDir(), 'startup-perf', `${getSessionId()}.txt`)
 }
 
 /**

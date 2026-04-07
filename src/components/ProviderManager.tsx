@@ -21,7 +21,7 @@ import {
   hydrateGithubModelsTokenFromSecureStorage,
   readGithubModelsToken,
 } from '../utils/githubModelsCredentials.js'
-import { isEnvTruthy } from '../utils/envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from '../utils/envUtils.js'
 import { updateSettingsForSource } from '../utils/settings/settings.js'
 import { Select } from './CustomSelect/index.js'
 import { Pane } from './design-system/Pane.js'
@@ -175,7 +175,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
     () => getGithubCredentialSource(),
   )
   const [isGithubActive, setIsGithubActive] = React.useState(() =>
-    isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB),
+    isEnvTruthy(getYwCoderEnv('USE_GITHUB')),
   )
   const [screen, setScreen] = React.useState<Screen>(
     mode === 'first-run' ? 'select-preset' : 'menu',
@@ -202,7 +202,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
     setActiveProfileId(getActiveProviderProfile()?.id)
     setGithubProviderAvailable(isGithubProviderAvailable())
     setGithubCredentialSource(getGithubCredentialSource())
-    setIsGithubActive(isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB))
+    setIsGithubActive(isEnvTruthy(getYwCoderEnv('USE_GITHUB')))
   }
 
   function clearStartupProviderOverrideFromUserSettings(): string | null {
@@ -245,7 +245,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
       return error.message
     }
 
-    process.env.CLAUDE_CODE_USE_GITHUB = '1'
+    process.env.YWCODER_USE_GITHUB = process.env.CLAUDE_CODE_USE_GITHUB = '1'
     process.env.OPENAI_MODEL = GITHUB_PROVIDER_DEFAULT_MODEL
     delete process.env.OPENAI_API_KEY
     delete process.env.OPENAI_ORG
@@ -253,12 +253,19 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
     delete process.env.OPENAI_ORGANIZATION
     delete process.env.OPENAI_BASE_URL
     delete process.env.OPENAI_API_BASE
+    delete process.env.YWCODER_USE_OPENAI
     delete process.env.CLAUDE_CODE_USE_OPENAI
+    delete process.env.YWCODER_USE_GEMINI
     delete process.env.CLAUDE_CODE_USE_GEMINI
+    delete process.env.YWCODER_USE_BEDROCK
     delete process.env.CLAUDE_CODE_USE_BEDROCK
+    delete process.env.YWCODER_USE_VERTEX
     delete process.env.CLAUDE_CODE_USE_VERTEX
+    delete process.env.YWCODER_USE_FOUNDRY
     delete process.env.CLAUDE_CODE_USE_FOUNDRY
+    delete process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED
     delete process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED
+    delete process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED_ID
     delete process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID
     delete process.env[GITHUB_MODELS_HYDRATED_ENV_MARKER]
 
@@ -294,6 +301,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
       delete process.env.GITHUB_TOKEN
     }
 
+    delete process.env.YWCODER_USE_GITHUB
     delete process.env.CLAUDE_CODE_USE_GITHUB
     delete process.env[GITHUB_MODELS_HYDRATED_ENV_MARKER]
     delete process.env.OPENAI_MODEL

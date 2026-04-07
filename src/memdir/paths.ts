@@ -7,9 +7,10 @@ import {
 } from '../bootstrap/state.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 import {
-  getClaudeConfigHomeDir,
+  getYwCoderConfigHomeDir,
   isEnvDefinedFalsy,
   isEnvTruthy,
+  getYwCoderEnv,
 } from '../utils/envUtils.js'
 import { findCanonicalGitRoot } from '../utils/git.js'
 import { sanitizePath } from '../utils/path.js'
@@ -38,12 +39,12 @@ export function isAutoMemoryEnabled(): boolean {
   // --bare / SIMPLE: prompts.ts already drops the memory section from the
   // system prompt via its SIMPLE early-return; this gate stops the other half
   // (extractMemories turn-end fork, autoDream, /remember, /dream, team sync).
-  if (isEnvTruthy(process.env.CLAUDE_CODE_SIMPLE)) {
+  if (isEnvTruthy(getYwCoderEnv('SIMPLE'))) {
     return false
   }
   if (
-    isEnvTruthy(process.env.CLAUDE_CODE_REMOTE) &&
-    !process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR
+    isEnvTruthy(getYwCoderEnv('REMOTE')) &&
+    !getYwCoderEnv('REMOTE_MEMORY_DIR')
   ) {
     return false
   }
@@ -83,10 +84,10 @@ export function isExtractModeActive(): boolean {
  *   2. ~/.claude (default config home)
  */
 export function getMemoryBaseDir(): string {
-  if (process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) {
-    return process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR
+  if (getYwCoderEnv('REMOTE_MEMORY_DIR')) {
+    return getYwCoderEnv('REMOTE_MEMORY_DIR')
   }
-  return getClaudeConfigHomeDir()
+  return getYwCoderConfigHomeDir()
 }
 
 const AUTO_MEM_DIRNAME = 'memory'

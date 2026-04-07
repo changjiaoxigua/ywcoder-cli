@@ -42,7 +42,7 @@ import {
 } from './betas.js'
 import { getCwd } from './cwd.js'
 import { logForDebugging } from './debug.js'
-import { isEnvTruthy } from './envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import { createUserMessage } from './messages.js'
 import {
   getAPIProvider,
@@ -240,7 +240,7 @@ export async function toolToAPISchema(
   // (scope, ttl) are already gated upstream by shouldIncludeFirstPartyOnlyBetas
   // which independently respects this kill switch.
   // github.com/anthropics/claude-code/issues/20031
-  if (isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS)) {
+  if (isEnvTruthy(getYwCoderEnv('DISABLE_EXPERIMENTAL_BETAS'))) {
     const allowed = new Set([
       'name',
       'description',

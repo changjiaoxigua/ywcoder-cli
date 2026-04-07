@@ -1,6 +1,6 @@
 import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from '../../services/analytics/index.js'
 import { shouldUseCodexTransport } from '../../services/api/providerConfig.js'
-import { isEnvTruthy } from '../envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from '../envUtils.js'
 
 export type APIProvider =
   | 'firstParty'
@@ -13,19 +13,19 @@ export type APIProvider =
   | 'codex'
 
 export function getAPIProvider(): APIProvider {
-  return isEnvTruthy(process.env.CLAUDE_CODE_USE_GEMINI)
+  return isEnvTruthy(getYwCoderEnv('USE_GEMINI'))
     ? 'gemini'
-    : isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB)
+    : isEnvTruthy(getYwCoderEnv('USE_GITHUB'))
       ? 'github'
-      : isEnvTruthy(process.env.CLAUDE_CODE_USE_OPENAI)
+      : isEnvTruthy(getYwCoderEnv('USE_OPENAI'))
         ? isCodexModel()
           ? 'codex'
           : 'openai'
-        : isEnvTruthy(process.env.CLAUDE_CODE_USE_BEDROCK)
+        : isEnvTruthy(getYwCoderEnv('USE_BEDROCK'))
           ? 'bedrock'
-          : isEnvTruthy(process.env.CLAUDE_CODE_USE_VERTEX)
+          : isEnvTruthy(getYwCoderEnv('USE_VERTEX'))
             ? 'vertex'
-            : isEnvTruthy(process.env.CLAUDE_CODE_USE_FOUNDRY)
+            : isEnvTruthy(getYwCoderEnv('USE_FOUNDRY'))
               ? 'foundry'
               : 'firstParty'
 }

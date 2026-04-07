@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { getAnthropicClient } from './client.js'
+import { getYwCoderEnv } from '../../utils/envUtils.js'
 
 type FetchType = typeof globalThis.fetch
 
@@ -14,7 +15,7 @@ type ShimClient = {
 const originalFetch = globalThis.fetch
 const originalMacro = (globalThis as Record<string, unknown>).MACRO
 const originalEnv = {
-  CLAUDE_CODE_USE_GEMINI: process.env.CLAUDE_CODE_USE_GEMINI,
+  CLAUDE_CODE_USE_GEMINI: getYwCoderEnv('USE_GEMINI'),
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
   GEMINI_MODEL: process.env.GEMINI_MODEL,
   GEMINI_BASE_URL: process.env.GEMINI_BASE_URL,
@@ -28,7 +29,7 @@ const originalEnv = {
 
 beforeEach(() => {
   ;(globalThis as Record<string, unknown>).MACRO = { VERSION: 'test-version' }
-  process.env.CLAUDE_CODE_USE_GEMINI = '1'
+  process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = '1'
   process.env.GEMINI_API_KEY = 'gemini-test-key'
   process.env.GEMINI_MODEL = 'gemini-2.0-flash'
   process.env.GEMINI_BASE_URL = 'https://gemini.example/v1beta/openai'
@@ -43,7 +44,7 @@ beforeEach(() => {
 
 afterEach(() => {
   ;(globalThis as Record<string, unknown>).MACRO = originalMacro
-  process.env.CLAUDE_CODE_USE_GEMINI = originalEnv.CLAUDE_CODE_USE_GEMINI
+  process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = originalEnv.CLAUDE_CODE_USE_GEMINI
   process.env.GEMINI_API_KEY = originalEnv.GEMINI_API_KEY
   process.env.GEMINI_MODEL = originalEnv.GEMINI_MODEL
   process.env.GEMINI_BASE_URL = originalEnv.GEMINI_BASE_URL

@@ -1,17 +1,40 @@
-import { afterEach, describe, expect, test } from 'bun:test'
-
-import { saveGlobalConfig, type ProviderProfile } from './config.js'
-import { getAPIProvider } from './model/providers.js'
-import {
-  applyActiveProviderProfileFromConfig,
-  applyProviderProfileToProcessEnv,
-  deleteProviderProfile,
-  getProviderProfiles,
-  getProviderPresetDefaults,
-  persistActiveProviderProfileModel,
-} from './providerProfiles.js'
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 
 const originalEnv = { ...process.env }
+
+// Helper to dynamically import modules to avoid mock pollution
+async function importProviderProfiles() {
+  const [{ saveGlobalConfig }, { getAPIProvider }] = await Promise.all([
+    import('./config.js'),
+    import('./model/providers.js'),
+  ])
+  const {
+    applyActiveProviderProfileFromConfig,
+    applyProviderProfileToProcessEnv,
+    deleteProviderProfile,
+    getProviderProfiles,
+    getProviderPresetDefaults,
+    persistActiveProviderProfileModel,
+  } = await import('./providerProfiles.js')
+  return {
+    saveGlobalConfig,
+    getAPIProvider,
+    applyActiveProviderProfileFromConfig,
+    applyProviderProfileToProcessEnv,
+    deleteProviderProfile,
+    getProviderProfiles,
+    getProviderPresetDefaults,
+    persistActiveProviderProfileModel,
+  }
+}
+
+// Import type separately
+import type { ProviderProfile } from './config.js'
+import { getYwCoderEnv } from '../utils/envUtils.js'
+
+beforeEach(() => {
+  mock.restore()
+})
 
 const RESTORED_KEYS = [
   'CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED',
@@ -31,7 +54,7 @@ const RESTORED_KEYS = [
   'ANTHROPIC_API_KEY',
 ] as const
 
-afterEach(() => {
+afterEach(async () => {
   for (const key of RESTORED_KEYS) {
     if (originalEnv[key] === undefined) {
       delete process.env[key]
@@ -40,6 +63,7 @@ afterEach(() => {
     }
   }
 
+  const { saveGlobalConfig } = await import('./config.js')
   saveGlobalConfig(current => ({
     ...current,
     providerProfiles: [],
@@ -61,24 +85,26 @@ function buildProfile(overrides: Partial<ProviderProfile> = {}): ProviderProfile
 }
 
 describe('applyProviderProfileToProcessEnv', () => {
-  test('openai profile clears competing gemini/github flags', () => {
-    process.env.CLAUDE_CODE_USE_GEMINI = '1'
-    process.env.CLAUDE_CODE_USE_GITHUB = '1'
+  test('openai profile clears competing gemini/github flags', async () => {
+    const { applyProviderProfileToProcessEnv, getAPIProvider } = await importProviderProfiles()
+    process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = '1'
+    process.env.YWCODER_USE_GITHUB = process.env.CLAUDE_CODE_USE_GITHUB = '1'
 
     applyProviderProfileToProcessEnv(buildProfile())
 
-    expect(process.env.CLAUDE_CODE_USE_GEMINI).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_GITHUB).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
-    expect(process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID).toBe(
+    expect(getYwCoderEnv('USE_GEMINI')).toBeUndefined()
+    expect(getYwCoderEnv('USE_GITHUB')).toBeUndefined()
+    expect(getYwCoderEnv('USE_OPENAI')).toBe('1')
+    expect(getYwCoderEnv('PROVIDER_PROFILE_ENV_APPLIED_ID')).toBe(
       'provider_test',
     )
-    expect(getAPIProvider()).toBe('openai')
+    expect(await getAPIProvider()).toBe('openai')
   })
 
-  test('anthropic profile clears competing gemini/github flags', () => {
-    process.env.CLAUDE_CODE_USE_GEMINI = '1'
-    process.env.CLAUDE_CODE_USE_GITHUB = '1'
+  test('anthropic profile clears competing gemini/github flags', async () => {
+    const { applyProviderProfileToProcessEnv, getAPIProvider } = await importProviderProfiles()
+    process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = '1'
+    process.env.YWCODER_USE_GITHUB = process.env.CLAUDE_CODE_USE_GITHUB = '1'
 
     applyProviderProfileToProcessEnv(
       buildProfile({
@@ -88,16 +114,17 @@ describe('applyProviderProfileToProcessEnv', () => {
       }),
     )
 
-    expect(process.env.CLAUDE_CODE_USE_GEMINI).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_GITHUB).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBeUndefined()
-    expect(getAPIProvider()).toBe('firstParty')
+    expect(getYwCoderEnv('USE_GEMINI')).toBeUndefined()
+    expect(getYwCoderEnv('USE_GITHUB')).toBeUndefined()
+    expect(getYwCoderEnv('USE_OPENAI')).toBeUndefined()
+    expect(await getAPIProvider()).toBe('firstParty')
   })
 })
 
 describe('applyActiveProviderProfileFromConfig', () => {
-  test('does not override explicit startup provider selection', () => {
-    process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  test('does not override explicit startup provider selection', async () => {
+    const { applyActiveProviderProfileFromConfig } = await importProviderProfiles()
+    process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
     process.env.OPENAI_BASE_URL = 'http://localhost:11434/v1'
     process.env.OPENAI_MODEL = 'qwen2.5:3b'
 
@@ -117,9 +144,10 @@ describe('applyActiveProviderProfileFromConfig', () => {
     expect(process.env.OPENAI_MODEL).toBe('qwen2.5:3b')
   })
 
-  test('does not override explicit startup selection when profile marker is stale', () => {
-    process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED = '1'
-    process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  test('does not override explicit startup selection when profile marker is stale', async () => {
+    const { applyActiveProviderProfileFromConfig } = await importProviderProfiles()
+    process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED = process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED = '1'
+    process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
     process.env.OPENAI_BASE_URL = 'http://localhost:11434/v1'
     process.env.OPENAI_MODEL = 'qwen2.5:3b'
 
@@ -135,12 +163,13 @@ describe('applyActiveProviderProfileFromConfig', () => {
     } as any)
 
     expect(applied).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
+    expect(getYwCoderEnv('USE_OPENAI')).toBe('1')
     expect(process.env.OPENAI_BASE_URL).toBe('http://localhost:11434/v1')
     expect(process.env.OPENAI_MODEL).toBe('qwen2.5:3b')
   })
 
-  test('re-applies active profile when profile-managed env drifts', () => {
+  test('re-applies active profile when profile-managed env drifts', async () => {
+    const { applyProviderProfileToProcessEnv, applyActiveProviderProfileFromConfig } = await importProviderProfiles()
     applyProviderProfileToProcessEnv(
       buildProfile({
         id: 'saved_openai',
@@ -168,7 +197,8 @@ describe('applyActiveProviderProfileFromConfig', () => {
     expect(process.env.OPENAI_BASE_URL).toBe('http://192.168.33.108:11434/v1')
   })
 
-  test('does not re-apply active profile when flags conflict with current provider', () => {
+  test('does not re-apply active profile when flags conflict with current provider', async () => {
+    const { applyProviderProfileToProcessEnv, applyActiveProviderProfileFromConfig } = await importProviderProfiles()
     applyProviderProfileToProcessEnv(
       buildProfile({
         id: 'saved_openai',
@@ -177,7 +207,7 @@ describe('applyActiveProviderProfileFromConfig', () => {
       }),
     )
 
-    process.env.CLAUDE_CODE_USE_GITHUB = '1'
+    process.env.YWCODER_USE_GITHUB = process.env.CLAUDE_CODE_USE_GITHUB = '1'
     process.env.OPENAI_MODEL = 'github:copilot'
 
     const applied = applyActiveProviderProfileFromConfig({
@@ -192,16 +222,23 @@ describe('applyActiveProviderProfileFromConfig', () => {
     } as any)
 
     expect(applied).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_GITHUB).toBe('1')
+    expect(getYwCoderEnv('USE_GITHUB')).toBe('1')
     expect(process.env.OPENAI_MODEL).toBe('github:copilot')
   })
 
-  test('applies active profile when no explicit provider is selected', () => {
+  test('applies active profile when no explicit provider is selected', async () => {
+    const { applyActiveProviderProfileFromConfig } = await importProviderProfiles()
+    delete process.env.YWCODER_USE_OPENAI
     delete process.env.CLAUDE_CODE_USE_OPENAI
+    delete process.env.YWCODER_USE_GEMINI
     delete process.env.CLAUDE_CODE_USE_GEMINI
+    delete process.env.YWCODER_USE_GITHUB
     delete process.env.CLAUDE_CODE_USE_GITHUB
+    delete process.env.YWCODER_USE_BEDROCK
     delete process.env.CLAUDE_CODE_USE_BEDROCK
+    delete process.env.YWCODER_USE_VERTEX
     delete process.env.CLAUDE_CODE_USE_VERTEX
+    delete process.env.YWCODER_USE_FOUNDRY
     delete process.env.CLAUDE_CODE_USE_FOUNDRY
 
     process.env.OPENAI_BASE_URL = 'http://localhost:11434/v1'
@@ -219,14 +256,15 @@ describe('applyActiveProviderProfileFromConfig', () => {
     } as any)
 
     expect(applied?.id).toBe('saved_openai')
-    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
+    expect(getYwCoderEnv('USE_OPENAI')).toBe('1')
     expect(process.env.OPENAI_BASE_URL).toBe('https://api.openai.com/v1')
     expect(process.env.OPENAI_MODEL).toBe('gpt-4o')
   })
 })
 
 describe('persistActiveProviderProfileModel', () => {
-  test('updates active profile model and current env for profile-managed sessions', () => {
+  test('updates active profile model and current env for profile-managed sessions', async () => {
+    const { saveGlobalConfig, applyProviderProfileToProcessEnv, persistActiveProviderProfileModel, getProviderProfiles } = await importProviderProfiles()
     const activeProfile = buildProfile({
       id: 'saved_openai',
       baseUrl: 'http://192.168.33.108:11434/v1',
@@ -245,7 +283,7 @@ describe('persistActiveProviderProfileModel', () => {
     expect(updated?.id).toBe(activeProfile.id)
     expect(updated?.model).toBe('minimax-m2.5:cloud')
     expect(process.env.OPENAI_MODEL).toBe('minimax-m2.5:cloud')
-    expect(process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID).toBe(
+    expect(getYwCoderEnv('PROVIDER_PROFILE_ENV_APPLIED_ID')).toBe(
       activeProfile.id,
     )
 
@@ -255,7 +293,8 @@ describe('persistActiveProviderProfileModel', () => {
     expect(saved?.model).toBe('minimax-m2.5:cloud')
   })
 
-  test('does not mutate process env when session is not profile-managed', () => {
+  test('does not mutate process env when session is not profile-managed', async () => {
+    const { saveGlobalConfig, persistActiveProviderProfileModel, getProviderProfiles } = await importProviderProfiles()
     const activeProfile = buildProfile({
       id: 'saved_openai',
       model: 'kimi-k2.5:cloud',
@@ -267,9 +306,11 @@ describe('persistActiveProviderProfileModel', () => {
       activeProviderProfileId: activeProfile.id,
     }))
 
-    process.env.CLAUDE_CODE_USE_OPENAI = '1'
+    process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
     process.env.OPENAI_MODEL = 'cli-model'
+    delete process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED
     delete process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED
+    delete process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED_ID
     delete process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID
 
     persistActiveProviderProfileModel('minimax-m2.5:cloud')
@@ -283,7 +324,8 @@ describe('persistActiveProviderProfileModel', () => {
 })
 
 describe('getProviderPresetDefaults', () => {
-  test('ollama preset defaults to a local Ollama model', () => {
+  test('ollama preset defaults to a local Ollama model', async () => {
+    const { getProviderPresetDefaults } = await importProviderProfiles()
     delete process.env.OPENAI_MODEL
 
     const defaults = getProviderPresetDefaults('ollama')
@@ -294,7 +336,8 @@ describe('getProviderPresetDefaults', () => {
 })
 
 describe('deleteProviderProfile', () => {
-  test('deleting final profile clears provider env when active profile applied it', () => {
+  test('deleting final profile clears provider env when active profile applied it', async () => {
+    const { applyProviderProfileToProcessEnv, saveGlobalConfig, deleteProviderProfile } = await importProviderProfiles()
     applyProviderProfileToProcessEnv(
       buildProfile({
         id: 'only_profile',
@@ -315,14 +358,14 @@ describe('deleteProviderProfile', () => {
     expect(result.removed).toBe(true)
     expect(result.activeProfileId).toBeUndefined()
 
-    expect(process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED).toBeUndefined()
+    expect(getYwCoderEnv('PROVIDER_PROFILE_ENV_APPLIED')).toBeUndefined()
 
-    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_GEMINI).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_GITHUB).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_BEDROCK).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_VERTEX).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_FOUNDRY).toBeUndefined()
+    expect(getYwCoderEnv('USE_OPENAI')).toBeUndefined()
+    expect(getYwCoderEnv('USE_GEMINI')).toBeUndefined()
+    expect(getYwCoderEnv('USE_GITHUB')).toBeUndefined()
+    expect(getYwCoderEnv('USE_BEDROCK')).toBeUndefined()
+    expect(getYwCoderEnv('USE_VERTEX')).toBeUndefined()
+    expect(getYwCoderEnv('USE_FOUNDRY')).toBeUndefined()
 
     expect(process.env.OPENAI_BASE_URL).toBeUndefined()
     expect(process.env.OPENAI_API_BASE).toBeUndefined()
@@ -334,8 +377,9 @@ describe('deleteProviderProfile', () => {
     expect(process.env.ANTHROPIC_API_KEY).toBeUndefined()
   })
 
-  test('deleting final profile preserves explicit startup provider env', () => {
-    process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  test('deleting final profile preserves explicit startup provider env', async () => {
+    const { saveGlobalConfig, deleteProviderProfile } = await importProviderProfiles()
+    process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
     process.env.OPENAI_BASE_URL = 'http://localhost:11434/v1'
     process.env.OPENAI_MODEL = 'qwen2.5:3b'
 
@@ -350,8 +394,8 @@ describe('deleteProviderProfile', () => {
     expect(result.removed).toBe(true)
     expect(result.activeProfileId).toBeUndefined()
 
-    expect(process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED).toBeUndefined()
-    expect(process.env.CLAUDE_CODE_USE_OPENAI).toBe('1')
+    expect(getYwCoderEnv('PROVIDER_PROFILE_ENV_APPLIED')).toBeUndefined()
+    expect(getYwCoderEnv('USE_OPENAI')).toBe('1')
     expect(process.env.OPENAI_BASE_URL).toBe('http://localhost:11434/v1')
     expect(process.env.OPENAI_MODEL).toBe('qwen2.5:3b')
   })

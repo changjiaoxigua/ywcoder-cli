@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from 'bun:test'
 
+import { getYwCoderEnv } from '../../utils/envUtils.js'
 import {
   getAdditionalModelOptionsCacheScope,
   isLocalProviderUrl,
@@ -7,13 +8,13 @@ import {
 } from './providerConfig.js'
 
 const originalEnv = {
-  CLAUDE_CODE_USE_OPENAI: process.env.CLAUDE_CODE_USE_OPENAI,
+  CLAUDE_CODE_USE_OPENAI: getYwCoderEnv('USE_OPENAI'),
   OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
   OPENAI_MODEL: process.env.OPENAI_MODEL,
 }
 
 afterEach(() => {
-  process.env.CLAUDE_CODE_USE_OPENAI = originalEnv.CLAUDE_CODE_USE_OPENAI
+  process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = originalEnv.CLAUDE_CODE_USE_OPENAI
   process.env.OPENAI_BASE_URL = originalEnv.OPENAI_BASE_URL
   process.env.OPENAI_MODEL = originalEnv.OPENAI_MODEL
 })
@@ -51,7 +52,7 @@ test('treats public hosts as remote', () => {
 })
 
 test('creates a cache scope for local openai-compatible providers', () => {
-  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
   process.env.OPENAI_BASE_URL = 'http://localhost:1234/v1'
   process.env.OPENAI_MODEL = 'llama-3.2-3b-instruct'
 
@@ -61,7 +62,7 @@ test('creates a cache scope for local openai-compatible providers', () => {
 })
 
 test('keeps codex alias models on chat completions for local openai-compatible providers', () => {
-  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
   process.env.OPENAI_BASE_URL = 'http://127.0.0.1:8080/v1'
   process.env.OPENAI_MODEL = 'gpt-5.4'
 
@@ -77,7 +78,7 @@ test('keeps codex alias models on chat completions for local openai-compatible p
 })
 
 test('skips local model cache scope for remote openai-compatible providers', () => {
-  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
   process.env.OPENAI_BASE_URL = 'https://api.openai.com/v1'
   process.env.OPENAI_MODEL = 'gpt-4o'
 

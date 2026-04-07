@@ -14,7 +14,7 @@ import { isInBundledMode } from '../bundledMode.js'
 import { getGlobalConfig, saveGlobalConfig } from '../config.js'
 import { logForDebugging } from '../debug.js'
 import {
-  getClaudeConfigHomeDir,
+  getYwCoderConfigHomeDir,
   isEnvDefinedFalsy,
   isEnvTruthy,
 } from '../envUtils.js'
@@ -22,7 +22,7 @@ import { execFileNoThrowWithCwd } from '../execFileNoThrow.js'
 import { getPlatform } from '../platform.js'
 import { jsonStringify } from '../slowOperations.js'
 import {
-  CLAUDE_IN_CHROME_MCP_SERVER_NAME,
+  YWCODER_IN_CHROME_MCP_SERVER_NAME,
   getAllBrowserDataPaths,
   getAllNativeMessagingHostsDirs,
   getAllWindowsRegistryKeys,
@@ -123,7 +123,7 @@ export function setupClaudeInChrome(): {
 
     return {
       mcpConfig: {
-        [CLAUDE_IN_CHROME_MCP_SERVER_NAME]: {
+        [YWCODER_IN_CHROME_MCP_SERVER_NAME]: {
           type: 'stdio' as const,
           command: process.execPath,
           args: ['--claude-in-chrome-mcp'],
@@ -153,7 +153,7 @@ export function setupClaudeInChrome(): {
       )
 
     const mcpConfig = {
-      [CLAUDE_IN_CHROME_MCP_SERVER_NAME]: {
+      [YWCODER_IN_CHROME_MCP_SERVER_NAME]: {
         type: 'stdio' as const,
         command: process.execPath,
         args: [`${cliPath}`, '--claude-in-chrome-mcp'],
@@ -307,7 +307,7 @@ function registerWindowsNativeHosts(manifestPath: string): void {
  */
 async function createWrapperScript(command: string): Promise<string> {
   const platform = getPlatform()
-  const chromeDir = join(getClaudeConfigHomeDir(), 'chrome')
+  const chromeDir = join(getYwCoderConfigHomeDir(), 'chrome')
   const wrapperPath =
     platform === 'windows'
       ? join(chromeDir, 'chrome-native-host.bat')

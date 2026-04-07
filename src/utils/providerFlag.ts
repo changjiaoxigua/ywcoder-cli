@@ -85,30 +85,30 @@ export function applyProviderFlag(
       break
 
     case 'openai':
-      process.env.CLAUDE_CODE_USE_OPENAI = '1'
+      process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
       if (model) process.env.OPENAI_MODEL ??= model
       break
 
     case 'gemini':
-      process.env.CLAUDE_CODE_USE_GEMINI = '1'
+      process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = '1'
       if (model) process.env.GEMINI_MODEL ??= model
       break
 
     case 'github':
-      process.env.CLAUDE_CODE_USE_GITHUB = '1'
+      process.env.YWCODER_USE_GITHUB = process.env.CLAUDE_CODE_USE_GITHUB = '1'
       if (model) process.env.OPENAI_MODEL ??= model
       break
 
     case 'bedrock':
-      process.env.CLAUDE_CODE_USE_BEDROCK = '1'
+      process.env.YWCODER_USE_BEDROCK = process.env.CLAUDE_CODE_USE_BEDROCK = '1'
       break
 
     case 'vertex':
-      process.env.CLAUDE_CODE_USE_VERTEX = '1'
+      process.env.YWCODER_USE_VERTEX = process.env.CLAUDE_CODE_USE_VERTEX = '1'
       break
 
     case 'ollama':
-      process.env.CLAUDE_CODE_USE_OPENAI = '1'
+      process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
       process.env.OPENAI_BASE_URL ??= 'http://localhost:11434/v1'
       process.env.OPENAI_API_KEY ??= 'ollama'
       if (model) process.env.OPENAI_MODEL ??= model

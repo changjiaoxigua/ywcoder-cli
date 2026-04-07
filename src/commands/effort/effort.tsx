@@ -7,6 +7,7 @@ import type { LocalJSXCommandOnDone } from '../../types/command.js';
 import { type EffortValue, getDisplayedEffortLevel, getEffortEnvOverride, getEffortValueDescription, isEffortLevel, isOpenAIEffortLevel, modelUsesOpenAIEffort, toPersistableEffort } from '../../utils/effort.js';
 import { EffortPicker } from '../../components/EffortPicker.js';
 import { updateSettingsForSource } from '../../utils/settings/settings.js';
+import { getYwCoderEnv } from '../../utils/envUtils.js'
 const COMMON_HELP_ARGS = ['help', '-h', '--help'];
 type EffortCommandResult = {
   message: string;
@@ -35,7 +36,7 @@ function setEffortValue(effortValue: EffortValue): EffortCommandResult {
   // the same, so "Set effort to X" is true and the note is noise.
   const envOverride = getEffortEnvOverride();
   if (envOverride !== undefined && envOverride !== effortValue) {
-    const envRaw = process.env.CLAUDE_CODE_EFFORT_LEVEL;
+    const envRaw = getYwCoderEnv('EFFORT_LEVEL');
     if (persistable === undefined) {
       return {
         message: `Not applied: CLAUDE_CODE_EFFORT_LEVEL=${envRaw} overrides effort this session, and ${effortValue} is session-only (nothing saved)`,
@@ -90,7 +91,7 @@ function unsetEffortLevel(): EffortCommandResult {
   // when env is pinning a specific level that will keep overriding.
   const envOverride = getEffortEnvOverride();
   if (envOverride !== undefined && envOverride !== null) {
-    const envRaw = process.env.CLAUDE_CODE_EFFORT_LEVEL;
+    const envRaw = getYwCoderEnv('EFFORT_LEVEL');
     return {
       message: `Cleared effort from settings, but CLAUDE_CODE_EFFORT_LEVEL=${envRaw} still controls this session`,
       effortUpdate: {

@@ -23,6 +23,7 @@ import {
 } from '../tmuxSocket.js'
 import { windowsPathToPosixPath } from '../windowsPaths.js'
 import type { ShellProvider } from './shellProvider.js'
+import { getYwCoderEnv } from '../envUtils.js'
 
 /**
  * Returns a shell command to disable extended glob patterns for security.
@@ -39,7 +40,7 @@ import type { ShellProvider } from './shellProvider.js'
 function getDisableExtglobCommand(shellPath: string): string | null {
   // When CLAUDE_CODE_SHELL_PREFIX is set, the wrapper may use a different shell
   // than shellPath, so we include both bash and zsh commands
-  if (process.env.CLAUDE_CODE_SHELL_PREFIX) {
+  if (getYwCoderEnv('SHELL_PREFIX')) {
     // Redirect both stdout and stderr because zsh's command_not_found_handler
     // writes to stdout instead of stderr
     return '{ shopt -u extglob || setopt NO_EXTENDED_GLOB; } >/dev/null 2>&1 || true'
@@ -187,9 +188,9 @@ export async function createBashShellProvider(
       let commandString = commandParts.join(' && ')
 
       // Apply CLAUDE_CODE_SHELL_PREFIX if set
-      if (process.env.CLAUDE_CODE_SHELL_PREFIX) {
+      if (getYwCoderEnv('SHELL_PREFIX')) {
         commandString = formatShellPrefixCommand(
-          process.env.CLAUDE_CODE_SHELL_PREFIX,
+          getYwCoderEnv('SHELL_PREFIX'),
           commandString,
         )
       }

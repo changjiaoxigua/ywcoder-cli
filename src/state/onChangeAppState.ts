@@ -7,6 +7,7 @@ import {
 } from '../utils/auth.js'
 import { getGlobalConfig, saveGlobalConfig } from '../utils/config.js'
 import { toError } from '../utils/errors.js'
+import { getYwCoderEnv } from '../utils/envUtils.js'
 import { logError } from '../utils/log.js'
 import { applyConfigEnvironmentVariables } from '../utils/managedEnv.js'
 import { persistActiveProviderProfileModel } from '../utils/providerProfiles.js'
@@ -114,7 +115,7 @@ export function onChangeAppState({
 
     // Keep active provider profiles in sync with /model choices so restarts
     // keep using the last selected model instead of the profile's old default.
-    if (process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED === '1') {
+    if (getYwCoderEnv('PROVIDER_PROFILE_ENV_APPLIED') === '1') {
       persistActiveProviderProfileModel(newState.mainLoopModel)
     }
   }

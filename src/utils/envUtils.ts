@@ -3,28 +3,93 @@ import { existsSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 
-// Memoized: 150+ callers, many on hot paths. Keyed off CLAUDE_CONFIG_DIR so
+/**
+ * Get environment variable with fallback from new YWCODER_* name to old CLAUDE_CODE_* name.
+ * This allows users to migrate to the new YWCODER_* variables while maintaining backward compatibility.
+ *
+ * @param newName - The new YWCODER_* environment variable name
+ * @param oldName - The old CLAUDE_CODE_* environment variable name
+ * @returns The value of the environment variable, or undefined if neither is set
+ */
+export function getEnvWithFallback(newName: string, oldName: string): string | undefined {
+  return process.env[newName] ?? process.env[oldName]
+}
+
+/**
+ * Get environment variable with fallback from YWCODER_* to CLAUDE_CODE_*.
+ * Automatically prefixes the provided suffix with YWCODER_ and CLAUDE_CODE_.
+ *
+ * @param suffix - The variable name suffix (e.g., 'USE_OPENAI' for YWCODER_USE_OPENAI)
+ * @returns The value of the environment variable, or undefined if neither is set
+ */
+export function getYwCoderEnv(suffix: string): string | undefined {
+  return process.env[`YWCODER_${suffix}`] ?? process.env[`CLAUDE_CODE_${suffix}`]
+}
+
+// Track if we've shown the migration hint to avoid duplicate messages
+let migrationHintShown = false
+
+// Memoized: 150+ callers, many on hot paths. Keyed off CLAUDE_CONFIG_DIR/YWCODER_CONFIG_DIR so
 // tests that change the env var get a fresh value without explicit cache.clear.
-export const getClaudeConfigHomeDir = memoize(
+export const getYwCoderConfigHomeDir = memoize(
   (): string => {
-    if (process.env.CLAUDE_CONFIG_DIR) {
-      return process.env.CLAUDE_CONFIG_DIR.normalize('NFC')
+    // Check new YWCODER_CONFIG_DIR first, then fall back to CLAUDE_CONFIG_DIR
+    const configDir = process.env.YWCODER_CONFIG_DIR ?? process.env.CLAUDE_CONFIG_DIR
+    if (configDir) {
+      return configDir.normalize('NFC')
     }
-    const newDefault = join(homedir(), '.openclaude')
-    // Migration compatibility: if ~/.openclaude doesn't exist yet but ~/.claude
-    // does, keep using ~/.claude so existing users don't lose their data on
-    // upgrade. New installs (neither dir exists) go straight to ~/.openclaude.
-    const legacyPath = join(homedir(), '.claude')
-    if (!existsSync(newDefault) && existsSync(legacyPath)) {
-      return legacyPath.normalize('NFC')
+
+    const newDefault = join(homedir(), '.ywcoder')
+    const openclaudePath = join(homedir(), '.openclaude')
+    const legacyClaudePath = join(homedir(), '.claude')
+
+    // Multi-level fallback for backward compatibility:
+    // 1. ~/.ywcoder (new default)
+    // 2. ~/.openclaude (previous default)
+    // 3. ~/.claude (legacy)
+    //
+    // Migration logic:
+    // - New installs (none exist): use ~/.ywcoder
+    // - If ~/.ywcoder exists: use it (already migrated)
+    // - If ~/.openclaude exists but ~/.ywcoder doesn't: use ~/.openclaude
+    // - If only ~/.claude exists: use ~/.claude
+
+    if (existsSync(newDefault)) {
+      return newDefault.normalize('NFC')
     }
+
+    if (existsSync(openclaudePath)) {
+      // Show migration hint once
+      if (!migrationHintShown && process.stderr.isTTY) {
+        migrationHintShown = true
+        process.stderr.write(
+          '\n\x1b[33m[YwCoder] Notice: Using config from ~/.openclaude\x1b[0m\n' +
+          '\x1b[33m         Run `ywcoder --migrate-config` to migrate to ~/.ywcoder\x1b[0m\n\n'
+        )
+      }
+      return openclaudePath.normalize('NFC')
+    }
+
+    if (existsSync(legacyClaudePath)) {
+      // Show migration hint once
+      if (!migrationHintShown && process.stderr.isTTY) {
+        migrationHintShown = true
+        process.stderr.write(
+          '\n\x1b[33m[YwCoder] Notice: Using legacy config from ~/.claude\x1b[0m\n' +
+          '\x1b[33m         Run `ywcoder --migrate-config` to migrate to ~/.ywcoder\x1b[0m\n\n'
+        )
+      }
+      return legacyClaudePath.normalize('NFC')
+    }
+
+    // New install - use the new default
     return newDefault.normalize('NFC')
   },
-  () => process.env.CLAUDE_CONFIG_DIR,
+  () => process.env.YWCODER_CONFIG_DIR ?? process.env.CLAUDE_CONFIG_DIR,
 )
 
 export function getTeamsDir(): string {
-  return join(getClaudeConfigHomeDir(), 'teams')
+  return join(getYwCoderConfigHomeDir(), 'teams')
 }
 
 /**
@@ -57,19 +122,19 @@ export function isEnvDefinedFalsy(
 }
 
 /**
- * --bare / CLAUDE_CODE_SIMPLE — skip hooks, LSP, plugin sync, skill dir-walk,
+ * --bare / YWCODER_SIMPLE / CLAUDE_CODE_SIMPLE — skip hooks, LSP, plugin sync, skill dir-walk,
  * attribution, background prefetches, and ALL keychain/credential reads.
  * Auth is strictly ANTHROPIC_API_KEY env or apiKeyHelper from --settings.
  * Explicit CLI flags (--plugin-dir, --add-dir, --mcp-config) still honored.
  * ~30 gates across the codebase.
  *
  * Checks argv directly (in addition to the env var) because several gates
- * run before main.tsx's action handler sets CLAUDE_CODE_SIMPLE=1 from --bare
+ * run before main.tsx's action handler sets YWCODER_SIMPLE/CLAUDE_CODE_SIMPLE=1 from --bare
  * — notably startKeychainPrefetch() at main.tsx top-level.
  */
 export function isBareMode(): boolean {
   return (
-    isEnvTruthy(process.env.CLAUDE_CODE_SIMPLE) ||
+    isEnvTruthy(getYwCoderEnv('SIMPLE')) ||
     process.argv.includes('--bare')
   )
 }
@@ -116,10 +181,10 @@ export function getDefaultVertexRegion(): string {
 
 /**
  * Check if bash commands should maintain project working directory (reset to original after each command)
- * @returns true if CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR is set to a truthy value
+ * @returns true if YWCODER_BASH_MAINTAIN_PROJECT_WORKING_DIR or CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR is set to a truthy value
  */
 export function shouldMaintainProjectWorkingDir(): boolean {
-  return isEnvTruthy(process.env.CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR)
+  return isEnvTruthy(process.env.YWCODER_BASH_MAINTAIN_PROJECT_WORKING_DIR ?? process.env.CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR)
 }
 
 /**

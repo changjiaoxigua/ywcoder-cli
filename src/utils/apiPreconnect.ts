@@ -24,7 +24,7 @@
  */
 
 import { getOauthConfig } from '../constants/oauth.js'
-import { isEnvTruthy } from './envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import { getAPIProvider } from './model/providers.js'
 
 let fired = false
@@ -40,9 +40,9 @@ export function preconnectAnthropicApi(): void {
 
   // Skip if using a cloud provider — different endpoint + auth
   if (
-    isEnvTruthy(process.env.CLAUDE_CODE_USE_BEDROCK) ||
-    isEnvTruthy(process.env.CLAUDE_CODE_USE_VERTEX) ||
-    isEnvTruthy(process.env.CLAUDE_CODE_USE_FOUNDRY)
+    isEnvTruthy(getYwCoderEnv('USE_BEDROCK')) ||
+    isEnvTruthy(getYwCoderEnv('USE_VERTEX')) ||
+    isEnvTruthy(getYwCoderEnv('USE_FOUNDRY'))
   ) {
     return
   }
@@ -53,8 +53,8 @@ export function preconnectAnthropicApi(): void {
     process.env.HTTP_PROXY ||
     process.env.http_proxy ||
     process.env.ANTHROPIC_UNIX_SOCKET ||
-    process.env.CLAUDE_CODE_CLIENT_CERT ||
-    process.env.CLAUDE_CODE_CLIENT_KEY
+    getYwCoderEnv('CLIENT_CERT') ||
+    getYwCoderEnv('CLIENT_KEY')
   ) {
     return
   }

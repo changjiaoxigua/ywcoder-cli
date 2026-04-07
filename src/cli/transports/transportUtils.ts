@@ -1,5 +1,5 @@
 import { URL } from 'url'
-import { isEnvTruthy } from '../../utils/envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from '../../utils/envUtils.js'
 import { HybridTransport } from './HybridTransport.js'
 import { SSETransport } from './SSETransport.js'
 import type { Transport } from './Transport.js'
@@ -19,7 +19,7 @@ export function getTransportForUrl(
   sessionId?: string,
   refreshHeaders?: () => Record<string, string>,
 ): Transport {
-  if (isEnvTruthy(process.env.CLAUDE_CODE_USE_CCR_V2)) {
+  if (isEnvTruthy(getYwCoderEnv('USE_CCR_V2'))) {
     // v2: SSE for reads, HTTP POST for writes
     // --sdk-url is the session URL (.../sessions/{id});
     // derive the SSE stream URL by appending /worker/events/stream

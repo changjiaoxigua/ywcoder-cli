@@ -8,6 +8,7 @@ import { getMemoryBaseDir } from '../../memdir/paths.js'
 import { getCwd } from '../../utils/cwd.js'
 import { findCanonicalGitRoot } from '../../utils/git.js'
 import { sanitizePath } from '../../utils/path.js'
+import { getYwCoderEnv } from '../../utils/envUtils.js'
 
 // Persistent agent memory scope: 'user' (~/.claude/agent-memory/), 'project' (.claude/agent-memory/), or 'local' (.claude/agent-memory-local/)
 export type AgentMemoryScope = 'user' | 'project' | 'local'
@@ -27,10 +28,10 @@ function sanitizeAgentTypeForPath(agentType: string): string {
  * Otherwise, uses <cwd>/.claude/agent-memory-local/<agentType>/.
  */
 function getLocalAgentMemoryDir(dirName: string): string {
-  if (process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) {
+  if (getYwCoderEnv('REMOTE_MEMORY_DIR')) {
     return (
       join(
-        process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR,
+        getYwCoderEnv('REMOTE_MEMORY_DIR'),
         'projects',
         sanitizePath(
           findCanonicalGitRoot(getProjectRoot()) ?? getProjectRoot(),
@@ -83,11 +84,11 @@ export function isAgentMemoryPath(absolutePath: string): boolean {
   }
 
   // Local scope: persisted to mount when CLAUDE_CODE_REMOTE_MEMORY_DIR is set, otherwise cwd-based
-  if (process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR) {
+  if (getYwCoderEnv('REMOTE_MEMORY_DIR')) {
     if (
       normalizedPath.includes(sep + 'agent-memory-local' + sep) &&
       normalizedPath.startsWith(
-        join(process.env.CLAUDE_CODE_REMOTE_MEMORY_DIR, 'projects') + sep,
+        join(getYwCoderEnv('REMOTE_MEMORY_DIR'), 'projects') + sep,
       )
     ) {
       return true

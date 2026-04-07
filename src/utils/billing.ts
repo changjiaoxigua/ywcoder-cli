@@ -2,7 +2,7 @@ import {
   getAnthropicApiKey,
   getAuthTokenSource,
   getSubscriptionType,
-  isClaudeAISubscriber,
+  isYwCoderSubscriber,
 } from './auth.js'
 import { getGlobalConfig } from './config.js'
 import { isEnvTruthy } from './envUtils.js'
@@ -13,7 +13,7 @@ export function hasConsoleBillingAccess(): boolean {
     return false
   }
 
-  const isSubscriber = isClaudeAISubscriber()
+  const isSubscriber = isYwCoderSubscriber()
 
   // This might be wrong if user is signed into Max but also using an API key, but
   // we already show a warning on launch in that case
@@ -56,7 +56,7 @@ export function hasClaudeAiBillingAccess(): boolean {
     return mockBillingAccessOverride
   }
 
-  if (!isClaudeAISubscriber()) {
+  if (!isYwCoderSubscriber()) {
     return false
   }
 

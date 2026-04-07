@@ -3,7 +3,7 @@ import { isIP } from 'node:net'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
-import { isEnvTruthy } from '../../utils/envUtils.js'
+import { isEnvTruthy, getYwCoderEnv } from '../../utils/envUtils.js'
 
 export const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
 export const DEFAULT_CODEX_BASE_URL = 'https://chatgpt.com/backend-api/codex'
@@ -299,7 +299,7 @@ export function resolveProviderRequest(options?: {
   fallbackModel?: string
   reasoningEffortOverride?: ReasoningEffort
 }): ResolvedProviderRequest {
-  const isGithubMode = isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB)
+  const isGithubMode = isEnvTruthy(getYwCoderEnv('USE_GITHUB'))
   const requestedModel =
     options?.model?.trim() ||
     process.env.OPENAI_MODEL?.trim() ||
@@ -317,7 +317,7 @@ export function resolveProviderRequest(options?: {
 
   const resolvedModel =
     transport === 'chat_completions' &&
-    isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB)
+    isEnvTruthy(getYwCoderEnv('USE_GITHUB'))
       ? normalizeGithubModelsApiModel(requestedModel)
       : descriptor.baseModel
 
@@ -341,12 +341,12 @@ export function resolveProviderRequest(options?: {
 }
 
 export function getAdditionalModelOptionsCacheScope(): string | null {
-  if (!isEnvTruthy(process.env.CLAUDE_CODE_USE_OPENAI)) {
-    if (!isEnvTruthy(process.env.CLAUDE_CODE_USE_GEMINI) &&
-        !isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB) &&
-        !isEnvTruthy(process.env.CLAUDE_CODE_USE_BEDROCK) &&
-        !isEnvTruthy(process.env.CLAUDE_CODE_USE_VERTEX) &&
-        !isEnvTruthy(process.env.CLAUDE_CODE_USE_FOUNDRY)) {
+  if (!isEnvTruthy(getYwCoderEnv('USE_OPENAI'))) {
+    if (!isEnvTruthy(getYwCoderEnv('USE_GEMINI')) &&
+        !isEnvTruthy(getYwCoderEnv('USE_GITHUB')) &&
+        !isEnvTruthy(getYwCoderEnv('USE_BEDROCK')) &&
+        !isEnvTruthy(getYwCoderEnv('USE_VERTEX')) &&
+        !isEnvTruthy(getYwCoderEnv('USE_FOUNDRY'))) {
       return 'firstParty'
     }
     return null

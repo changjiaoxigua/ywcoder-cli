@@ -14,7 +14,7 @@ import { readdir, rm, stat } from 'fs/promises'
 import { delimiter, join } from 'path'
 import { getUseCoworkPlugins } from '../../bootstrap/state.js'
 import { logForDebugging } from '../debug.js'
-import { getClaudeConfigHomeDir, isEnvTruthy } from '../envUtils.js'
+import { getYwCoderConfigHomeDir, isEnvTruthy, getYwCoderEnv } from '../envUtils.js'
 import { errorMessage, isFsInaccessible } from '../errors.js'
 import { formatFileSize } from '../format.js'
 import { expandTilde } from '../permissions/pathValidation.js'
@@ -55,11 +55,11 @@ export function getPluginsDirectory(): string {
   // `env` (not shell), ~ is not expanded by the shell. Without this, a value
   // like "~/.claude/plugins" becomes a literal `~` directory created in the
   // cwd of every project (gh-30794 / CC-212).
-  const envOverride = process.env.CLAUDE_CODE_PLUGIN_CACHE_DIR
+  const envOverride = getYwCoderEnv('PLUGIN_CACHE_DIR')
   if (envOverride) {
     return expandTilde(envOverride)
   }
-  return join(getClaudeConfigHomeDir(), getPluginsDirectoryName())
+  return join(getYwCoderConfigHomeDir(), getPluginsDirectoryName())
 }
 
 /**
@@ -84,7 +84,7 @@ export function getPluginsDirectory(): string {
  */
 export function getPluginSeedDirs(): string[] {
   // Same tilde-expansion rationale as getPluginsDirectory (gh-30794).
-  const raw = process.env.CLAUDE_CODE_PLUGIN_SEED_DIR
+  const raw = getYwCoderEnv('PLUGIN_SEED_DIR')
   if (!raw) return []
   return raw.split(delimiter).filter(Boolean).map(expandTilde)
 }

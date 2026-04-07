@@ -4,15 +4,16 @@
  * before that module is first loaded.
  */
 import { afterEach, describe, expect, mock, test } from 'bun:test'
+import { getYwCoderEnv } from '../utils/envUtils.js'
 
 describe('hydrateGithubModelsTokenFromSecureStorage', () => {
   const orig = {
-    CLAUDE_CODE_USE_GITHUB: process.env.CLAUDE_CODE_USE_GITHUB,
+    CLAUDE_CODE_USE_GITHUB: getYwCoderEnv('USE_GITHUB'),
     GITHUB_TOKEN: process.env.GITHUB_TOKEN,
     GH_TOKEN: process.env.GH_TOKEN,
     CLAUDE_CODE_GITHUB_TOKEN_HYDRATED:
-      process.env.CLAUDE_CODE_GITHUB_TOKEN_HYDRATED,
-    CLAUDE_CODE_SIMPLE: process.env.CLAUDE_CODE_SIMPLE,
+      getYwCoderEnv('GITHUB_TOKEN_HYDRATED'),
+    CLAUDE_CODE_SIMPLE: getYwCoderEnv('SIMPLE'),
   }
 
   afterEach(() => {
@@ -27,9 +28,10 @@ describe('hydrateGithubModelsTokenFromSecureStorage', () => {
   })
 
   test('sets GITHUB_TOKEN from secure storage when USE_GITHUB and env token empty', async () => {
-    process.env.CLAUDE_CODE_USE_GITHUB = '1'
+    process.env.YWCODER_USE_GITHUB = process.env.CLAUDE_CODE_USE_GITHUB = '1'
     delete process.env.GITHUB_TOKEN
     delete process.env.GH_TOKEN
+    delete process.env.YWCODER_SIMPLE
     delete process.env.CLAUDE_CODE_SIMPLE
 
     mock.module('./secureStorage/index.js', () => ({
@@ -45,12 +47,13 @@ describe('hydrateGithubModelsTokenFromSecureStorage', () => {
     )
     hydrateGithubModelsTokenFromSecureStorage()
     expect(process.env.GITHUB_TOKEN).toBe('stored-secret')
-    expect(process.env.CLAUDE_CODE_GITHUB_TOKEN_HYDRATED).toBe('1')
+    expect(getYwCoderEnv('GITHUB_TOKEN_HYDRATED')).toBe('1')
   })
 
   test('does not override existing GITHUB_TOKEN', async () => {
-    process.env.CLAUDE_CODE_USE_GITHUB = '1'
+    process.env.YWCODER_USE_GITHUB = process.env.CLAUDE_CODE_USE_GITHUB = '1'
     process.env.GITHUB_TOKEN = 'already'
+    delete process.env.YWCODER_GITHUB_TOKEN_HYDRATED
     delete process.env.CLAUDE_CODE_GITHUB_TOKEN_HYDRATED
 
     mock.module('./secureStorage/index.js', () => ({
@@ -66,6 +69,6 @@ describe('hydrateGithubModelsTokenFromSecureStorage', () => {
     )
     hydrateGithubModelsTokenFromSecureStorage()
     expect(process.env.GITHUB_TOKEN).toBe('already')
-    expect(process.env.CLAUDE_CODE_GITHUB_TOKEN_HYDRATED).toBeUndefined()
+    expect(getYwCoderEnv('GITHUB_TOKEN_HYDRATED')).toBeUndefined()
   })
 })

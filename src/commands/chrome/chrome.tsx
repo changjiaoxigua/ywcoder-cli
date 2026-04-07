@@ -4,9 +4,9 @@ import { type OptionWithDescription, Select } from '../../components/CustomSelec
 import { Dialog } from '../../components/design-system/Dialog.js';
 import { Box, Text } from '../../ink.js';
 import { useAppState } from '../../state/AppState.js';
-import { isClaudeAISubscriber } from '../../utils/auth.js';
+import { isYwCoderSubscriber } from '../../utils/auth.js';
 import { openBrowser } from '../../utils/browser.js';
-import { CLAUDE_IN_CHROME_MCP_SERVER_NAME, openInChrome } from '../../utils/claudeInChrome/common.js';
+import { YWCODER_IN_CHROME_MCP_SERVER_NAME, openInChrome } from '../../utils/claudeInChrome/common.js';
 import { isChromeExtensionInstalled } from '../../utils/claudeInChrome/setup.js';
 import { getGlobalConfig, saveGlobalConfig } from '../../utils/config.js';
 import { env } from '../../utils/env.js';
@@ -19,7 +19,7 @@ type Props = {
   onDone: (result?: string) => void;
   isExtensionInstalled: boolean;
   configEnabled: boolean | undefined;
-  isClaudeAISubscriber: boolean;
+  isYwCoderSubscriber: boolean;
   isWSL: boolean;
 };
 function ClaudeInChromeMenu(t0) {
@@ -28,7 +28,7 @@ function ClaudeInChromeMenu(t0) {
     onDone,
     isExtensionInstalled: installed,
     configEnabled,
-    isClaudeAISubscriber,
+    isYwCoderSubscriber,
     isWSL
   } = t0;
   const mcpClients = useAppState(_temp);
@@ -186,7 +186,7 @@ function ClaudeInChromeMenu(t0) {
   } else {
     options = $[8];
   }
-  const isDisabled = isWSL || true && !isClaudeAISubscriber;
+  const isDisabled = isWSL || true && !isYwCoderSubscriber;
   let t5;
   if ($[18] !== onDone) {
     t5 = () => onDone();
@@ -211,9 +211,9 @@ function ClaudeInChromeMenu(t0) {
     t7 = $[22];
   }
   let t8;
-  if ($[23] !== isClaudeAISubscriber) {
-    t8 = true && !isClaudeAISubscriber && <Text color="error">Claude in Chrome requires a claude.ai subscription.</Text>;
-    $[23] = isClaudeAISubscriber;
+  if ($[23] !== isYwCoderSubscriber) {
+    t8 = true && !isYwCoderSubscriber && <Text color="error">Claude in Chrome requires a claude.ai subscription.</Text>;
+    $[23] = isYwCoderSubscriber;
     $[24] = t8;
   } else {
     t8 = $[24];
@@ -270,7 +270,7 @@ function _temp3(k_1) {
   return k_1 + 1;
 }
 function _temp2(c) {
-  return c.name === CLAUDE_IN_CHROME_MCP_SERVER_NAME;
+  return c.name === YWCODER_IN_CHROME_MCP_SERVER_NAME;
 }
 function _temp(s) {
   return s.mcp.clients;
@@ -278,7 +278,7 @@ function _temp(s) {
 export const call = async function (onDone: (result?: string) => void): Promise<React.ReactNode> {
   const isExtensionInstalled = await isChromeExtensionInstalled();
   const config = getGlobalConfig();
-  const isSubscriber = isClaudeAISubscriber();
+  const isSubscriber = isYwCoderSubscriber();
   const isWSL = env.isWslEnvironment();
-  return <ClaudeInChromeMenu onDone={onDone} isExtensionInstalled={isExtensionInstalled} configEnabled={config.claudeInChromeDefaultEnabled} isClaudeAISubscriber={isSubscriber} isWSL={isWSL} />;
+  return <ClaudeInChromeMenu onDone={onDone} isExtensionInstalled={isExtensionInstalled} configEnabled={config.claudeInChromeDefaultEnabled} isYwCoderSubscriber={isSubscriber} isWSL={isWSL} />;
 };

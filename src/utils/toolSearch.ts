@@ -33,7 +33,7 @@ import { count } from './array.js'
 import { getMergedBetas } from './betas.js'
 import { getContextWindowForModel } from './context.js'
 import { logForDebugging } from './debug.js'
-import { isEnvDefinedFalsy, isEnvTruthy } from './envUtils.js'
+import { isEnvDefinedFalsy, isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import {
   getAPIProvider,
   isFirstPartyAnthropicBaseUrl,
@@ -178,7 +178,7 @@ export function getToolSearchMode(): ToolSearchMode {
   // explicit escape hatch for proxy gateways that the heuristic in
   // isToolSearchEnabledOptimistic doesn't cover.
   // github.com/anthropics/claude-code/issues/20031
-  if (isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS)) {
+  if (isEnvTruthy(getYwCoderEnv('DISABLE_EXPERIMENTAL_BETAS'))) {
     return 'standard'
   }
 

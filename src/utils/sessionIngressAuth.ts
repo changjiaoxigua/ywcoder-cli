@@ -10,6 +10,7 @@ import {
 import { logForDebugging } from './debug.js'
 import { errorMessage } from './errors.js'
 import { getFsImplementation } from './fsOperations.js'
+import { getYwCoderEnv } from './envUtils.js'
 
 /**
  * Read token via file descriptor, falling back to well-known file.
@@ -22,7 +23,7 @@ function getTokenFromFileDescriptor(): string | null {
     return cachedToken
   }
 
-  const fdEnv = process.env.CLAUDE_CODE_WEBSOCKET_AUTH_FILE_DESCRIPTOR
+  const fdEnv = getYwCoderEnv('WEBSOCKET_AUTH_FILE_DESCRIPTOR')
   if (!fdEnv) {
     // No FD env var — either we're not in CCR, or we're a subprocess whose
     // parent stripped the (useless) FD env var. Try the well-known file.
@@ -100,7 +101,7 @@ function getTokenFromFileDescriptor(): string | null {
  */
 export function getSessionIngressAuthToken(): string | null {
   // 1. Check environment variable
-  const envToken = process.env.CLAUDE_CODE_SESSION_ACCESS_TOKEN
+  const envToken = getYwCoderEnv('SESSION_ACCESS_TOKEN')
   if (envToken) {
     return envToken
   }
@@ -136,5 +137,5 @@ export function getSessionIngressAuthHeaders(): Record<string, string> {
  * without restarting the process.
  */
 export function updateSessionIngressAuthToken(token: string): void {
-  process.env.CLAUDE_CODE_SESSION_ACCESS_TOKEN = token
+  process.env.YWCODER_SESSION_ACCESS_TOKEN = process.env.CLAUDE_CODE_SESSION_ACCESS_TOKEN = token
 }

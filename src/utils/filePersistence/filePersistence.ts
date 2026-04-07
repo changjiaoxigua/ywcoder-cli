@@ -21,6 +21,7 @@ import { getCwd } from '../cwd.js'
 import { errorMessage } from '../errors.js'
 import { logError } from '../log.js'
 import { getSessionIngressAuthToken } from '../sessionIngressAuth.js'
+import { getYwCoderEnv } from '../envUtils.js'
 import {
   findModifiedFiles,
   getEnvironmentKind,
@@ -62,7 +63,7 @@ export async function runFilePersistence(
     return null
   }
 
-  const sessionId = process.env.CLAUDE_CODE_REMOTE_SESSION_ID
+  const sessionId = getYwCoderEnv('REMOTE_SESSION_ID')
   if (!sessionId) {
     logError(
       new Error(
@@ -280,7 +281,7 @@ export function isFilePersistenceEnabled(): boolean {
     return (
       getEnvironmentKind() === 'byoc' &&
       !!getSessionIngressAuthToken() &&
-      !!process.env.CLAUDE_CODE_REMOTE_SESSION_ID
+      !!getYwCoderEnv('REMOTE_SESSION_ID')
     )
   }
   return false

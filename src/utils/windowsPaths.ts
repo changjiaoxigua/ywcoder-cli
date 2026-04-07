@@ -6,6 +6,7 @@ import { logForDebugging } from './debug.js'
 import { execSync_DEPRECATED } from './execSyncWrapper.js'
 import { memoizeWithLRU } from './memoize.js'
 import { getPlatform } from './platform.js'
+import { getYwCoderEnv } from './envUtils.js'
 
 /**
  * Check if a file or directory exists on Windows using the dir command
@@ -96,13 +97,13 @@ export function setShellIfWindows(): void {
  * Find the path where `bash.exe` included with git-bash exists, exiting the process if not found.
  */
 export const findGitBashPath = memoize((): string => {
-  if (process.env.CLAUDE_CODE_GIT_BASH_PATH) {
-    if (checkPathExists(process.env.CLAUDE_CODE_GIT_BASH_PATH)) {
-      return process.env.CLAUDE_CODE_GIT_BASH_PATH
+  if (getYwCoderEnv('GIT_BASH_PATH')) {
+    if (checkPathExists(getYwCoderEnv('GIT_BASH_PATH'))) {
+      return getYwCoderEnv('GIT_BASH_PATH')
     }
     // biome-ignore lint/suspicious/noConsole:: intentional console output
     console.error(
-      `Claude Code was unable to find CLAUDE_CODE_GIT_BASH_PATH path "${process.env.CLAUDE_CODE_GIT_BASH_PATH}"`,
+      `Claude Code was unable to find CLAUDE_CODE_GIT_BASH_PATH path "${getYwCoderEnv('GIT_BASH_PATH')}"`,
     )
     // eslint-disable-next-line custom-rules/no-process-exit
     process.exit(1)

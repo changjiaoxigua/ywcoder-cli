@@ -1,6 +1,10 @@
-import { afterEach, describe, expect, mock, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 
 const originalEnv = { ...process.env }
+
+beforeEach(() => {
+  mock.restore()
+})
 
 async function importFreshUserModule() {
   return import(`./user.ts?ts=${Date.now()}-${Math.random()}`)

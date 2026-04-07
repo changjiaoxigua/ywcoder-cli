@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { getOauthProfileFromApiKey } from 'src/services/oauth/getOauthProfile.js';
-import { isClaudeAISubscriber } from 'src/utils/auth.js';
+import { isYwCoderSubscriber } from 'src/utils/auth.js';
 import { Text } from '../../ink.js';
 import { logEvent } from '../../services/analytics/index.js';
 import { getGlobalConfig, saveGlobalConfig } from '../../utils/config.js';
@@ -42,7 +42,7 @@ function _temp(current) {
 }
 async function getExistingClaudeSubscription(): Promise<'Max' | 'Pro' | null> {
   // If already using subscription auth, there is nothing to switch to
-  if (isClaudeAISubscriber()) {
+  if (isYwCoderSubscriber()) {
     return null;
   }
   const profile = await getOauthProfileFromApiKey();

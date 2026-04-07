@@ -1,4 +1,4 @@
-import { isBareMode, isEnvTruthy } from './envUtils.js'
+import { isBareMode, isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import { getGeminiAuthMode } from './geminiAuth.js'
 import { getSecureStorage } from './secureStorage/index.js'
 
@@ -22,7 +22,7 @@ export function readGeminiAccessToken(): string | undefined {
 }
 
 export function hydrateGeminiAccessTokenFromSecureStorage(): void {
-  if (!isEnvTruthy(process.env.CLAUDE_CODE_USE_GEMINI)) {
+  if (!isEnvTruthy(getYwCoderEnv('USE_GEMINI'))) {
     return
   }
   const authMode = getGeminiAuthMode(process.env)

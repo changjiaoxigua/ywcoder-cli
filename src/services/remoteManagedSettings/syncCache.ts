@@ -8,9 +8,10 @@
  */
 
 import { CLAUDE_AI_INFERENCE_SCOPE } from '../../constants/oauth.js'
+import { getYwCoderEnv } from '../../utils/envUtils.js'
 import {
   getAnthropicApiKeyWithSource,
-  getClaudeAIOAuthTokens,
+  getYwCoderOAuthTokens,
 } from '../../utils/auth.js'
 import {
   getAPIProvider,
@@ -63,7 +64,7 @@ export function isRemoteManagedSettingsEligible(): boolean {
   // (designed for CLI/CCD) don't apply there, and per-surface settings don't
   // exist yet. MDM/file-based managed settings still apply via settings.ts —
   // those require physical deployment and a different IT intent.
-  if (process.env.CLAUDE_CODE_ENTRYPOINT === 'local-agent') {
+  if (getYwCoderEnv('ENTRYPOINT') === 'local-agent') {
     return (cached = setEligibility(false))
   }
 
@@ -71,11 +72,11 @@ export function isRemoteManagedSettingsEligible(): boolean {
   // The API key check spawns `security find-generic-password` (~20-50ms) which
   // returns null for OAuth-only users. Checking OAuth first short-circuits
   // that subprocess for the common case.
-  const tokens = getClaudeAIOAuthTokens()
+  const tokens = getYwCoderOAuthTokens()
 
   // Externally-injected tokens (CCD via CLAUDE_CODE_OAUTH_TOKEN, CCR via
   // CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR, Agent SDK, CI) carry no
-  // subscriptionType metadata — getClaudeAIOAuthTokens() constructs them with
+  // subscriptionType metadata — getYwCoderOAuthTokens() constructs them with
   // subscriptionType: null. The token itself is valid; let the API decide.
   // fetchRemoteManagedSettings handles 204/404 gracefully (returns {}), and
   // settings.ts falls through to MDM/file when remote is empty, so ineligible

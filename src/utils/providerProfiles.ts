@@ -298,11 +298,17 @@ function isProcessEnvAlignedWithProfile(
 ): boolean {
   const includeApiKey = options?.includeApiKey ?? true
 
-  if (processEnv[PROFILE_ENV_APPLIED_FLAG] !== '1') {
+  if (
+    processEnv.YWCODER_PROVIDER_PROFILE_ENV_APPLIED !== '1' &&
+    processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED !== '1'
+  ) {
     return false
   }
 
-  if (trimOrUndefined(processEnv[PROFILE_ENV_APPLIED_ID]) !== profile.id) {
+  if (
+    trimOrUndefined(processEnv.YWCODER_PROVIDER_PROFILE_ENV_APPLIED_ID) !== profile.id &&
+    trimOrUndefined(processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID) !== profile.id
+  ) {
     return false
   }
 
@@ -345,11 +351,17 @@ export function getActiveProviderProfile(
 export function clearProviderProfileEnvFromProcessEnv(
   processEnv: NodeJS.ProcessEnv = process.env,
 ): void {
+  delete processEnv.YWCODER_USE_OPENAI
   delete processEnv.CLAUDE_CODE_USE_OPENAI
+  delete processEnv.YWCODER_USE_GEMINI
   delete processEnv.CLAUDE_CODE_USE_GEMINI
+  delete processEnv.YWCODER_USE_GITHUB
   delete processEnv.CLAUDE_CODE_USE_GITHUB
+  delete processEnv.YWCODER_USE_BEDROCK
   delete processEnv.CLAUDE_CODE_USE_BEDROCK
+  delete processEnv.YWCODER_USE_VERTEX
   delete processEnv.CLAUDE_CODE_USE_VERTEX
+  delete processEnv.YWCODER_USE_FOUNDRY
   delete processEnv.CLAUDE_CODE_USE_FOUNDRY
 
   delete processEnv.OPENAI_BASE_URL
@@ -360,14 +372,16 @@ export function clearProviderProfileEnvFromProcessEnv(
   delete processEnv.ANTHROPIC_BASE_URL
   delete processEnv.ANTHROPIC_MODEL
   delete processEnv.ANTHROPIC_API_KEY
-  delete processEnv[PROFILE_ENV_APPLIED_FLAG]
-  delete processEnv[PROFILE_ENV_APPLIED_ID]
+  delete processEnv.YWCODER_PROVIDER_PROFILE_ENV_APPLIED
+  delete processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED
+  delete processEnv.YWCODER_PROVIDER_PROFILE_ENV_APPLIED_ID
+  delete processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID
 }
 
 export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void {
   clearProviderProfileEnvFromProcessEnv()
-  process.env[PROFILE_ENV_APPLIED_FLAG] = '1'
-  process.env[PROFILE_ENV_APPLIED_ID] = profile.id
+  process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED = process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED = '1'
+  process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED_ID = process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID = profile.id
 
   process.env.ANTHROPIC_MODEL = profile.model
   if (profile.provider === 'anthropic') {
@@ -386,7 +400,7 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
     return
   }
 
-  process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
   process.env.OPENAI_BASE_URL = profile.baseUrl
   process.env.OPENAI_MODEL = profile.model
 
@@ -411,8 +425,10 @@ export function applyActiveProviderProfileFromConfig(
   }
 
   const isCurrentEnvProfileManaged =
-    processEnv[PROFILE_ENV_APPLIED_FLAG] === '1' &&
-    trimOrUndefined(processEnv[PROFILE_ENV_APPLIED_ID]) === activeProfile.id
+    (processEnv.YWCODER_PROVIDER_PROFILE_ENV_APPLIED === '1' ||
+     processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED === '1') &&
+    (trimOrUndefined(processEnv.YWCODER_PROVIDER_PROFILE_ENV_APPLIED_ID) === activeProfile.id ||
+     trimOrUndefined(processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID) === activeProfile.id)
 
   if (!options?.force && hasProviderSelectionFlags(processEnv)) {
     // Respect explicit startup provider intent. Auto-heal only when this
@@ -578,8 +594,10 @@ export function persistActiveProviderProfileModel(
   }
 
   if (
-    process.env[PROFILE_ENV_APPLIED_FLAG] === '1' &&
-    trimOrUndefined(process.env[PROFILE_ENV_APPLIED_ID]) === resolvedProfile.id
+    (process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED === '1' ||
+     process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED === '1') &&
+    (trimOrUndefined(process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED_ID) === resolvedProfile.id ||
+     trimOrUndefined(process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID) === resolvedProfile.id)
   ) {
     applyProviderProfileToProcessEnv(resolvedProfile)
   }

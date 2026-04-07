@@ -1,12 +1,12 @@
 import axios from 'axios'
 import { getOauthConfig } from '../../constants/oauth.js'
 import {
-  getClaudeAIOAuthTokens,
+  getYwCoderOAuthTokens,
   hasProfileScope,
-  isClaudeAISubscriber,
+  isYwCoderSubscriber,
 } from '../../utils/auth.js'
 import { getAuthHeaders } from '../../utils/http.js'
-import { getClaudeCodeUserAgent } from '../../utils/userAgent.js'
+import { getYwCoderUserAgent } from '../../utils/userAgent.js'
 import { isOAuthTokenExpired } from '../oauth/client.js'
 
 export type RateLimit = {
@@ -31,12 +31,12 @@ export type Utilization = {
 }
 
 export async function fetchUtilization(): Promise<Utilization | null> {
-  if (!isClaudeAISubscriber() || !hasProfileScope()) {
+  if (!isYwCoderSubscriber() || !hasProfileScope()) {
     return {}
   }
 
   // Skip API call if OAuth token is expired to avoid 401 errors
-  const tokens = getClaudeAIOAuthTokens()
+  const tokens = getYwCoderOAuthTokens()
   if (tokens && isOAuthTokenExpired(tokens.expiresAt)) {
     return null
   }
@@ -48,7 +48,7 @@ export async function fetchUtilization(): Promise<Utilization | null> {
 
   const headers = {
     'Content-Type': 'application/json',
-    'User-Agent': getClaudeCodeUserAgent(),
+    'User-Agent': getYwCoderUserAgent(),
     ...authResult.headers,
   }
 

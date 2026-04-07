@@ -1,6 +1,10 @@
-import { afterEach, describe, expect, mock, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 
 const originalEnv = { ...process.env }
+
+beforeEach(() => {
+  mock.restore()
+})
 
 async function importFreshFastModeModule() {
   return import(`./fastMode.ts?ts=${Date.now()}-${Math.random()}`)
@@ -46,7 +50,7 @@ function installCommonMocks(options?: {
 
   mock.module('./auth.js', () => ({
     getAnthropicApiKey: () => options?.apiKey ?? null,
-    getClaudeAIOAuthTokens: () =>
+    getYwCoderOAuthTokens: () =>
       options?.oauthToken ? { accessToken: options.oauthToken } : null,
     handleOAuth401Error: async () => {},
     hasProfileScope: () => options?.hasProfileScope ?? false,
@@ -71,6 +75,8 @@ function installCommonMocks(options?: {
   mock.module('./envUtils.js', () => ({
     isEnvTruthy: (value: string | undefined) =>
       !!value && value !== '0' && value.toLowerCase() !== 'false',
+    getYwCoderEnv: (suffix: string) =>
+      process.env[`YWCODER_${suffix}`] ?? process.env[`CLAUDE_CODE_${suffix}`],
   }))
 
   mock.module('./model/model.js', () => ({
@@ -79,9 +85,8 @@ function installCommonMocks(options?: {
     parseUserSpecifiedModel: (model: string) => model,
   }))
 
-  mock.module('./model/providers.js', () => ({
-    getAPIProvider: () => 'firstParty',
-  }))
+  // Note: providers.js is not mocked - tests rely on environment variables
+  // being unset so getAPIProvider() returns 'firstParty' by default
 
   mock.module('./privacyLevel.js', () => ({
     isEssentialTrafficOnly: () => false,
@@ -102,9 +107,11 @@ function installCommonMocks(options?: {
   }))
 }
 
-afterEach(() => {
+afterEach(async () => {
   mock.restore()
   process.env = { ...originalEnv }
+  // Re-import providers.js to clear any module-level mock state
+  await import('./model/providers.js')
 })
 
 describe('fastMode ant-only fallback cleanup', () => {

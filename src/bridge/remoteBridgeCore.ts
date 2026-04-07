@@ -54,7 +54,7 @@ import {
 import { logBridgeSkip } from './debugUtils.js'
 import { logForDebugging } from '../utils/debug.js'
 import { logForDiagnosticsNoPII } from '../utils/diagLogs.js'
-import { isInProtectedNamespace } from '../utils/envUtils.js'
+import { isInProtectedNamespace, getYwCoderEnv } from '../utils/envUtils.js'
 import { errorMessage } from '../utils/errors.js'
 import { sleep } from '../utils/sleep.js'
 import { registerCleanup } from '../utils/cleanupRegistry.js'
@@ -227,7 +227,7 @@ export async function initEnvLessBridgeCore(
       heartbeatIntervalMs: cfg.heartbeat_interval_ms,
       heartbeatJitterFraction: cfg.heartbeat_jitter_fraction,
       // Per-instance closure — keeps the worker JWT out of
-      // process.env.CLAUDE_CODE_SESSION_ACCESS_TOKEN, which mcp/client.ts
+      // getYwCoderEnv('SESSION_ACCESS_TOKEN'), which mcp/client.ts
       // reads ungatedly and would otherwise send to user-configured ws/http
       // MCP servers. Frozen-at-construction is correct: transport is fully
       // rebuilt on refresh (rebuildTransport below).

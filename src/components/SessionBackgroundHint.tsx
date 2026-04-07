@@ -9,7 +9,7 @@ import { useAppState, useAppStateStore, useSetAppState } from '../state/AppState
 import { backgroundAll, hasForegroundTasks } from '../tasks/LocalShellTask/LocalShellTask.js';
 import { getGlobalConfig, saveGlobalConfig } from '../utils/config.js';
 import { env } from '../utils/env.js';
-import { isEnvTruthy } from '../utils/envUtils.js';
+import { isEnvTruthy, getYwCoderEnv } from '../utils/envUtils.js';
 import { KeyboardShortcutHint } from './design-system/KeyboardShortcutHint.js';
 type Props = {
   onBackgroundSession: () => void;
@@ -37,7 +37,7 @@ export function SessionBackgroundHint(t0) {
   let t1;
   if ($[0] !== appStateStore || $[1] !== handleDoublePress || $[2] !== isLoading || $[3] !== setAppState) {
     t1 = () => {
-      if (isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS)) {
+      if (isEnvTruthy(getYwCoderEnv('DISABLE_BACKGROUND_TASKS'))) {
         return;
       }
       const state = appStateStore.getState();
