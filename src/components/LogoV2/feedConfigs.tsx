@@ -41,7 +41,7 @@ export function createWhatsNewFeed(releaseNotes: string[]): FeedConfig {
   });
   const emptyMessage = "external" === 'ant' ? 'Unable to fetch latest claude-cli-internal commits' : 'Check /release-notes for recent updates';
   return {
-    title: "external" === 'ant' ? "Open Claude Updates [internal-only: Latest CC commits]" : "Open Claude Updates",
+    title: "external" === 'ant' ? "YwCoder Updates [internal-only: Latest CC commits]" : "YwCoder Updates",
     lines,
     footer: lines.length > 0 ? '/release-notes for more' : undefined,
     emptyMessage
