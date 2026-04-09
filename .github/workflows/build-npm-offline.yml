@@ -45,16 +45,18 @@ jobs:
           Copy-Item -Path "bin/*" -Destination "pack-temp/bin/" -Recurse
           Copy-Item -Path "dist/*" -Destination "pack-temp/dist/" -Recurse
           Copy-Item -Path "node_modules/*" -Destination "pack-temp/node_modules/" -Recurse
-          Copy-Item -Path "package.json" -Destination "pack-temp/package.json"
           Copy-Item -Path "README.md" -Destination "pack-temp/README.md" -ErrorAction SilentlyContinue
           Copy-Item -Path "LICENSE" -Destination "pack-temp/LICENSE" -ErrorAction SilentlyContinue
 
-          # Create bundled package.json
-          $pkg = Get-Content "package.json" | ConvertFrom-Json
-          $pkg.bundledDependencies = @($pkg.dependencies.PSObject.Properties.Name)
-          $pkg | ConvertTo-Json -Depth 10 | Set-Content "pack-temp/package.json"
-
-          Write-Host "Bundled $($pkg.bundledDependencies.Count) dependencies"
+      - name: Create bundled package.json
+        run: |
+          node -e "
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.bundledDependencies = Object.keys(pkg.dependencies);
+          fs.writeFileSync('pack-temp/package.json', JSON.stringify(pkg, null, 2));
+          console.log('Bundled', pkg.bundledDependencies.length, 'dependencies');
+          "
 
       - name: Pack npm package
         working-directory: pack-temp
