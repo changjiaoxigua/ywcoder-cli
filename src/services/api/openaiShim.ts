@@ -336,6 +336,16 @@ function convertMessages(
       if (msg.tool_calls?.length) {
         prev.tool_calls = [...(prev.tool_calls ?? []), ...msg.tool_calls]
       }
+
+      // Merge reasoning_content when coalescing assistant messages
+      const prevReasoning = (prev as Record<string, unknown>).reasoning_content
+      const curReasoning = (msg as Record<string, unknown>).reasoning_content
+      if (curReasoning) {
+        (prev as Record<string, unknown>).reasoning_content =
+          prevReasoning && typeof prevReasoning === 'string'
+            ? prevReasoning + '\n' + curReasoning
+            : curReasoning
+      }
     } else {
       coalesced.push(msg)
     }
