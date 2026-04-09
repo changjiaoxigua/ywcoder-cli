@@ -96,13 +96,6 @@ async function main(): Promise<void> {
     return;
   }
 
-  // Fast-path for --migrate-config: migrate config from old directories
-  if (args.length === 1 && args[0] === '--migrate-config') {
-    const { migrateConfig } = await import('../utils/configMigration.js')
-    await migrateConfig()
-    return
-  }
-
   // --provider: set provider env vars early so saved-profile resolution,
   // validation, and the startup banner all see the intended provider/model.
   if (args.includes('--provider')) {

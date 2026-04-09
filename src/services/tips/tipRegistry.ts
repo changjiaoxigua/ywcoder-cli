@@ -439,7 +439,8 @@ const externalTips: Tip[] = [
     content: async () =>
       'Run Claude Code locally or remotely using the Claude desktop app: clau.de/desktop',
     cooldownSessions: 15,
-    isRelevant: async () => getPlatform() !== 'linux',
+    // YwCoder: 禁用 — 指向 Anthropic Claude Desktop，YwCoder 不提供此功能
+    isRelevant: async () => false,
   },
   {
     id: 'desktop-shortcut',
@@ -448,27 +449,24 @@ const externalTips: Tip[] = [
       return `Continue your session in Claude Code Desktop with ${blue('/desktop')}`
     },
     cooldownSessions: 15,
-    isRelevant: async () => {
-      if (!getDesktopUpsellConfig().enable_shortcut_tip) return false
-      return (
-        process.platform === 'darwin' ||
-        (process.platform === 'win32' && process.arch === 'x64')
-      )
-    },
+    // YwCoder: 禁用 — /desktop 命令连接 Anthropic Claude Desktop 协议，YwCoder 不提供此功能
+    isRelevant: async () => false,
   },
   {
     id: 'web-app',
     content: async () =>
       'Run tasks in the cloud while you keep coding locally · clau.de/web',
     cooldownSessions: 15,
-    isRelevant: async () => true,
+    // YwCoder: 禁用 — 指向 Anthropic 云运行服务，YwCoder 不提供此功能
+    isRelevant: async () => false,
   },
   {
     id: 'mobile-app',
     content: async () =>
       '/mobile to use Claude Code from the Claude app on your phone',
     cooldownSessions: 15,
-    isRelevant: async () => true,
+    // YwCoder: 禁用 — /mobile 命令打开 Anthropic Claude 手机 app，YwCoder 不提供此功能
+    isRelevant: async () => false,
   },
   {
     id: 'opusplan-mode-reminder',
