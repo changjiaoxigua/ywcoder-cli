@@ -33,30 +33,53 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Create bundled package.json
+      - name: Create offline package directory
         run: |
-          # Get all dependencies as bundledDependencies
-          node -e "
-          const fs = require('fs');
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          pkg.bundledDependencies = Object.keys(pkg.dependencies);
-          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-          console.log('Added', pkg.bundledDependencies.length, 'bundled dependencies');
-          "
+          # Create directory structure for packaging
+          New-Item -ItemType Directory -Force -Path "pack-temp"
+          New-Item -ItemType Directory -Force -Path "pack-temp/bin"
+          New-Item -ItemType Directory -Force -Path "pack-temp/dist"
+          New-Item -ItemType Directory -Force -Path "pack-temp/node_modules"
+
+          # Copy files
+          Copy-Item -Path "bin/*" -Destination "pack-temp/bin/" -Recurse
+          Copy-Item -Path "dist/*" -Destination "pack-temp/dist/" -Recurse
+          Copy-Item -Path "node_modules/*" -Destination "pack-temp/node_modules/" -Recurse
+          Copy-Item -Path "package.json" -Destination "pack-temp/package.json"
+          Copy-Item -Path "README.md" -Destination "pack-temp/README.md" -ErrorAction SilentlyContinue
+          Copy-Item -Path "LICENSE" -Destination "pack-temp/LICENSE" -ErrorAction SilentlyContinue
+
+          # Create bundled package.json
+          $pkg = Get-Content "package.json" | ConvertFrom-Json
+          $pkg.bundledDependencies = @($pkg.dependencies.PSObject.Properties.Name)
+          $pkg | ConvertTo-Json -Depth 10 | Set-Content "pack-temp/package.json"
+
+          Write-Host "Bundled $($pkg.bundledDependencies.Count) dependencies"
 
       - name: Pack npm package
+        working-directory: pack-temp
         run: npm pack
 
-      - name: Upload npm offline package
+      - name: Move package and show info
+        run: |
+          Move-Item -Path "pack-temp/dcywzc-ywcoder-*.tgz" -Destination "ywcoder-offline.tgz" -Force
+          Write-Host "Package created:"
+          Get-ChildItem ywcoder-offline.tgz | Select-Object Name, @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB,2)}}
+
+      - name: Upload package (uncompressed)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ywcoder-npm-offline
-          path: dcywzc-ywcoder-*.tgz
+          name: ywcoder-offline
+          path: ywcoder-offline.tgz
           retention-days: 30
 
-      - name: Show package info
+      - name: Show install instructions
         run: |
-          Write-Host "NPM Offline Package created!"
-          Get-ChildItem dcywzc-ywcoder-*.tgz | Select-Object Name, @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB,2)}}
           Write-Host ""
-          Write-Host "Install with: npm install -g dcywzc-ywcoder-x.x.x.tgz"
+          Write-Host "========================================"
+          Write-Host "Offline package created successfully!"
+          Write-Host "========================================"
+          Write-Host ""
+          Write-Host "Install with:"
+          Write-Host "  npm install -g ywcoder-offline.tgz"
+          Write-Host ""
