@@ -45,8 +45,17 @@ jobs:
           $rgVersion = "14.1.0"
           $rgUrl = "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-x86_64-pc-windows-msvc.zip"
           Invoke-WebRequest -Uri $rgUrl -OutFile "rg-windows.zip"
+          New-Item -ItemType Directory -Force -Path "rg-temp"
           Expand-Archive -Path "rg-windows.zip" -DestinationPath "rg-temp"
-          Copy-Item -Path "rg-temp/rg.exe" -Destination "vendor/ripgrep/x64-win32/rg.exe"
+          # Find rg.exe in the extracted directory (might be in a subdirectory)
+          $rgExe = Get-ChildItem -Path "rg-temp" -Filter "rg.exe" -Recurse | Select-Object -First 1
+          if ($rgExe) {
+              Copy-Item -Path $rgExe.FullName -Destination "vendor/ripgrep/x64-win32/rg.exe"
+              Write-Host "Found rg.exe at: $($rgExe.FullName)"
+          } else {
+              Write-Error "rg.exe not found in extracted archive"
+              exit 1
+          }
           Remove-Item -Path "rg-windows.zip" -Force
           Remove-Item -Path "rg-temp" -Recurse -Force
 
@@ -56,8 +65,11 @@ jobs:
           $rgLinuxUrl = "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-x86_64-unknown-linux-musl.tar.gz"
           Invoke-WebRequest -Uri $rgLinuxUrl -OutFile "rg-linux.tar.gz"
           New-Item -ItemType Directory -Force -Path "rg-linux-temp"
-          tar -xzf "rg-linux.tar.gz" -C "rg-linux-temp" --strip-components=1
-          Copy-Item -Path "rg-linux-temp/rg" -Destination "vendor/ripgrep/x64-linux/rg"
+          tar -xzf "rg-linux.tar.gz" -C "rg-linux-temp"
+          $rgLinux = Get-ChildItem -Path "rg-linux-temp" -Filter "rg" -Recurse | Select-Object -First 1
+          if ($rgLinux) {
+              Copy-Item -Path $rgLinux.FullName -Destination "vendor/ripgrep/x64-linux/rg"
+          }
           Remove-Item -Path "rg-linux.tar.gz" -Force
           Remove-Item -Path "rg-linux-temp" -Recurse -Force
 
@@ -67,8 +79,11 @@ jobs:
           $rgMacUrl = "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-x86_64-apple-darwin.tar.gz"
           Invoke-WebRequest -Uri $rgMacUrl -OutFile "rg-mac.tar.gz"
           New-Item -ItemType Directory -Force -Path "rg-mac-temp"
-          tar -xzf "rg-mac.tar.gz" -C "rg-mac-temp" --strip-components=1
-          Copy-Item -Path "rg-mac-temp/rg" -Destination "vendor/ripgrep/x64-darwin/rg"
+          tar -xzf "rg-mac.tar.gz" -C "rg-mac-temp"
+          $rgMac = Get-ChildItem -Path "rg-mac-temp" -Filter "rg" -Recurse | Select-Object -First 1
+          if ($rgMac) {
+              Copy-Item -Path $rgMac.FullName -Destination "vendor/ripgrep/x64-darwin/rg"
+          }
           Remove-Item -Path "rg-mac.tar.gz" -Force
           Remove-Item -Path "rg-mac-temp" -Recurse -Force
 
@@ -78,8 +93,11 @@ jobs:
           $rgMacArmUrl = "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-aarch64-apple-darwin.tar.gz"
           Invoke-WebRequest -Uri $rgMacArmUrl -OutFile "rg-mac-arm.tar.gz"
           New-Item -ItemType Directory -Force -Path "rg-mac-arm-temp"
-          tar -xzf "rg-mac-arm.tar.gz" -C "rg-mac-arm-temp" --strip-components=1
-          Copy-Item -Path "rg-mac-arm-temp/rg" -Destination "vendor/ripgrep/arm64-darwin/rg"
+          tar -xzf "rg-mac-arm.tar.gz" -C "rg-mac-arm-temp"
+          $rgMacArm = Get-ChildItem -Path "rg-mac-arm-temp" -Filter "rg" -Recurse | Select-Object -First 1
+          if ($rgMacArm) {
+              Copy-Item -Path $rgMacArm.FullName -Destination "vendor/ripgrep/arm64-darwin/rg"
+          }
           Remove-Item -Path "rg-mac-arm.tar.gz" -Force
           Remove-Item -Path "rg-mac-arm-temp" -Recurse -Force
 
