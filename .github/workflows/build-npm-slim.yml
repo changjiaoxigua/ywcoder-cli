@@ -1,0 +1,223 @@
+name: Build NPM Slim Package
+
+on:
+  push:
+    branches:
+      - feature/brand-replacement
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-npm-slim:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node.js 18.20.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '18.20.0'
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+        with:
+          bun-version: 1.3.11
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: bun run build
+
+      - name: Download ripgrep for Windows only
+        run: |
+          # Create vendor/ripgrep directory structure for Windows only
+          New-Item -ItemType Directory -Force -Path "vendor/ripgrep/x64-win32"
+
+          # Download Windows x64 ripgrep
+          $rgVersion = "14.1.0"
+          $rgUrl = "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-x86_64-pc-windows-msvc.zip"
+          Invoke-WebRequest -Uri $rgUrl -OutFile "rg-windows.zip"
+          New-Item -ItemType Directory -Force -Path "rg-temp"
+          Expand-Archive -Path "rg-windows.zip" -DestinationPath "rg-temp"
+          # Find rg.exe in the extracted directory (might be in a subdirectory)
+          $rgExe = Get-ChildItem -Path "rg-temp" -Filter "rg.exe" -Recurse | Select-Object -First 1
+          if ($rgExe) {
+              Copy-Item -Path $rgExe.FullName -Destination "vendor/ripgrep/x64-win32/rg.exe"
+              Write-Host "Found rg.exe at: $($rgExe.FullName)"
+          } else {
+              Write-Error "rg.exe not found in extracted archive"
+              exit 1
+          }
+          Remove-Item -Path "rg-windows.zip" -Force
+          Remove-Item -Path "rg-temp" -Recurse -Force
+
+          Write-Host "Downloaded ripgrep for Windows x64"
+
+          # Show vendor directory structure
+          Write-Host "Vendor directory structure:"
+          Get-ChildItem -Recurse vendor/
+
+      - name: Create slim package with selective bundledDependencies
+        run: |
+          # Define essential native packages to bundle
+          # Based on analysis, these are the packages with native modules
+          #sharp: 图片处理（包含平台特定的二进制文件）
+          # @opentelemetry/exporter-trace-otlp-grpc: gRPC 导出器（大体积）
+          # @grpc/grpc-js: gRPC 客户端
+          # protobufjs: Protocol Buffers（被 gRPC 使用）
+          $essentialNativeDeps = @(
+            # Image processing - includes platform-specific binaries
+            "sharp",
+            # OpenTelemetry gRPC exporter (large, 37MB)
+            "@opentelemetry/exporter-trace-otlp-grpc",
+            "@opentelemetry/otlp-grpc-exporter-base",
+            # gRPC client
+            "@grpc/grpc-js",
+            # Protocol Buffers
+            "protobufjs",
+            # Optional: fsevents for macOS (if present)
+            "fsevents"
+          )
+
+          # Filter to only include packages that actually exist in node_modules
+          $bundled = @()
+          foreach ($dep in $essentialNativeDeps) {
+              if (Test-Path "node_modules/$dep") {
+                  $bundled += $dep
+                  Write-Host "Including: $dep"
+              } else {
+                  Write-Host "Skipping (not found): $dep"
+              }
+          }
+
+          # Include @img/sharp-* platform-specific packages
+          if (Test-Path "node_modules/@img") {
+              $imgPackages = Get-ChildItem -Path "node_modules/@img" -Directory -Filter "sharp-*" -ErrorAction SilentlyContinue
+              foreach ($imgPkg in $imgPackages) {
+                  $fullName = "@img/$($imgPkg.Name)"
+                  $bundled += $fullName
+                  Write-Host "Including platform package: $fullName"
+              }
+          }
+
+          # Include all @opentelemetry packages (they work together)
+          if (Test-Path "node_modules/@opentelemetry") {
+              $otelPackages = Get-ChildItem -Path "node_modules/@opentelemetry" -Directory -ErrorAction SilentlyContinue
+              foreach ($otelPkg in $otelPackages) {
+                  $fullName = "@opentelemetry/$($otelPkg.Name)"
+                  if ($fullName -notin $bundled) {
+                      $bundled += $fullName
+                      Write-Host "Including OpenTelemetry package: $fullName"
+                  }
+              }
+          }
+
+          # Include @grpc packages
+          if (Test-Path "node_modules/@grpc") {
+              $grpcPackages = Get-ChildItem -Path "node_modules/@grpc" -Directory -ErrorAction SilentlyContinue
+              foreach ($grpcPkg in $grpcPackages) {
+                  $fullName = "@grpc/$($grpcPkg.Name)"
+                  if ($fullName -notin $bundled) {
+                      $bundled += $fullName
+                      Write-Host "Including gRPC package: $fullName"
+                  }
+              }
+          }
+
+          Write-Host ""
+          Write-Host "Total bundled dependencies: $($bundled.Count)"
+
+          # Update package.json with selective bundledDependencies
+          $bundledJson = $bundled | ConvertTo-Json -Compress
+          node -e "
+          const fs = require('fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          pkg.bundledDependencies = $bundledJson;
+          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+          console.log('Added bundledDependencies:', pkg.bundledDependencies.length);
+          "
+
+          Write-Host ""
+          Write-Host "Bundled packages list:"
+          $bundled | ForEach-Object { Write-Host "  - $_" }
+
+      - name: Show package size comparison
+        run: |
+          Write-Host ""
+          Write-Host "=== Package Size Comparison ==="
+          Write-Host ""
+
+          # Calculate bundled dependencies size
+          $bundledSize = 0
+          $bundledCount = 0
+          $pkg = Get-Content "package.json" -Raw | ConvertFrom-Json
+          if ($pkg.bundledDependencies) {
+              foreach ($dep in $pkg.bundledDependencies) {
+                  $depPath = "node_modules/$dep"
+                  if (Test-Path $depPath) {
+                      $size = (Get-ChildItem -Path $depPath -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
+                      $bundledSize += $size
+                      $bundledCount++
+                      $sizeMB = [math]::Round($size / 1MB, 2)
+                      if ($sizeMB -gt 0.5) {
+                          Write-Host "  $dep`: ${sizeMB}MB"
+                      }
+                  }
+              }
+          }
+
+          $totalSizeMB = [math]::Round($bundledSize / 1MB, 2)
+          Write-Host ""
+          Write-Host "Bundled dependencies: $bundledCount packages, ${totalSizeMB}MB"
+
+          # Calculate total node_modules size for comparison
+          $totalNodeModules = (Get-ChildItem -Path "node_modules" -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          $totalNodeModulesMB = [math]::Round($totalNodeModules / 1MB, 2)
+          Write-Host "Total node_modules: ${totalNodeModulesMB}MB"
+
+          $savings = [math]::Round((1 - $bundledSize / $totalNodeModules) * 100, 1)
+          Write-Host "Size reduction: $savings%"
+
+      - name: Pack npm slim package
+        run: npm pack
+
+      - name: Show package info
+        run: |
+          Write-Host ""
+          Write-Host "=== Slim Package Created ==="
+          Get-ChildItem dcywzc-ywcoder-*.tgz | Select-Object Name, @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB,2)}}
+
+          # Also show full package size for comparison
+          Write-Host ""
+          Write-Host "Comparison with full offline package:"
+          Write-Host "  Full package: ~70-80MB (all node_modules + all ripgrep platforms)"
+          Write-Host "  Slim package: see above (native deps only + Windows ripgrep only)"
+
+      - name: Upload slim package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ywcoder-slim
+          path: dcywzc-ywcoder-*.tgz
+          retention-days: 30
+
+      - name: Show install instructions
+        run: |
+          Write-Host ""
+          Write-Host "========================================"
+          Write-Host "Slim offline package created!"
+          Write-Host "========================================"
+          Write-Host ""
+          Write-Host "Install with:"
+          Write-Host "  npm install -g dcywzc-ywcoder-1.0.0.tgz"
+          Write-Host ""
+          Write-Host "Note: This package requires internet connection"
+          Write-Host "      to download non-native JS dependencies."
+          Write-Host "      Native dependencies (sharp, opentelemetry)"
+          Write-Host "      are bundled for offline installation."
+          Write-Host ""
+
