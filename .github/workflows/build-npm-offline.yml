@@ -33,13 +33,10 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Download ripgrep for vendor directory
+      - name: Download ripgrep for Windows only
         run: |
-          # Create vendor/ripgrep directory structure
+          # Create vendor/ripgrep directory structure for Windows only
           New-Item -ItemType Directory -Force -Path "vendor/ripgrep/x64-win32"
-          New-Item -ItemType Directory -Force -Path "vendor/ripgrep/x64-linux"
-          New-Item -ItemType Directory -Force -Path "vendor/ripgrep/x64-darwin"
-          New-Item -ItemType Directory -Force -Path "vendor/ripgrep/arm64-darwin"
 
           # Download Windows x64 ripgrep
           $rgVersion = "14.1.0"
@@ -61,51 +58,17 @@ jobs:
 
           Write-Host "Downloaded ripgrep for Windows x64"
 
-          # Download Linux x64 ripgrep
-          $rgLinuxUrl = "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-x86_64-unknown-linux-musl.tar.gz"
-          Invoke-WebRequest -Uri $rgLinuxUrl -OutFile "rg-linux.tar.gz"
-          New-Item -ItemType Directory -Force -Path "rg-linux-temp"
-          tar -xzf "rg-linux.tar.gz" -C "rg-linux-temp"
-          $rgLinux = Get-ChildItem -Path "rg-linux-temp" -Filter "rg" -Recurse | Select-Object -First 1
-          if ($rgLinux) {
-              Copy-Item -Path $rgLinux.FullName -Destination "vendor/ripgrep/x64-linux/rg"
-          }
-          Remove-Item -Path "rg-linux.tar.gz" -Force
-          Remove-Item -Path "rg-linux-temp" -Recurse -Force
-
-          Write-Host "Downloaded ripgrep for Linux x64"
-
-          # Download macOS x64 ripgrep
-          $rgMacUrl = "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-x86_64-apple-darwin.tar.gz"
-          Invoke-WebRequest -Uri $rgMacUrl -OutFile "rg-mac.tar.gz"
-          New-Item -ItemType Directory -Force -Path "rg-mac-temp"
-          tar -xzf "rg-mac.tar.gz" -C "rg-mac-temp"
-          $rgMac = Get-ChildItem -Path "rg-mac-temp" -Filter "rg" -Recurse | Select-Object -First 1
-          if ($rgMac) {
-              Copy-Item -Path $rgMac.FullName -Destination "vendor/ripgrep/x64-darwin/rg"
-          }
-          Remove-Item -Path "rg-mac.tar.gz" -Force
-          Remove-Item -Path "rg-mac-temp" -Recurse -Force
-
-          Write-Host "Downloaded ripgrep for macOS x64"
-
-          # Download macOS arm64 ripgrep
-          $rgMacArmUrl = "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-aarch64-apple-darwin.tar.gz"
-          Invoke-WebRequest -Uri $rgMacArmUrl -OutFile "rg-mac-arm.tar.gz"
-          New-Item -ItemType Directory -Force -Path "rg-mac-arm-temp"
-          tar -xzf "rg-mac-arm.tar.gz" -C "rg-mac-arm-temp"
-          $rgMacArm = Get-ChildItem -Path "rg-mac-arm-temp" -Filter "rg" -Recurse | Select-Object -First 1
-          if ($rgMacArm) {
-              Copy-Item -Path $rgMacArm.FullName -Destination "vendor/ripgrep/arm64-darwin/rg"
-          }
-          Remove-Item -Path "rg-mac-arm.tar.gz" -Force
-          Remove-Item -Path "rg-mac-arm-temp" -Recurse -Force
-
-          Write-Host "Downloaded ripgrep for macOS arm64"
-
           # Show vendor directory structure
           Write-Host "Vendor directory structure:"
           Get-ChildItem -Recurse vendor/
+
+      - name: Copy vendor to dist for ripgrep path resolution
+        run: |
+          # ripgrep.ts expects vendor at dist/vendor/ripgrep
+          # Copy vendor directory to dist/ so the path resolution works
+          Copy-Item -Path "vendor" -Destination "dist/vendor" -Recurse -Force
+          Write-Host "Copied vendor to dist/ directory"
+          Get-ChildItem -Recurse dist/vendor/
 
       - name: Create offline package with node_modules
         run: |
