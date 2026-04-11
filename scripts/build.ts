@@ -151,55 +151,53 @@ export async function handleBgFlag() { throw new Error("Background sessions are 
 
         // NOTE: @opentelemetry/* kept as external deps (too many named exports to stub)
 
-        // ─── Cloud provider SDK stubs ──────────────────────────────────────────
+        // ─── 云服务商 SDK 桩模块 ───────────────────────────────────────────────
         //
-        // 2025-04-11: Stubbed for intranet/offline deployments.
+        // 修改日期：2025-04-11
         //
-        // Background: these SDKs are used to call Claude via AWS Bedrock,
-        // Google Vertex AI, or Azure. In our intranet environment all requests
-        // go through a self-hosted LLM gateway, so these code paths are never
-        // executed. Stubbing them removes ~35 MB from node_modules and keeps
-        // the offline tgz compact.
+        // 背景：这些 SDK 用于通过 AWS Bedrock、Google Vertex AI 或 Azure 调用
+        // Claude 模型。内网环境统一使用自建 LLM 网关，这些代码路径不会被执行。
+        // 将其替换为桩模块后，可从 node_modules 中移除约 35 MB，保持离线 tgz 体积精简。
         //
-        // All imports below are *dynamic* (`await import(...)`) so the stub is
-        // only reached if a user explicitly configures one of these providers.
-        // If that happens they will get a clear "provider not supported" error
-        // rather than a cryptic module-not-found crash.
+        // 所有导入均为动态 `await import(...)`，只有用户主动配置对应 provider
+        // 时才会触发。触发后会抛出明确的"不支持"错误，而不是难以定位的
+        // module-not-found 崩溃。
         //
-        // HOW TO RESTORE:
-        //   1. Delete the four onResolve/onLoad blocks below.
-        //   2. Keep the packages in the `external` array at the bottom of this
-        //      file (they are still listed there — just no longer stub-loaded).
-        //   3. Re-run CI — the full SDK will be bundled from node_modules.
+        // 如何恢复云服务商 SDK 支持：
+        //   1. 删除下方所有 onResolve/onLoad 块。
+        //   2. 取消注释 external 数组中的对应包（见文件底部）。
+        //   3. 在 scripts/prepare-offline-pack.mjs 的 RUNTIME_DEPENDENCIES
+        //      中重新添加这些包。
+        //   4. 重新跑 CI，完整 SDK 将从 node_modules 打包进 cli.mjs。
         //
-        // Files affected:
-        //   src/utils/model/bedrock.ts      — AWS Bedrock client
-        //   src/utils/aws.ts                — STS identity + credential cache
-        //   src/utils/proxy.ts              — AWS credential-provider-node
-        //   src/utils/geminiAuth.ts         — Google Vertex AI auth
-        //   src/utils/auth.ts               — Google auth fallback
+        // 涉及源文件：
+        //   src/utils/model/bedrock.ts   — AWS Bedrock 客户端
+        //   src/utils/aws.ts             — STS 身份验证 + 凭证缓存
+        //   src/utils/proxy.ts           — AWS credential-provider-node
+        //   src/utils/geminiAuth.ts      — Google Vertex AI 认证
+        //   src/utils/auth.ts            — Google 认证兜底逻辑
 
-        // @aws-sdk/client-bedrock
+        // AWS Bedrock 主客户端
         build.onResolve({ filter: /^@aws-sdk\/client-bedrock$/ }, args => ({
           path: args.path, namespace: 'cloud-sdk-stub',
         }))
-        // @aws-sdk/client-bedrock-runtime
+        // AWS Bedrock 运行时客户端
         build.onResolve({ filter: /^@aws-sdk\/client-bedrock-runtime$/ }, args => ({
           path: args.path, namespace: 'cloud-sdk-stub',
         }))
-        // @aws-sdk/client-sts
+        // AWS STS 身份验证
         build.onResolve({ filter: /^@aws-sdk\/client-sts$/ }, args => ({
           path: args.path, namespace: 'cloud-sdk-stub',
         }))
-        // @aws-sdk/credential-providers
+        // AWS 凭证提供者
         build.onResolve({ filter: /^@aws-sdk\/credential-providers$/ }, args => ({
           path: args.path, namespace: 'cloud-sdk-stub',
         }))
-        // @aws-sdk/credential-provider-node
+        // AWS Node.js 凭证提供者
         build.onResolve({ filter: /^@aws-sdk\/credential-provider-node$/ }, args => ({
           path: args.path, namespace: 'cloud-sdk-stub',
         }))
-        // google-auth-library
+        // Google 认证库（用于 Vertex AI）
         build.onResolve({ filter: /^google-auth-library$/ }, args => ({
           path: args.path, namespace: 'cloud-sdk-stub',
         }))
@@ -207,41 +205,41 @@ export async function handleBgFlag() { throw new Error("Background sessions are 
         build.onLoad({ filter: /.*/, namespace: 'cloud-sdk-stub' }, (args) => {
           const stubs: Record<string, string> = {
             '@aws-sdk/client-bedrock': `
-const err = () => { throw new Error('[YwCoder] AWS Bedrock provider is not supported in this intranet build. To enable it, remove the cloud-sdk stubs from scripts/build.ts and rebuild.'); };
+const err = () => { throw new Error('[YwCoder] 当前内网构建不支持 AWS Bedrock provider。如需启用，请删除 scripts/build.ts 中的云服务商 SDK 桩模块并重新构建。'); };
 export class BedrockClient { constructor() { err(); } send() { err(); } }
 export class ListInferenceProfilesCommand { constructor() { err(); } }
 export class GetInferenceProfileCommand { constructor() { err(); } }
 `,
             '@aws-sdk/client-bedrock-runtime': `
-const err = () => { throw new Error('[YwCoder] AWS Bedrock provider is not supported in this intranet build. To enable it, remove the cloud-sdk stubs from scripts/build.ts and rebuild.'); };
+const err = () => { throw new Error('[YwCoder] 当前内网构建不支持 AWS Bedrock provider。如需启用，请删除 scripts/build.ts 中的云服务商 SDK 桩模块并重新构建。'); };
 export class BedrockRuntimeClient { constructor() { err(); } send() { err(); } }
 export class CountTokensCommand { constructor() { err(); } }
 export class InvokeModelCommand { constructor() { err(); } }
 export class InvokeModelWithResponseStreamCommand { constructor() { err(); } }
 export const ResponseStream = {};
-// Exception classes used by @anthropic-ai/bedrock-sdk/AWS_restJson1.mjs
+// 以下 Exception 类由 @anthropic-ai/bedrock-sdk/AWS_restJson1.mjs 引用，必须导出
 export class InternalServerException extends Error { constructor(opts) { super(opts?.message); this.name = 'InternalServerException'; } }
 export class ModelStreamErrorException extends Error { constructor(opts) { super(opts?.message); this.name = 'ModelStreamErrorException'; } }
 export class ThrottlingException extends Error { constructor(opts) { super(opts?.message); this.name = 'ThrottlingException'; } }
 export class ValidationException extends Error { constructor(opts) { super(opts?.message); this.name = 'ValidationException'; } }
 `,
             '@aws-sdk/client-sts': `
-const err = () => { throw new Error('[YwCoder] AWS STS is not supported in this intranet build. To enable it, remove the cloud-sdk stubs from scripts/build.ts and rebuild.'); };
+const err = () => { throw new Error('[YwCoder] 当前内网构建不支持 AWS STS。如需启用，请删除 scripts/build.ts 中的云服务商 SDK 桩模块并重新构建。'); };
 export class STSClient { constructor() { err(); } send() { err(); } }
 export class GetCallerIdentityCommand { constructor() { err(); } }
 `,
             '@aws-sdk/credential-providers': `
-const err = () => { throw new Error('[YwCoder] AWS credential providers are not supported in this intranet build. To enable them, remove the cloud-sdk stubs from scripts/build.ts and rebuild.'); };
+const err = () => { throw new Error('[YwCoder] 当前内网构建不支持 AWS 凭证提供者。如需启用，请删除 scripts/build.ts 中的云服务商 SDK 桩模块并重新构建。'); };
 export const fromIni = () => err;
 export const fromEnv = () => err;
 export const fromProcess = () => err;
 `,
             '@aws-sdk/credential-provider-node': `
-const err = () => { throw new Error('[YwCoder] AWS credential-provider-node is not supported in this intranet build. To enable it, remove the cloud-sdk stubs from scripts/build.ts and rebuild.'); };
+const err = () => { throw new Error('[YwCoder] 当前内网构建不支持 AWS credential-provider-node。如需启用，请删除 scripts/build.ts 中的云服务商 SDK 桩模块并重新构建。'); };
 export const defaultProvider = () => err;
 `,
             'google-auth-library': `
-const err = () => { throw new Error('[YwCoder] Google Vertex AI auth is not supported in this intranet build. To enable it, remove the cloud-sdk stubs from scripts/build.ts and rebuild.'); };
+const err = () => { throw new Error('[YwCoder] 当前内网构建不支持 Google Vertex AI 认证。如需启用，请删除 scripts/build.ts 中的云服务商 SDK 桩模块并重新构建。'); };
 export class GoogleAuth { constructor() { err(); } getClient() { err(); } }
 export class JWT { constructor() { err(); } }
 export class OAuth2Client { constructor() { err(); } }
@@ -253,7 +251,7 @@ export class OAuth2Client { constructor() { err(); } }
           }
         })
 
-        // ─── End cloud provider SDK stubs ─────────────────────────────────────
+        // ─── 云服务商 SDK 桩模块结束 ──────────────────────────────────────────
 
         // Resolve native addon and missing snapshot imports to stubs
         for (const mod of [
@@ -478,13 +476,13 @@ ${exports}
     '@opentelemetry/semantic-conventions',
     // Native image processing
     'sharp',
-    // Cloud provider SDKs — stubbed for intranet builds (see build.ts cloud-sdk-stub section)
-    // To restore: remove the stub blocks above and uncomment these lines, then rebuild.
+    // 云服务商 SDK — 已通过桩模块替换（见上方"云服务商 SDK 桩模块"注释块）
+    // 如需恢复：删除上方桩模块代码，取消注释以下各行，然后重新构建。
     // '@aws-sdk/client-bedrock',
     // '@aws-sdk/client-bedrock-runtime',
     // '@aws-sdk/client-sts',
     // '@aws-sdk/credential-providers',
-    // '@azure/identity',        // not used in src/ — safe to leave commented out
+    // '@azure/identity',        // src/ 中未直接引用，保持注释即可
     // 'google-auth-library',
   ],
 })

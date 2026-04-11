@@ -5,6 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 交互规则
 
 - **始终使用中文**：与用户交流时，请全程使用中文（简体）。所有回复、解释和对话内容都应为中文。
+- **代码注释使用中文**：编写或修改代码时，所有注释（包括行内注释、块注释、JSDoc）必须使用中文（简体）。
+- **Git commit 使用中文**：所有提交说明（commit message）必须使用中文（简体），包括标题和正文。
 
 ## Build System
 

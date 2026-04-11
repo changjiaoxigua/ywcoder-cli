@@ -2,18 +2,18 @@
 /**
  * prepare-offline-pack.mjs
  *
- * Prepares the project for an offline npm pack by:
- *   1. Removing the build-time node_modules (huge, no longer needed)
- *   2. Installing only the runtime externals cli.mjs actually imports
- *   3. Rewriting package.json so `dependencies` lists just those externals
- *      and `bundledDependencies` covers every package in the minimal tree
+ * 为离线 npm pack 做准备，具体步骤：
+ *   1. 删除构建期 node_modules（体积庞大，构建完成后不再需要）
+ *   2. 只安装 cli.mjs 运行时真正需要的 external 包
+ *   3. 改写 package.json：让 dependencies 只列运行时包，
+ *      bundledDependencies 覆盖精简 node_modules 中的所有包
  *
- * Why: the full node_modules is ~276MB. After Bun bundles the code, only a
- * handful of packages are still `external` and must be present at runtime.
- * Shipping just those shrinks the offline tgz from 300MB to ~15MB while
- * keeping the package self-contained for air-gapped installs.
+ * 原因：完整 node_modules 约 276 MB。Bun 打包后只有少数包仍以
+ * external 方式存在，必须在运行时从 node_modules 加载。
+ * 只打包这些包可将离线 tgz 从 300 MB 压缩到约 12 MB，
+ * 同时保证内网离线环境可以完整安装使用。
  *
- * Runs cross-platform (mac/linux/windows) via plain Node + npm.
+ * 支持跨平台运行（macOS/Linux/Windows），使用原生 Node + npm。
  */
 
 import { execSync } from 'node:child_process'
@@ -28,22 +28,22 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 
-// Runtime externals that cli.mjs actually imports at runtime.
+// cli.mjs 在运行时真正需要的 external 包。
 //
-// After PR-4 (2025-04-11) the cloud provider SDKs (@aws-sdk/*, google-auth-library)
-// are stubbed at build time in scripts/build.ts, so they are no longer needed
-// here. Only the following packages must ship in node_modules:
+// PR-4（2025-04-11）之后，云服务商 SDK（@aws-sdk/*、google-auth-library）
+// 已在 scripts/build.ts 中以桩模块替换，不再需要出现在 node_modules 里。
+// 当前只需打包以下两类：
 //
-//   - sharp: native image-processing lib — JS part is bundled, but the
-//     platform-specific .node binary (@img/sharp-<platform>) cannot be bundled
-//     and must be installed via npm so Node can dlopen() it at runtime.
-//   - @opentelemetry/*: 7 packages with static `import` in src/; kept external
-//     because they have too many named exports to stub reliably.
+//   - sharp：原生图像处理库。JS 部分已 bundle 进 cli.mjs，但平台专属的
+//     .node 二进制（@img/sharp-<平台>）无法 bundle，必须通过 npm 安装，
+//     由 Node.js 在运行时通过 dlopen() 加载。
+//   - @opentelemetry/*：7 个包在 src/ 中有静态 import，保持 external 是
+//     因为它们的具名导出过多，不适合用桩模块替换。
 //
-// TO RESTORE cloud SDK support:
-//   1. Remove the cloud-sdk-stub blocks from scripts/build.ts.
-//   2. Add the packages back to RUNTIME_DEPENDENCIES below.
-//   3. Re-run CI.
+// 如需恢复云服务商 SDK 支持：
+//   1. 删除 scripts/build.ts 中的云服务商 SDK 桩模块代码块。
+//   2. 将对应包重新加入下方 RUNTIME_DEPENDENCIES。
+//   3. 重新跑 CI 即可。
 const RUNTIME_DEPENDENCIES = {
   sharp: '^0.34.5',
   '@opentelemetry/api': '1.9.1',
