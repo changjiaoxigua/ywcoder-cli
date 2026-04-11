@@ -1,4 +1,4 @@
-name: Build NPM Offline Package
+name: Build NPM Windows Offline Package
 
 on:
   push:
