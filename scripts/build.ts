@@ -49,8 +49,8 @@ const result = await Bun.build({
   target: 'node',
   format: 'esm',
   splitting: false,
-  sourcemap: 'external',
-  minify: false,
+  sourcemap: process.env.CI ? 'none' : 'external',
+  minify: !!process.env.CI,
   naming: 'cli.mjs',
   define: {
     // MACRO.* build-time constants
