@@ -1,417 +1,261 @@
-# NPM 离线包优化分析
+# NPM 离线包优化记录
 
-**日期**: 2026-04-11  
-**目标**: 将 YwCoder npm 包从 300MB 优化至 ~30MB（对标 Claude Code 官方包 47MB）
-
----
-
-## 📊 核心差异对比
-
-| 维度 | Claude Code (官方) | YwCoder (当前) | 差距 |
-|-----|------|------|-----|
-| **总包大小** | **47 MB** | **300 MB** | **6.4倍** ⚠️ |
-| **cli.js/cli.mjs 大小** | 13.5 MB | 20 MB | 1.5倍 |
-| **node_modules** | **无** | 276 MB | ∞ |
-| **dependencies** | `{}` (0个) | 80+ 个 | - |
-| **optionalDependencies** | 9个 (仅sharp平台二进制) | 无 | - |
-| **bundledDependencies** | 无 | 80+ 个 | ← **罪魁祸首** |
-| **vendor 目录位置** | `vendor/` (包根) | `dist/vendor/` | - |
+**创建日期**：2026-04-11  
+**文档版本**：v2.0（已完成实施，更新为实际结果）
 
 ---
 
-## 🔍 关键差异深度分析
+## 📊 优化前后对比
 
-### 1️⃣ 最大差异：依赖处理策略完全不同
+| 指标 | 优化前 | 优化后 | 降幅 |
+|-----|------|------|------|
+| **tgz 压缩大小** | 300 MB | **~10 MB** | **-97%** |
+| **解压大小** | ~276 MB | ~60 MB | -78% |
+| **node_modules** | 276 MB（80+ 个包） | ~40 MB（仅运行时必需） | -85% |
+| **cli.mjs 大小** | 20 MB（未压缩） | **9.5 MB**（CI minify） | -53% |
+| **bundled 包数** | 80+ | 14 | - |
+| **内网安装** | 需联网 | ✅ 完全离线 | - |
 
-#### Claude Code 的策略：零依赖 + 单文件打包
+---
 
-**package.json:**
-```json
-{
-  "dependencies": {},           // ✅ 完全为空！
-  "optionalDependencies": {     // ✅ 仅 sharp 的平台二进制
-    "@img/sharp-darwin-arm64": "^0.34.2",
-    "@img/sharp-darwin-x64": "^0.34.2",
-    "@img/sharp-linux-arm64": "^0.34.2",
+## 🧩 与 Claude Code 官方包的差异分析
+
+Claude Code 官方包（47 MB）的关键做法：
+
+```
+package.json:
+  "dependencies": {}          ← 完全为空
+  "optionalDependencies": {   ← 只有 sharp 平台二进制
     "@img/sharp-win32-x64": "^0.34.2"
-  },
-  "files": [
-    "cli.js",
-    "sdk-tools.d.ts",
-    "vendor/ripgrep/",
-    "vendor/audio-capture/",
-    "vendor/seccomp/"
-  ]
-}
+  }
+
+包内容：
+  cli.js        13.5 MB   ← 所有 JS 代码全部 bundle，minify
+  vendor/
+    ripgrep/    ~30 MB    ← 6 个平台的 ripgrep 二进制
 ```
 
-**核心原理**：
-- 所有 npm 依赖 **100% 打进单个 `cli.js`** （13.5 MB）
-- 运行时 **零** npm 依赖
-- `npm install -g @anthropic-ai/claude-code` 瞬间完成，无需下载 node_modules
-
-#### YwCoder 当前策略：全量捆绑 node_modules
-
-**问题代码** (`.github/workflows/build-npm-offline.yml`):
-```javascript
-// 步骤: "Create offline package with node_modules"
-node -e "
-const fs = require('fs');
-const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-pkg.bundledDependencies = Object.keys(pkg.dependencies || {});  // ❌ 把所有80+个包列进来
-fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-"
-```
-
-**后果**：
-- cli.mjs 部分 bundle 了代码（但保留 `@opentelemetry/*`、`sharp` 等为 external）
-- 剩余 deps 靠 `node_modules` 运行（276 MB）
-- **结果：所有代码被打了两遍！** ❌
+**核心原理**：Bun 将所有 npm 依赖打包进单文件，运行时不需要 node_modules。
+唯一例外是 sharp 的 native `.node` 二进制，因为它是平台专属 C++ 动态库，
+Node.js 必须通过 `dlopen()` 在文件系统中加载，无法内嵌进 JS 文件。
 
 ---
 
-### 2️⃣ 关键冗余：同时做了两件事
+## 🔧 实施的四个 PR
 
-**当前流程**：
-```
-依赖下载
-    ↓
-npm install → node_modules (276 MB)
-    ↓
-build.ts 打包：
-  ├─ 部分 deps 打进 cli.mjs
-  └─ 其他 deps 标为 external（靠 node_modules）
-    ↓
-workflow 注入 bundledDependencies
-    ↓
-npm pack → 整个 node_modules 塞进 tgz → 300 MB ❌
-```
+### PR-1：删除 bundledDependencies（2026-04-11）
 
-**Claude Code 做法**：
-```
-依赖下载
-    ↓
-npm install → node_modules (仅用于构建)
-    ↓
-build.ts 打包：
-  └─ 所有 deps 打进 cli.js
-    ↓
-npm pack → 只打包 files 字段 → 47 MB ✅
-```
+**问题根源**：workflow 中有一段代码将所有 80+ 个 dependencies 动态注入为
+`bundledDependencies`，导致 npm pack 时把整个 node_modules 塞进 tgz。
+
+**改动**：删除 `.github/workflows/build-npm-offline.yml` 中的注入步骤。
+
+**效果**：tgz 从 300 MB → 4 MB（但 sharp 因缺少 node_modules 而失效）
 
 ---
 
-### 3️⃣ build.ts 中的次要问题
+### PR-2：精简 node_modules，仅保留运行时必需包（2026-04-11）
 
-**当前配置**：
-```typescript
-const result = await Bun.build({
-  entrypoints: ['./src/entrypoints/cli.tsx'],
-  outdir: './dist',
-  target: 'node',
-  format: 'esm',
-  splitting: false,
-  sourcemap: 'external',  // ❌ 发布版本不需要
-  minify: false,          // ❌ 未压缩 → cli.mjs 比需要的大
-  naming: 'cli.mjs',
-  external: [
-    // ❌ 这些应该 bundle，不应该 external
-    '@opentelemetry/api',
-    '@opentelemetry/api-logs',
-    // ... 还有 16 个 @opentelemetry/* 包
-    'sharp',
-    'google-auth-library',
-  ],
-})
-```
+**问题**：PR-1 后 sharp 功能失效，因为 sharp 的 native binary 必须通过 node_modules 加载。
 
-**影响**：
-- `minify: false` 导致 cli.mjs 大小是 Claude 的 1.5 倍（20 MB vs 13.5 MB）
-- `sourcemap: 'external'` 生成额外的 `.map` 文件
-- `external` 清单中的包无法被 bundle，必须靠 node_modules
+**改动**：
+- 新增 `scripts/prepare-offline-pack.mjs` 脚本
+- workflow 在 build 完成后，替换 node_modules 为仅含运行时依赖的精简版
+- 通过 `bundledDependencies` 将精简 node_modules 打进 tgz
+
+**精简后 node_modules 包含**：
+- `sharp` + `@img/sharp-win32-x64`（Windows native binary）
+- `@aws-sdk/client-bedrock-runtime` 等（当时仍为 external）
+- 7 个 `@opentelemetry/*` 包
+
+**效果**：tgz 17.4 MB，Windows 内网离线安装验证通过 ✅
 
 ---
 
-### 4️⃣ Sharp 处理方式差异
+### PR-3：CI 构建开启 minify（2026-04-11）
 
-#### Claude Code 的方式：optionalDependencies
-
-**优势**：
-- npm 只下载当前平台的 native 二进制（如 `@img/sharp-win32-x64` ~20 MB）
-- 其他平台的二进制不下载
-- **内网离线环境**: 只需准备一个平台的包
-
-#### YwCoder 当前方式：整个 sharp 打包
-
-**问题**：
-- sharp package 本身 ~100 MB（含多平台二进制）
-- 全部打进 bundledDependencies
-- 效率低
-
----
-
-### 5️⃣ Vendor 目录位置
-
-| 项目 | 结构 | 问题 |
-|-----|------|-----|
-| Claude | `vendor/ripgrep/`（根目录） | 简洁 |
-| YwCoder | `dist/vendor/ripgrep/` | 多了一层目录，打包时需要调整相对路径 |
-
----
-
-## 🎯 优化方案（分4阶段）
-
-### **阶段一：消除 bundledDependencies（收益最大 ⭐⭐⭐⭐⭐）**
-
-**目标**: 300 MB → 30 MB
-
-**修改文件**：
-
-1. **`.github/workflows/build-npm-offline.yml`** - 删除整个步骤
-
-```diff
-- - name: Create offline package with node_modules
--   run: |
--     node -e "
--     const fs = require('fs');
--     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
--     pkg.bundledDependencies = Object.keys(pkg.dependencies || {});
--     fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
--     "
-
-- name: Pack npm package
-  run: npm pack
-```
-
-**原因**: `files` 字段已经定义了要打包的内容，不需要额外注入 bundledDependencies。
-
----
-
-2. **`package.json`** - 简化 files 字段
-
-```diff
-  "files": [
-    "bin/ywcoder",
-    "dist/cli.mjs",
--   "dist/vendor/",
-+   "vendor/",
-    "README.md"
-  ],
-+ "optionalDependencies": {
-+   "@img/sharp-win32-x64": "^0.34.2"
-+ }
-```
-
----
-
-### **阶段二：开启 minify 和移除 sourcemap（收益 ⭐⭐⭐）**
-
-**目标**: cli.mjs 从 20 MB → ~10 MB
-
-**修改文件**: `scripts/build.ts`
-
-```diff
-  const result = await Bun.build({
-    entrypoints: ['./src/entrypoints/cli.tsx'],
-    outdir: './dist',
-    target: 'node',
-    format: 'esm',
-    splitting: false,
--   sourcemap: 'external',
-+   sourcemap: 'none',
--   minify: false,
-+   minify: true,
-    naming: 'cli.mjs',
-```
-
-**或使用环境变量区分**：
-```typescript
-minify: process.env.NODE_ENV === 'production',
-sourcemap: process.env.NODE_ENV === 'production' ? 'none' : 'external',
-```
-
----
-
-### **阶段三：移除 external，全量 bundle（收益 ⭐⭐⭐⭐）**
-
-**目标**: 完全消除对 node_modules 的依赖
-
-**修改文件**: `scripts/build.ts`
-
-#### 3.1 从 external 列表中移除这些包：
+**改动**：`scripts/build.ts`
 
 ```typescript
-// ❌ 删除这些行（允许 bundle）
-'@opentelemetry/api',
-'@opentelemetry/api-logs',
-'@opentelemetry/core',
-'@opentelemetry/exporter-logs-otlp-http',
-'@opentelemetry/exporter-trace-otlp-grpc',
-'@opentelemetry/exporter-trace-otlp-http',
-'@opentelemetry/exporter-trace-otlp-proto',
-'@opentelemetry/exporter-logs-otlp-proto',
-'@opentelemetry/exporter-logs-otlp-grpc',
-'@opentelemetry/exporter-metrics-otlp-proto',
-'@opentelemetry/exporter-metrics-otlp-grpc',
-'@opentelemetry/exporter-metrics-otlp-http',
-'@opentelemetry/exporter-prometheus',
-'@opentelemetry/resources',
-'@opentelemetry/sdk-trace-base',
-'@opentelemetry/sdk-trace-node',
-'@opentelemetry/sdk-logs',
-'@opentelemetry/sdk-metrics',
-'@opentelemetry/semantic-conventions',
-
-'google-auth-library',
-'sharp',  // ⚠️ JS 部分 bundle，native binary 靠 @img/sharp-* 的 optionalDependencies
+// 区分本地开发和 CI 构建
+sourcemap: process.env.CI ? 'none' : 'external',  // CI 不生成 sourcemap
+minify:    !!process.env.CI,                        // CI 压缩，本地不压缩
 ```
 
-#### 3.2 保留这些 external（native addons、大型二进制）：
+**说明**：
+- GitHub Actions 默认设置 `CI=true`，自动开启 minify
+- 本地开发不受影响，仍保留 sourcemap 便于调试
+- 发布包中没有 `.map` 文件
+
+**效果**：cli.mjs 从 20 MB → 9.5 MB（-53%）
+
+---
+
+### PR-4：Stub 云服务商 SDK（2026-04-11）
+
+**背景**：内网环境使用自建 LLM 网关，不会使用 AWS Bedrock、Google Vertex AI
+或 Azure。这些 SDK 原本在 node_modules 里占用约 35 MB，属于完全无用的空间。
+
+**改动**：在 `scripts/build.ts` 中通过 Bun 的 `onResolve/onLoad` 插件将这些包
+替换为桩模块（stub），构建时内联进 cli.mjs，运行时不再需要 node_modules 中的真实包。
+
+**效果**：tgz 从 ~17 MB → **~10 MB**，node_modules 精简 35 MB
+
+---
+
+## 🚫 当前已 Stub 的依赖详情
+
+> **什么是 Stub**：构建时将真实包替换为几行 noop/报错代码，内联进 cli.mjs。
+> 用户如果触发相关功能会看到明确的错误提示，而不是崩溃。
+
+| 包名 | 原本用途 | 触发条件 | Stub 原因 |
+|-----|---------|---------|---------|
+| `@aws-sdk/client-bedrock` | 通过 AWS Bedrock 服务列举/查询 Claude 推理配置 | 用户配置 Bedrock provider，使用 `anthropic.*` 或 ARN 格式模型名 | 内网不使用 AWS 云服务 |
+| `@aws-sdk/client-bedrock-runtime` | 通过 AWS Bedrock 实际发送 Claude API 请求 | 同上，发起 API 调用时 | 内网不使用 AWS 云服务 |
+| `@aws-sdk/client-sts` | AWS STS 身份验证（`GetCallerIdentity`） | 配置 Bedrock provider 时校验 AWS 凭证 | 内网不使用 AWS 云服务 |
+| `@aws-sdk/credential-providers` | 从 `~/.aws/credentials` 读取 AWS 凭证 | Bedrock provider 初始化时 | 内网不使用 AWS 云服务 |
+| `@aws-sdk/credential-provider-node` | Node.js 环境下自动发现 AWS 凭证链 | proxy.ts 中探测 AWS 凭证 | 内网不使用 AWS 云服务 |
+| `google-auth-library` | Google Cloud / Vertex AI 认证（`GoogleAuth`） | 用户配置 Vertex AI provider | 内网不使用 Google 云服务 |
+| `@azure/identity` | Azure AD 认证 | Azure OpenAI provider | src/ 中实际未引用，历史遗留 |
+
+### 涉及源文件
+
+| 源文件 | 引用的包 | 功能描述 |
+|-------|---------|---------|
+| `src/utils/model/bedrock.ts` | `@aws-sdk/client-bedrock`、`@aws-sdk/client-bedrock-runtime` | Bedrock 客户端创建、推理配置查询 |
+| `src/utils/aws.ts` | `@aws-sdk/client-sts`、`@aws-sdk/credential-providers` | AWS STS 身份验证、凭证缓存刷新 |
+| `src/utils/proxy.ts` | `@aws-sdk/credential-provider-node` | 代理环境下的 AWS 凭证探测 |
+| `src/utils/geminiAuth.ts` | `google-auth-library` | Google Vertex AI 认证 |
+| `src/utils/auth.ts` | `google-auth-library` | Google 认证兜底逻辑 |
+
+### Stub 触发后的错误信息
+
+用户如果主动配置了这些 provider，会看到如下错误（而不是崩溃）：
+
+```
+[YwCoder] 当前内网构建不支持 AWS Bedrock provider。
+如需启用，请删除 scripts/build.ts 中的云服务商 SDK 桩模块并重新构建。
+```
+
+---
+
+## 🔄 如何恢复云服务商 SDK 支持
+
+如果将来内网需要使用 AWS Bedrock、Google Vertex AI 等，**只需修改以下 3 处并重新 CI 打包**，无需改动任何业务代码：
+
+### 第一步：删除 build.ts 中的桩模块代码块
+
+打开 [scripts/build.ts](../scripts/build.ts)，找到以下注释块，删除其中所有 `onResolve` 和 `onLoad` 代码：
+
+```typescript
+// ─── 云服务商 SDK 桩模块 ───────────────────────────────────────────────
+// ...（删除这里到"云服务商 SDK 桩模块结束"之间的所有代码）
+// ─── 云服务商 SDK 桩模块结束 ──────────────────────────────────────────
+```
+
+### 第二步：取消注释 external 数组
+
+在同一文件底部的 `external` 数组中，取消注释对应的包：
 
 ```typescript
 external: [
-  // Cloud provider SDKs（如有用）- 这些可能包含 native binary 或 cred files
+  // 取消以下注释：
   '@aws-sdk/client-bedrock',
   '@aws-sdk/client-bedrock-runtime',
   '@aws-sdk/client-sts',
   '@aws-sdk/credential-providers',
-  '@azure/identity',
+  // '@azure/identity',        // src/ 中未直接引用，按需添加
+  'google-auth-library',
 ]
 ```
 
-**关键点**：
-- 当前注释说 "OpenTelemetry — too many named exports to stub" 是一个误解
-- **Stub 的意思是"用假代码替换"**（用 noop、Proxy 等）
-- **Bundle 的意思是"把真实代码打进来"**
-- OpenTelemetry 完全可以直接 bundle，不需要 stub
+### 第三步：将包加回 RUNTIME_DEPENDENCIES
 
----
+打开 [scripts/prepare-offline-pack.mjs](../scripts/prepare-offline-pack.mjs)，
+在 `RUNTIME_DEPENDENCIES` 中添加对应包：
 
-### **阶段四：Sharp 改用 optionalDependencies（收益 ⭐⭐）**
-
-**目标**: 进一步清理，对齐 Claude Code
-
-**修改文件**: `package.json`
-
-```diff
-  "dependencies": {
-    // ... 其他 deps
--   "sharp": "^0.34.5",  // ❌ 移除（bundle 进 cli.mjs）
-    // ...
-  },
-  "optionalDependencies": {
-+   "@img/sharp-win32-x64": "^0.34.2"  // ✅ 只要 Windows x64
-  }
+```javascript
+const RUNTIME_DEPENDENCIES = {
+  sharp: '^0.34.5',
+  // 添加需要的包：
+  '@aws-sdk/client-bedrock-runtime': '*',
+  'google-auth-library': '9.15.1',
+  // ...
+  '@opentelemetry/api': '1.9.1',
+  // ...其余 opentelemetry 包
+}
 ```
 
-**说明**：
-- sharp 的 JS 代码被 bundle 进 cli.mjs
-- sharp 的 native `.node` 文件会去 `node_modules/@img/sharp-win32-x64` 查找
-- 如果未来要多平台支持，再加其他 `@img/sharp-*` 包
+### 第四步：重新触发 CI
 
----
-
-### **阶段五（可选）：Vendor 目录扁平化**
-
-**目标**: 清理性优化，无功能改变
-
-**当前结构**：
-```
-dist/vendor/ripgrep/x64-win32/rg.exe
+```bash
+git add scripts/build.ts scripts/prepare-offline-pack.mjs
+git commit -m "恢复：启用 AWS Bedrock / Google Vertex AI provider 支持"
+git push
 ```
 
-**目标结构**：
+CI 完成后下载新的 tgz 即可，内网用户重新安装即可使用。
+
+---
+
+## 📦 当前包结构（优化后）
+
 ```
-vendor/ripgrep/x64-win32/rg.exe
+dcywzc-ywcoder-1.0.0.tgz（~10 MB）
+└── package/
+    ├── bin/
+    │   └── ywcoder              入口脚本
+    ├── dist/
+    │   ├── cli.mjs    9.5 MB   所有业务代码（minify）
+    │   └── vendor/
+    │       └── ripgrep/
+    │           └── x64-win32/
+    │               └── rg.exe  Windows x64 ripgrep 二进制
+    ├── node_modules/            仅运行时必需（~40 MB 解压后）
+    │   ├── @img/
+    │   │   └── sharp-win32-x64/ Windows sharp native binary
+    │   ├── @opentelemetry/      7 个 OTel 包（静态 import，无法 stub）
+    │   ├── sharp/               sharp JS 部分
+    │   └── （其他 sharp 传递依赖）
+    ├── package.json
+    └── README.md
 ```
 
-**修改**：
-1. `.github/workflows/build-npm-offline.yml` - 创建 vendor 而非 dist/vendor
-2. `scripts/build.ts` - 修改 ripgrep 路径查找逻辑
-3. `package.json` 的 `files` 字段已在阶段一改为 `"vendor/"`
+---
+
+## 📐 当前 external 包说明
+
+以下包在 `build.ts` 中保留为 `external`（不打进 cli.mjs），运行时从 node_modules 加载：
+
+| 包名 | 保留原因 | node_modules 大小 |
+|-----|---------|----------------|
+| `sharp` | JS 部分可 bundle，但 native `.node` binary 必须在 node_modules | ~1 MB |
+| `@img/sharp-win32-x64` | Windows 平台 native binary，无法 bundle | ~19 MB |
+| `@opentelemetry/api` | src/ 中有静态 import，导出类型过多，stub 风险高 | ~0.5 MB |
+| `@opentelemetry/api-logs` | 同上 | ~0.3 MB |
+| `@opentelemetry/resources` | 同上 | ~1 MB |
+| `@opentelemetry/sdk-logs` | 同上 | ~2 MB |
+| `@opentelemetry/sdk-metrics` | 同上 | ~3 MB |
+| `@opentelemetry/sdk-trace-base` | 同上 | ~2 MB |
+| `@opentelemetry/semantic-conventions` | 同上 | ~1 MB |
 
 ---
 
-## 📈 预期效果
+## 🔍 本地开发 vs CI 构建差异
 
-| 阶段 | 修改项 | 大小变化 | 累计大小 |
-|-----|------|-------|-------|
-| 当前 | - | - | **300 MB** |
-| 一 | 删除 bundledDependencies | -270 MB | **30 MB** |
-| 二 | 开启 minify | -10 MB | **20 MB** |
-| 三 | 全量 bundle OpenTel 等 | -10 MB | **10 MB** |
-| 四 | Sharp optionalDeps | -5 MB | **5 MB** |
-
-**最终目标**: **~10-15 MB** （接近 Claude Code 的 47 MB 中的核心部分）
-
----
-
-## ⚠️ 风险评估
-
-| 风险项 | 风险等级 | 缓解方案 |
-|-----|-------|-------|
-| OpenTelemetry bundle 失败 | **中** | 如果 bundle 失败，保留为 external；或改成 stub（参考 build.ts 现有的 stub 模式） |
-| Sharp native binary 路径 | **中** | 需要验证 cli.mjs 中 `require('@img/sharp-*')` 路径在 bundle 后仍能找到二进制 |
-| 内网离线环境 | **中** | 确保 `@img/sharp-win32-x64` 或完整 sharp 包在内网仓库中可用 |
-| 其他 external deps 副作用 | **低** | google-auth-library 等大包可能有 native addon，需 smoke 测试 |
-
----
-
-## ✅ 验证清单
-
-在 push 到 GitHub Actions 前，本地验证：
-
-- [ ] `bun run build` 成功，`dist/cli.mjs` 大小 < 15 MB
-- [ ] `npm pack` 生成的 tgz 文件大小 < 50 MB
-- [ ] 解压 tgz，验证 `node_modules` 目录不存在
-- [ ] `node dist/cli.mjs --version` 正常输出版本号
-- [ ] 本地 `npm install -g ./dcywzc-ywcoder-*.tgz` 能安装成功
-- [ ] `ywcoder --version` 能运行
-- [ ] ripgrep 能正常查询代码
-- [ ] OpenTelemetry 相关日志模块能初始化
-- [ ] Sharp 相关图像处理能工作
-
----
-
-## 🔄 执行顺序建议
-
-### **快速路径（推荐）**：
-1. **先做阶段一**（删除 bundledDependencies）→ 立即收获 270 MB
-2. **本地验证** → npm pack + 测试
-3. **再做阶段二、三** → 在 build.ts 优化
-
-### **保守路径**：
-1. 每阶段一个 PR
-2. 每阶段本地完整测试
-3. 逐步上线
+| 配置项 | 本地开发（`bun run build`） | CI 构建（`CI=true bun run build`） |
+|-------|--------------------------|----------------------------------|
+| `minify` | `false`（保留可读性） | `true`（cli.mjs 减半） |
+| `sourcemap` | `external`（生成 `.map` 文件） | `none`（不生成） |
+| 调试体验 | ✅ 完整 sourcemap，报错可定位到源码行 | 无 sourcemap，需本地复现 |
 
 ---
 
 ## 📚 参考
 
 - **Claude Code 官方包**：`@anthropic-ai/claude-code` v2.1.101
-- **YwCoder 当前包**：`@dcywzc/ywcoder` v1.0.0
-- **分析时间**：2026-04-11
-
----
-
-## 💡 后续优化方向（可选）
-
-1. **预构建不同平台的 cli.js**
-   - Windows: 去掉 macOS/Linux ripgrep
-   - macOS: 去掉 Windows/Linux ripgrep
-   - 每个平台包大小 < 10 MB
-
-2. **压缩 vendor 二进制**
-   - ripgrep 本身 ~10 MB，可压缩为 .tar.xz 然后解压
-
-3. **分离 heavy deps**
-   - 如果 OpenTelemetry 确实有问题，可考虑延迟加载或 lazy require
-
-4. **监测包大小**
-   - CI 中添加包大小检查，防止回退
-
----
-
-**文档版本**: v1.0  
-**最后更新**: 2026-04-11
+- **对比分析时间**：2026-04-11
+- **关键文件**：
+  - [`scripts/build.ts`](../scripts/build.ts) — 构建配置 + 桩模块定义
+  - [`scripts/prepare-offline-pack.mjs`](../scripts/prepare-offline-pack.mjs) — 离线包打包脚本
+  - [`.github/workflows/build-npm-offline.yml`](../.github/workflows/build-npm-offline.yml) — CI 流水线
