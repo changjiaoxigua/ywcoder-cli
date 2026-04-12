@@ -13,3 +13,7 @@ coverage/
 note/
 .omc/
 .DS_Store
+
+# 本地备份文档（从 backup-before-sync 分支提取，不推送）
+openclaude-course/
+docs/backup/
