@@ -33,6 +33,46 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Download ripgrep for Windows only
+        run: |
+          # Create vendor/ripgrep directory structure for Windows only
+          New-Item -ItemType Directory -Force -Path "vendor/ripgrep/x64-win32"
+
+          # Download Windows x64 ripgrep
+          $rgVersion = "14.1.0"
+          $rgUrl = "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-x86_64-pc-windows-msvc.zip"
+          Invoke-WebRequest -Uri $rgUrl -OutFile "rg-windows.zip"
+          New-Item -ItemType Directory -Force -Path "rg-temp"
+          Expand-Archive -Path "rg-windows.zip" -DestinationPath "rg-temp"
+          # Find rg.exe in the extracted directory (might be in a subdirectory)
+          $rgExe = Get-ChildItem -Path "rg-temp" -Filter "rg.exe" -Recurse | Select-Object -First 1
+          if ($rgExe) {
+              Copy-Item -Path $rgExe.FullName -Destination "vendor/ripgrep/x64-win32/rg.exe"
+              Write-Host "Found rg.exe at: $($rgExe.FullName)"
+          } else {
+              Write-Error "rg.exe not found in extracted archive"
+              exit 1
+          }
+          Remove-Item -Path "rg-windows.zip" -Force
+          Remove-Item -Path "rg-temp" -Recurse -Force
+
+          Write-Host "Downloaded ripgrep for Windows x64"
+
+          # Show vendor directory structure
+          Write-Host "Vendor directory structure:"
+          Get-ChildItem -Recurse vendor/
+
+      - name: Copy vendor to dist for ripgrep path resolution
+        run: |
+          # ripgrep.ts expects vendor at dist/vendor/ripgrep
+          # Copy vendor directory to dist/ so the path resolution works
+          Copy-Item -Path "vendor" -Destination "dist/vendor" -Recurse -Force
+          Write-Host "Copied vendor to dist/ directory"
+          Get-ChildItem -Recurse dist/vendor/
+
+      - name: Prepare minimal node_modules for offline packing
+        run: node scripts/prepare-offline-pack.mjs
+
       - name: Create offline package
         run: |
           # Create package directory
