@@ -37,17 +37,6 @@ if (typeof globalThis.File === 'undefined') {
   }
 }
 
-// OpenClaude: polyfill globalThis.crypto for Node < 19.
-// @anthropic-ai/sdk uses globalThis.crypto when making API calls.
-// Also set in bin/ywcoder for the installed-package path.
-// eslint-disable-next-line custom-rules/no-top-level-side-effects
-if (typeof globalThis.crypto === 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { webcrypto } = require('node:crypto')
-  // @ts-expect-error -- polyfilling missing global
-  globalThis.crypto = webcrypto
-}
-
 // OpenClaude: disable experimental API betas by default.
 // Tool search (defer_loading), global cache scope, and context management
 // require internal API support not available to external accounts → 500.

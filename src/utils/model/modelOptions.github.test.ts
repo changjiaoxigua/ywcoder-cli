@@ -1,7 +1,17 @@
-import { afterEach, expect, test } from 'bun:test'
+import { afterEach, beforeEach, expect, mock, test } from 'bun:test'
 
-import { getModelOptions } from './modelOptions.js'
+import { resetModelStringsForTestingOnly } from '../../bootstrap/state.js'
+import { saveGlobalConfig } from '../config.js'
 import { getYwCoderEnv } from '../../utils/envUtils.js'
+
+async function importFreshModelOptionsModule() {
+  mock.restore()
+  mock.module('./providers.js', () => ({
+    getAPIProvider: () => 'github',
+  }))
+  const nonce = `${Date.now()}-${Math.random()}`
+  return import(`./modelOptions.js?ts=${nonce}`)
+}
 
 const originalEnv = {
   CLAUDE_CODE_USE_GITHUB: getYwCoderEnv('USE_GITHUB'),
@@ -15,6 +25,20 @@ const originalEnv = {
   ANTHROPIC_CUSTOM_MODEL_OPTION: process.env.ANTHROPIC_CUSTOM_MODEL_OPTION,
 }
 
+beforeEach(() => {
+  mock.restore()
+  delete process.env.CLAUDE_CODE_USE_GITHUB
+  delete process.env.CLAUDE_CODE_USE_OPENAI
+  delete process.env.CLAUDE_CODE_USE_GEMINI
+  delete process.env.CLAUDE_CODE_USE_BEDROCK
+  delete process.env.CLAUDE_CODE_USE_VERTEX
+  delete process.env.CLAUDE_CODE_USE_FOUNDRY
+  delete process.env.OPENAI_MODEL
+  delete process.env.OPENAI_BASE_URL
+  delete process.env.ANTHROPIC_CUSTOM_MODEL_OPTION
+  resetModelStringsForTestingOnly()
+})
+
 afterEach(() => {
   process.env.YWCODER_USE_GITHUB = process.env.CLAUDE_CODE_USE_GITHUB = originalEnv.CLAUDE_CODE_USE_GITHUB
   process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = originalEnv.CLAUDE_CODE_USE_OPENAI
@@ -26,9 +50,19 @@ afterEach(() => {
   process.env.OPENAI_BASE_URL = originalEnv.OPENAI_BASE_URL
   process.env.ANTHROPIC_CUSTOM_MODEL_OPTION =
     originalEnv.ANTHROPIC_CUSTOM_MODEL_OPTION
+  saveGlobalConfig(current => ({
+    ...current,
+    additionalModelOptionsCache: [],
+    additionalModelOptionsCacheScope: undefined,
+    openaiAdditionalModelOptionsCache: [],
+    openaiAdditionalModelOptionsCacheByProfile: {},
+    providerProfiles: [],
+    activeProviderProfileId: undefined,
+  }))
+  resetModelStringsForTestingOnly()
 })
 
-test('GitHub provider exposes only default + GitHub model in /model options', () => {
+test('GitHub provider exposes only default + GitHub model in /model options', async () => {
   process.env.YWCODER_USE_GITHUB = process.env.CLAUDE_CODE_USE_GITHUB = '1'
   delete process.env.YWCODER_USE_OPENAI
   delete process.env.CLAUDE_CODE_USE_OPENAI
@@ -44,8 +78,11 @@ test('GitHub provider exposes only default + GitHub model in /model options', ()
   process.env.OPENAI_MODEL = 'github:copilot'
   delete process.env.ANTHROPIC_CUSTOM_MODEL_OPTION
 
+  const { getModelOptions } = await importFreshModelOptionsModule()
   const options = getModelOptions(false)
-  const nonDefault = options.filter(option => option.value !== null)
+  const nonDefault = options.filter(
+    (option: { value: unknown }) => option.value !== null,
+  )
 
   expect(nonDefault.length).toBe(1)
   expect(nonDefault[0]?.value).toBe('github:copilot')

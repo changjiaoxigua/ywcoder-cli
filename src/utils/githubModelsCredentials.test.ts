@@ -1,13 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
-import {
-  clearGithubModelsToken,
-  readGithubModelsToken,
-  saveGithubModelsToken,
-} from './githubModelsCredentials.js'
-
 describe('readGithubModelsToken', () => {
-  test('returns undefined in bare mode', () => {
+  test('returns undefined in bare mode', async () => {
+    const { readGithubModelsToken } = await import(
+      './githubModelsCredentials.js?read-bare-mode'
+    )
+
     const prev = process.env.YWCODER_SIMPLE ?? process.env.CLAUDE_CODE_SIMPLE
     process.env.YWCODER_SIMPLE = process.env.CLAUDE_CODE_SIMPLE = '1'
     expect(readGithubModelsToken()).toBeUndefined()
@@ -21,7 +19,11 @@ describe('readGithubModelsToken', () => {
 })
 
 describe('saveGithubModelsToken / clearGithubModelsToken', () => {
-  test('save returns failure in bare mode', () => {
+  test('save returns failure in bare mode', async () => {
+    const { saveGithubModelsToken } = await import(
+      './githubModelsCredentials.js?save-bare-mode'
+    )
+
     const prev = process.env.YWCODER_SIMPLE ?? process.env.CLAUDE_CODE_SIMPLE
     process.env.YWCODER_SIMPLE = process.env.CLAUDE_CODE_SIMPLE = '1'
     const r = saveGithubModelsToken('abc')
@@ -35,7 +37,11 @@ describe('saveGithubModelsToken / clearGithubModelsToken', () => {
     }
   })
 
-  test('clear succeeds in bare mode', () => {
+  test('clear succeeds in bare mode', async () => {
+    const { clearGithubModelsToken } = await import(
+      './githubModelsCredentials.js?clear-bare-mode'
+    )
+
     const prev = process.env.YWCODER_SIMPLE ?? process.env.CLAUDE_CODE_SIMPLE
     process.env.YWCODER_SIMPLE = process.env.CLAUDE_CODE_SIMPLE = '1'
     expect(clearGithubModelsToken().success).toBe(true)

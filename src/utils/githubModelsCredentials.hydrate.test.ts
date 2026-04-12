@@ -43,7 +43,7 @@ describe('hydrateGithubModelsTokenFromSecureStorage', () => {
     }))
 
     const { hydrateGithubModelsTokenFromSecureStorage } = await import(
-      './githubModelsCredentials.js'
+      './githubModelsCredentials.js?hydrate=sets-token'
     )
     hydrateGithubModelsTokenFromSecureStorage()
     expect(process.env.GITHUB_TOKEN).toBe('stored-secret')
@@ -65,7 +65,7 @@ describe('hydrateGithubModelsTokenFromSecureStorage', () => {
     }))
 
     const { hydrateGithubModelsTokenFromSecureStorage } = await import(
-      './githubModelsCredentials.js'
+      './githubModelsCredentials.js?hydrate=preserve-existing'
     )
     hydrateGithubModelsTokenFromSecureStorage()
     expect(process.env.GITHUB_TOKEN).toBe('already')
