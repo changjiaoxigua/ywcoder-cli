@@ -6,9 +6,6 @@ import { getYwCoderEnv } from '../../utils/envUtils.js'
 
 async function importFreshModelOptionsModule() {
   mock.restore()
-  mock.module('./providers.js', () => ({
-    getAPIProvider: () => 'github',
-  }))
   const nonce = `${Date.now()}-${Math.random()}`
   return import(`./modelOptions.js?ts=${nonce}`)
 }
@@ -60,6 +57,7 @@ afterEach(() => {
     activeProviderProfileId: undefined,
   }))
   resetModelStringsForTestingOnly()
+  mock.restore()
 })
 
 test('GitHub provider exposes only default + GitHub model in /model options', async () => {

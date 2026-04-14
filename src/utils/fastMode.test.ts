@@ -42,6 +42,7 @@ function installCommonMocks(options?: {
     getIsNonInteractiveSession: () => false,
     getKairosActive: () => false,
     preferThirdPartyAuthentication: () => false,
+    addSlowOperation: () => {},
   }))
 
   mock.module('../services/analytics/index.js', () => ({
@@ -73,8 +74,11 @@ function installCommonMocks(options?: {
   }))
 
   mock.module('./envUtils.js', () => ({
-    isEnvTruthy: (value: string | undefined) =>
-      !!value && value !== '0' && value.toLowerCase() !== 'false',
+    isEnvTruthy: (value: string | boolean | undefined): boolean => {
+      if (!value) return false
+      if (typeof value === 'boolean') return value
+      return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase().trim())
+    },
     getYwCoderEnv: (suffix: string) =>
       process.env[`YWCODER_${suffix}`] ?? process.env[`CLAUDE_CODE_${suffix}`],
   }))

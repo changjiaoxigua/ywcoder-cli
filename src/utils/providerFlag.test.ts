@@ -10,6 +10,11 @@ import { getYwCoderEnv } from '../utils/envUtils.js'
 const originalEnv = { ...process.env }
 
 const RESET_KEYS = [
+  'YWCODER_USE_OPENAI',
+  'YWCODER_USE_GEMINI',
+  'YWCODER_USE_GITHUB',
+  'YWCODER_USE_BEDROCK',
+  'YWCODER_USE_VERTEX',
   'CLAUDE_CODE_USE_OPENAI',
   'CLAUDE_CODE_USE_GEMINI',
   'CLAUDE_CODE_USE_GITHUB',

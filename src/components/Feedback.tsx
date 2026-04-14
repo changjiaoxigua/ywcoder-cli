@@ -33,7 +33,9 @@ import TextInput from './TextInput.js';
 
 // This value was determined experimentally by testing the URL length limit
 const GITHUB_URL_LIMIT = 7250;
-const GITHUB_ISSUES_REPO_URL = 'https://github.com/Gitlawb/openclaude/issues';
+// TODO(内网部署): 需要改为内网Git仓库地址，当前为公网GitHub临时配置
+// 内网部署前必须修改此项，否则用户提交反馈会跳转到无法访问的公网地址
+const GITHUB_ISSUES_REPO_URL = 'https://github.com/dcywzc/ywcoder/issues';
 type Props = {
   abortSignal: AbortSignal;
   messages: Message[];
