@@ -96,5 +96,5 @@ jobs:
           Write-Host "========================================"
           Write-Host ""
           Write-Host "Install with:"
-          Write-Host "  npm install -g dcywzc-ywcoder-1.0.0.tgz"
+          Write-Host "  npm install -g dcywzc-ywcoder-1.0.1.tgz"
           Write-Host ""

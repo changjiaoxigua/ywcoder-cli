@@ -1,0 +1,103 @@
+name: Build NPM Linux Offline Package
+
+on:
+  push:
+    branches:
+      - feature/brand-replacement
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-npm-offline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node.js 18.20.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '18.20.0'
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+        with:
+          bun-version: 1.3.11
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: bun run build
+
+      - name: Download ripgrep for Linux only
+        run: |
+          # 创建 Linux x64 目录结构
+          mkdir -p vendor/ripgrep/x64-linux
+
+          # 下载 Linux x64 ripgrep
+          RG_VERSION="14.1.0"
+          RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          echo "正在下载 ripgrep ${RG_VERSION} for Linux x64..."
+          curl -fsSL -o rg-linux.tar.gz "${RG_URL}"
+
+          # 解压并提取 rg 二进制文件
+          mkdir -p rg-temp
+          tar -xzf rg-linux.tar.gz -C rg-temp
+          RG_BIN=$(find rg-temp -name "rg" -type f | head -n 1)
+          if [ -n "${RG_BIN}" ]; then
+            cp "${RG_BIN}" vendor/ripgrep/x64-linux/rg
+            chmod +x vendor/ripgrep/x64-linux/rg
+            echo "已找到并复制 rg: ${RG_BIN}"
+          else
+            echo "错误：未在解压目录中找到 rg 二进制文件"
+            exit 1
+          fi
+          rm -f rg-linux.tar.gz
+          rm -rf rg-temp
+
+          echo "已下载 ripgrep for Linux x64"
+
+          # 显示 vendor 目录结构
+          echo "Vendor 目录结构："
+          find vendor/ -type f
+
+      - name: Copy vendor to dist for ripgrep path resolution
+        run: |
+          # ripgrep.ts 期望 vendor 位于 dist/vendor/ripgrep
+          # 将 vendor 目录复制到 dist/ 使路径解析正常工作
+          cp -r vendor dist/vendor
+          echo "已将 vendor 复制到 dist/ 目录"
+          find dist/vendor/ -type f
+
+      - name: Prepare minimal node_modules for offline packing
+        run: node scripts/prepare-offline-pack.mjs
+
+      - name: Pack npm package
+        run: npm pack --ignore-scripts
+
+      - name: Show package info
+        run: |
+          echo "已创建的安装包："
+          ls -lh dcywzc-ywcoder-*.tgz | awk '{printf "%s  %.2f MB\n", $NF, $5/1024/1024}'
+
+      - name: Upload package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ywcoder-linux-offline
+          path: dcywzc-ywcoder-*.tgz
+          retention-days: 30
+
+      - name: Show install instructions
+        run: |
+          echo ""
+          echo "========================================"
+          echo "离线安装包构建成功！"
+          echo "========================================"
+          echo ""
+          echo "在离线 Linux 环境中安装方式："
+          echo "  npm install -g dcywzc-ywcoder-1.0.1.tgz"
+          echo ""
