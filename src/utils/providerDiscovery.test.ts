@@ -35,14 +35,15 @@ test('lists models from a local openai-compatible /models endpoint', async () =>
     )
   }) as typeof globalThis.fetch
 
+  // 2026-04-30 返回类型从 string[] 改为 Array<{id, contextWindow?}>
   await expect(
     listOpenAICompatibleModels({
       baseUrl: 'http://localhost:1234/v1',
       apiKey: 'local-key',
     }),
   ).resolves.toEqual([
-    'qwen2.5-coder-7b-instruct',
-    'llama-3.2-3b-instruct',
+    { id: 'qwen2.5-coder-7b-instruct', contextWindow: undefined },
+    { id: 'llama-3.2-3b-instruct', contextWindow: undefined },
   ])
 })
 
@@ -54,6 +55,70 @@ test('returns null when a local openai-compatible /models request fails', async 
   await expect(
     listOpenAICompatibleModels({ baseUrl: 'http://localhost:1234/v1' }),
   ).resolves.toBeNull()
+})
+
+// 2026-04-30 内网网关 context_length 自报告特性新增测试
+test('解析网关返回的 context_length 字段', async () => {
+  globalThis.fetch = mock(() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          data: [
+            { id: 'gateway-model-32k', context_length: 32768 },
+            { id: 'gateway-model-128k', context_length: 131072 },
+          ],
+        }),
+        { status: 200 },
+      ),
+    ),
+  ) as typeof globalThis.fetch
+
+  await expect(
+    listOpenAICompatibleModels({ baseUrl: 'http://gateway.local/v1' }),
+  ).resolves.toEqual([
+    { id: 'gateway-model-32k', contextWindow: 32768 },
+    { id: 'gateway-model-128k', contextWindow: 131072 },
+  ])
+})
+
+test('过滤无效的 context_length（0 或负数）', async () => {
+  globalThis.fetch = mock(() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          data: [
+            { id: 'model-zero', context_length: 0 },
+            { id: 'model-neg', context_length: -1 },
+          ],
+        }),
+        { status: 200 },
+      ),
+    ),
+  ) as typeof globalThis.fetch
+
+  await expect(
+    listOpenAICompatibleModels({ baseUrl: 'http://gateway.local/v1' }),
+  ).resolves.toEqual([
+    { id: 'model-zero', contextWindow: undefined },
+    { id: 'model-neg', contextWindow: undefined },
+  ])
+})
+
+test('context_length 字段缺失时 contextWindow 为 undefined', async () => {
+  globalThis.fetch = mock(() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          data: [{ id: 'model-no-ctx' }],
+        }),
+        { status: 200 },
+      ),
+    ),
+  ) as typeof globalThis.fetch
+
+  await expect(
+    listOpenAICompatibleModels({ baseUrl: 'http://gateway.local/v1' }),
+  ).resolves.toEqual([{ id: 'model-no-ctx', contextWindow: undefined }])
 })
 
 test('detects LM Studio from the default localhost port', () => {

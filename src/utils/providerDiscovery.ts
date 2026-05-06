@@ -170,10 +170,11 @@ export async function listOllamaModels(
   }
 }
 
+// 2026-04-30 返回类型变更，对应 context_length 自报告特性
 export async function listOpenAICompatibleModels(options?: {
   baseUrl?: string
   apiKey?: string
-}): Promise<string[] | null> {
+}): Promise<Array<{ id: string; contextWindow?: number }> | null> {
   const { signal, clear } = withTimeoutSignal(5000)
   try {
     const response = await fetch(
@@ -193,15 +194,29 @@ export async function listOpenAICompatibleModels(options?: {
     }
 
     const data = (await response.json()) as {
-      data?: Array<{ id?: string }>
+      data?: Array<{
+        id?: string
+        // 2026-04-30 内网网关自报告 context_length 字段解析
+        context_length?: number | null
+      }>
     }
 
+    // 2026-04-30 改用 Map 去重以保留 contextWindow，配合 context_length 自报告特性
     return Array.from(
-      new Set(
+      new Map(
         (data.data ?? [])
-          .filter(model => Boolean(model.id))
-          .map(model => model.id!),
-      ),
+          .filter(m => Boolean(m.id))
+          .map(m => [
+            m.id!,
+            {
+              id: m.id!,
+              contextWindow:
+                typeof m.context_length === 'number' && m.context_length > 0
+                  ? m.context_length
+                  : undefined,
+            },
+          ]),
+      ).values(),
     )
   } catch {
     return null

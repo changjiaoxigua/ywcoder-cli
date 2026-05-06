@@ -145,10 +145,12 @@ async function fetchLocalOpenAIModelOptions(): Promise<BootstrapCachePayload | n
   return {
     clientData: getGlobalConfig().clientDataCache ?? null,
     additionalModelOptionsScope: scope,
+    // 2026-04-30 models 类型变更（Task 1），同步更新映射逻辑以传递 contextWindow
     additionalModelOptions: models.map(model => ({
-      value: model,
-      label: model,
+      value: model.id,
+      label: model.id,
       description: `Detected from ${providerLabel}`,
+      contextWindow: model.contextWindow,
     })),
   }
 }

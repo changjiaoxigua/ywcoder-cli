@@ -49,18 +49,37 @@ export function modelSupports1M(model: string): boolean {
   return canonical.includes('claude-sonnet-4') || canonical.includes('opus-4-6')
 }
 
+/**
+ * 从 bootstrap 启动缓存中查找模型的能力参数。
+ * 固定读 additionalModelOptionsCache（启动时由 fetchBootstrapData 写入，含 contextWindow）。
+ * 不读 openaiAdditionalModelOptionsCache（/model 命令写入，v1 不含 contextWindow）。
+ * 2026-04-30 内网网关 context_length 自报告特性新增
+ */
+function findCachedModelOption(
+  model: string,
+): { contextWindow?: number } | undefined {
+  const config = getGlobalConfig()
+  // 仅在 OpenAI 兼容 provider 且 scope 匹配时查询，避免对其他 provider 产生影响
+  if (!config.additionalModelOptionsCacheScope?.startsWith('openai:')) {
+    return undefined
+  }
+  const cache = config.additionalModelOptionsCache
+  if (!Array.isArray(cache)) return undefined
+  return cache.find(opt => opt.value === model || opt.label === model)
+}
+
 export function getContextWindowForModel(
   model: string,
   betas?: string[],
 ): number {
-  // Allow override via environment variable (internal-only)
+  // Allow override via environment variable
   // This takes precedence over all other context window resolution, including 1M detection,
   // so users can cap the effective context window for local decisions (auto-compact, etc.)
   // while still using a 1M-capable endpoint.
-  if (
-    process.env.USER_TYPE === 'ant' &&
-    process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS
-  ) {
+  // 2026-04-30 去除 USER_TYPE='ant' 门禁：本 fork 不再以此区分内部管理员用户，
+  // 让所有用户都能用 CLAUDE_CODE_MAX_CONTEXT_TOKENS 作为应急覆盖通道
+  // （网关自报告不可用时的降级手段）
+  if (process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS) {
     const override = parseInt(process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS, 10)
     if (!isNaN(override) && override > 0) {
       return override
@@ -78,6 +97,12 @@ export function getContextWindowForModel(
     isEnvTruthy(getYwCoderEnv('USE_GEMINI')) ||
     isEnvTruthy(getYwCoderEnv('USE_GITHUB'))
   ) {
+    // 2026-04-30 优先从网关自报告缓存读取 contextWindow（内网 context_length 自报告特性）
+    const cached = findCachedModelOption(model)
+    if (cached?.contextWindow && cached.contextWindow > 0) {
+      return cached.contextWindow
+    }
+
     const openaiWindow = getOpenAIContextWindow(model)
     if (openaiWindow !== undefined) {
       return openaiWindow

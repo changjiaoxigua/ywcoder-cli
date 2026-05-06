@@ -43,6 +43,8 @@ export type ModelOption = {
   label: string
   description: string
   descriptionForModel?: string
+  // 2026-04-30 内网网关自报告上下文窗口大小（来自 /v1/models context_length 字段）
+  contextWindow?: number
 }
 
 function getScopedAdditionalModelOptions(): ModelOption[] {

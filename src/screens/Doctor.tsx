@@ -29,6 +29,8 @@ import { getInitialSettings } from '../utils/settings/settings.js';
 import { BASH_MAX_OUTPUT_DEFAULT, BASH_MAX_OUTPUT_UPPER_LIMIT } from '../utils/shell/outputLimits.js';
 import { TASK_MAX_OUTPUT_DEFAULT, TASK_MAX_OUTPUT_UPPER_LIMIT } from '../utils/task/outputFormatting.js';
 import { getXDGStateHome } from '../utils/xdg.js';
+// 2026-04-30 内网网关 context_length 自报告特性
+import { ModelCapabilitiesDoctorSection } from '../components/ModelCapabilitiesDoctorSection.js';
 type Props = {
   onDone: (result?: string, options?: {
     display?: CommandResultDisplay;
@@ -486,7 +488,8 @@ export function Doctor(t0) {
   }
   let t41;
   if ($[76] !== t23 || $[77] !== t30 || $[78] !== t35 || $[79] !== t36 || $[80] !== t37 || $[81] !== t38 || $[82] !== t39) {
-    t41 = <Pane>{t23}{t30}{t31}{t32}{t33}{t34}{t35}{t36}{t37}{t38}{t39}{t40}</Pane>;
+    // 2026-04-30 插入模型能力诊断段落（内网网关 context_length 自报告特性）
+    t41 = <Pane>{t23}{t30}{t31}<ModelCapabilitiesDoctorSection />{t32}{t33}{t34}{t35}{t36}{t37}{t38}{t39}{t40}</Pane>;
     $[76] = t23;
     $[77] = t30;
     $[78] = t35;
