@@ -3,11 +3,13 @@ name: Build NPM Windows Offline Package
 on:
   push:
     branches:
-      - feature/brand-replacement
+      - 'feature/**'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-npm-offline:
@@ -16,6 +18,25 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Determine build channel
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            BUILD_CHANNEL=release
+            VERSION_SUFFIX=""
+          else
+            BUILD_CHANNEL=dev
+            VERSION_SUFFIX="-dev.${GITHUB_SHA::7}"
+          fi
+          echo "BUILD_CHANNEL=$BUILD_CHANNEL" >> $GITHUB_ENV
+          echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> $GITHUB_ENV
+
+          # 从 package.json 读取基础版本号，拼接完整显示版本
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          DISPLAY_VERSION="${BASE_VERSION}${VERSION_SUFFIX}"
+          echo "DISPLAY_VERSION=$DISPLAY_VERSION" >> $GITHUB_ENV
+          echo "构建通道: $BUILD_CHANNEL, 显示版本: $DISPLAY_VERSION"
 
       - name: Set up Node.js 18.20.0
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -76,25 +97,37 @@ jobs:
       - name: Pack npm package
         run: npm pack --ignore-scripts
 
-      - name: Show package info
+      - name: Rename package with version and platform
+        shell: bash
         run: |
-          Write-Host "Package created:"
-          Get-ChildItem dcywzc-ywcoder-*.tgz | Select-Object Name, @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB,2)}}
+          ARTIFACT_NAME="ywcoder-${DISPLAY_VERSION}-win-x64.tgz"
+          mv dcywzc-ywcoder-*.tgz "$ARTIFACT_NAME"
+          echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
+          echo "产物文件: $ARTIFACT_NAME"
 
-      - name: Upload package
+      - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ywcoder-offline
-          path: dcywzc-ywcoder-*.tgz
+          name: ywcoder-${{ env.DISPLAY_VERSION }}-win-x64
+          path: ${{ env.ARTIFACT_NAME }}
           retention-days: 30
 
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        with:
+          files: ${{ env.ARTIFACT_NAME }}
+
       - name: Show install instructions
+        shell: pwsh
         run: |
           Write-Host ""
           Write-Host "========================================"
           Write-Host "Offline package created successfully!"
           Write-Host "========================================"
           Write-Host ""
+          Write-Host "Version: $env:DISPLAY_VERSION (Channel: $env:BUILD_CHANNEL)"
+          Write-Host ""
           Write-Host "Install with:"
-          Write-Host "  npm install -g dcywzc-ywcoder-1.0.1.tgz"
+          Write-Host "  npm install -g $env:ARTIFACT_NAME"
           Write-Host ""

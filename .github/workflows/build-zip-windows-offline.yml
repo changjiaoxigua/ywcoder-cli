@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-windows-zip:
@@ -13,6 +13,25 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Determine build channel
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            BUILD_CHANNEL=release
+            VERSION_SUFFIX=""
+          else
+            BUILD_CHANNEL=dev
+            VERSION_SUFFIX="-dev.${GITHUB_SHA::7}"
+          fi
+          echo "BUILD_CHANNEL=$BUILD_CHANNEL" >> $GITHUB_ENV
+          echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> $GITHUB_ENV
+
+          # 从 package.json 读取基础版本号，拼接完整显示版本
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          DISPLAY_VERSION="${BASE_VERSION}${VERSION_SUFFIX}"
+          echo "DISPLAY_VERSION=$DISPLAY_VERSION" >> $GITHUB_ENV
+          echo "构建通道: $BUILD_CHANNEL, 显示版本: $DISPLAY_VERSION"
 
       - name: Set up Node.js 18.20.0
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -179,28 +198,42 @@ jobs:
           '@ | Out-File -FilePath "ywcoder-offline\README-OFFLINE.md" -Encoding UTF8
 
       - name: Create zip package
+        shell: bash
         run: |
-          Compress-Archive -Path ywcoder-offline\* -DestinationPath ywcoder-windows-offline.zip
+          ARTIFACT_NAME="ywcoder-${DISPLAY_VERSION}-win-x64.zip"
+          echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
+        # PowerShell does the actual compression using the env var
+      - name: Compress zip package
+        run: |
+          Compress-Archive -Path ywcoder-offline\* -DestinationPath $env:ARTIFACT_NAME
 
           # Show package info
           Write-Host ""
           Write-Host "========================================"
           Write-Host "ZIP 离线包创建成功！"
           Write-Host "========================================"
-          Get-ChildItem ywcoder-windows-offline.zip | Select-Object Name, @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB,2)}}
+          Get-ChildItem $env:ARTIFACT_NAME | Select-Object Name, @{Name="Size(MB)";Expression={[math]::Round($_.Length/1MB,2)}}
 
-      - name: Upload zip package
+      - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ywcoder-windows-offline-zip
-          path: ywcoder-windows-offline.zip
+          name: ywcoder-${{ env.DISPLAY_VERSION }}-win-x64-zip
+          path: ${{ env.ARTIFACT_NAME }}
           retention-days: 30
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        with:
+          files: ${{ env.ARTIFACT_NAME }}
 
       - name: Show install instructions
         run: |
           Write-Host ""
+          Write-Host "Version: $env:DISPLAY_VERSION (Channel: $env:BUILD_CHANNEL)"
+          Write-Host ""
           Write-Host "使用方法:"
-          Write-Host "1. 下载 ywcoder-windows-offline-zip artifact"
+          Write-Host "1. 下载 artifact"
           Write-Host "2. 解压 zip 文件"
           Write-Host "3. 双击运行 INSTALL.bat"
           Write-Host "4. 安装完成后，重新打开终端运行 ywcoder"

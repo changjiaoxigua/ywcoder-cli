@@ -90,9 +90,9 @@ async function main(): Promise<void> {
 
   // Fast-path for --version/-v: zero module loading needed
   if (args.length === 1 && (args[0] === '--version' || args[0] === '-v' || args[0] === '-V')) {
-    // MACRO.VERSION is inlined at build time
+    // MACRO.* 在构建时内联替换
     // biome-ignore lint/suspicious/noConsole:: intentional console output
-    console.log(`v${MACRO.DISPLAY_VERSION ?? MACRO.VERSION} (YwCoder)`);
+    console.log(`${MACRO.DISPLAY_VERSION ?? MACRO.VERSION} (YwCoder, build #${MACRO.BUILD_ID}, ${MACRO.BUILD_TIME.slice(0, 10)})`);
     return;
   }
 

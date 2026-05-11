@@ -482,6 +482,10 @@ function convertTools(
         function: {
           name: t.name,
           description: t.description ?? '',
+          // 2026-05-10: 为 OpenAI 兼容网关启用约束解码（constrained decoding），
+          // 避免非 Claude 模型在概率采样下漏传 required 字段（如 Grep 缺少 pattern）。
+          // Gemini 不开启，因为 Gemini API 不需要也可能不支持该字段。
+          ...(isGemini ? {} : { strict: true as const }),
           parameters: normalizeSchemaForOpenAI(schema, !isGemini),
         },
       }

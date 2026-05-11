@@ -1696,6 +1696,93 @@ test('sanitizes malformed MCP tool schemas before sending them to OpenAI', async
   expect(properties?.priority).not.toHaveProperty('default')
 })
 
+test('adds strict: true to OpenAI tool definitions for constrained decoding', async () => {
+  let requestBody: Record<string, unknown> | undefined
+
+  globalThis.fetch = (async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body))
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-1',
+        model: 'gpt-4o',
+        choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 10, completion_tokens: 1, total_tokens: 11 },
+      }),
+      { headers: { 'Content-Type': 'application/json' } },
+    )
+  }) as FetchType
+
+  const client = createOpenAIShimClient({}) as OpenAIShimClient
+
+  await client.beta.messages.create({
+    model: 'gpt-4o',
+    system: 'test system',
+    messages: [{ role: 'user', content: 'hello' }],
+    tools: [
+      {
+        name: 'Grep',
+        description: 'Search file contents',
+        input_schema: {
+          type: 'object',
+          properties: { pattern: { type: 'string' } },
+        },
+      },
+    ],
+    max_tokens: 64,
+    stream: false,
+  })
+
+  const tools = requestBody?.tools as Array<{ function?: { strict?: boolean } }> | undefined
+  expect(tools?.[0]?.function?.strict).toBe(true)
+})
+
+test('does not add strict field to Gemini tool definitions', async () => {
+  let requestBody: Record<string, unknown> | undefined
+
+  globalThis.fetch = (async (_input, init) => {
+    requestBody = JSON.parse(String(init?.body))
+
+    return new Response(
+      JSON.stringify({
+        id: 'chatcmpl-gemini',
+        model: 'gemini-2.0-flash',
+        choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 5, completion_tokens: 1, total_tokens: 6 },
+      }),
+      { headers: { 'Content-Type': 'application/json' } },
+    )
+  }) as FetchType
+
+  process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = '1'
+  process.env.GEMINI_API_KEY = 'gemini-api-key'
+  process.env.GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai'
+  process.env.GEMINI_MODEL = 'gemini-2.0-flash'
+
+  const client = createOpenAIShimClient({}) as OpenAIShimClient
+
+  await client.beta.messages.create({
+    model: 'google/gemini-2.0-flash',
+    system: 'test system',
+    messages: [{ role: 'user', content: 'hello' }],
+    tools: [
+      {
+        name: 'Grep',
+        description: 'Search file contents',
+        input_schema: {
+          type: 'object',
+          properties: { pattern: { type: 'string' } },
+        },
+      },
+    ],
+    max_tokens: 64,
+    stream: false,
+  })
+
+  const tools = requestBody?.tools as Array<{ function?: { strict?: boolean } }> | undefined
+  expect(tools?.[0]?.function).not.toHaveProperty('strict')
+})
+
 // ---------------------------------------------------------------------------
 // Issue #202 — consecutive role coalescing (Devstral, Mistral strict templates)
 // ---------------------------------------------------------------------------

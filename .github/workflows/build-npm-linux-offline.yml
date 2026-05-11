@@ -3,11 +3,13 @@ name: Build NPM Linux Offline Package
 on:
   push:
     branches:
-      - feature/brand-replacement
+      - 'feature/**'
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-npm-offline:
@@ -16,6 +18,24 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Determine build channel
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            BUILD_CHANNEL=release
+            VERSION_SUFFIX=""
+          else
+            BUILD_CHANNEL=dev
+            VERSION_SUFFIX="-dev.${GITHUB_SHA::7}"
+          fi
+          echo "BUILD_CHANNEL=$BUILD_CHANNEL" >> $GITHUB_ENV
+          echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> $GITHUB_ENV
+
+          # 从 package.json 读取基础版本号，拼接完整显示版本
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          DISPLAY_VERSION="${BASE_VERSION}${VERSION_SUFFIX}"
+          echo "DISPLAY_VERSION=$DISPLAY_VERSION" >> $GITHUB_ENV
+          echo "构建通道: $BUILD_CHANNEL, 显示版本: $DISPLAY_VERSION"
 
       - name: Set up Node.js 18.20.0
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -79,17 +99,26 @@ jobs:
       - name: Pack npm package
         run: npm pack --ignore-scripts
 
-      - name: Show package info
+      - name: Rename package with version and platform
         run: |
-          echo "已创建的安装包："
-          ls -lh dcywzc-ywcoder-*.tgz | awk '{printf "%s  %.2f MB\n", $NF, $5/1024/1024}'
+          ARTIFACT_NAME="ywcoder-${DISPLAY_VERSION}-linux-x64.tgz"
+          mv dcywzc-ywcoder-*.tgz "$ARTIFACT_NAME"
+          echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
+          echo "产物文件: $ARTIFACT_NAME"
+          ls -lh "$ARTIFACT_NAME" | awk '{printf "%s  %.2f MB\n", $NF, $5/1024/1024}'
 
-      - name: Upload package
+      - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ywcoder-linux-offline
-          path: dcywzc-ywcoder-*.tgz
+          name: ywcoder-${{ env.DISPLAY_VERSION }}-linux-x64
+          path: ${{ env.ARTIFACT_NAME }}
           retention-days: 30
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        with:
+          files: ${{ env.ARTIFACT_NAME }}
 
       - name: Show install instructions
         run: |
@@ -98,6 +127,8 @@ jobs:
           echo "离线安装包构建成功！"
           echo "========================================"
           echo ""
+          echo "版本: ${DISPLAY_VERSION} (通道: ${BUILD_CHANNEL})"
+          echo ""
           echo "在离线 Linux 环境中安装方式："
-          echo "  npm install -g dcywzc-ywcoder-1.0.1.tgz"
+          echo "  npm install -g ${ARTIFACT_NAME}"
           echo ""

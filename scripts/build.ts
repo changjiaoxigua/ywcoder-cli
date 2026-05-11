@@ -8,11 +8,26 @@
  * - src/ path aliases
  */
 
-import { readFileSync } from 'fs'
+import { readFileSync, existsSync } from 'fs'
+import { execSync } from 'child_process'
 import { noTelemetryPlugin } from './no-telemetry-plugin'
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
 const version = pkg.version
+
+// 构建期元数据：git sha、build id、build channel、版本号后缀
+// CI 环境下由 workflow 注入环境变量；本地开发时使用默认值
+const gitSha = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim()
+  } catch {
+    return 'unknown'
+  }
+})()
+const buildId = process.env.GITHUB_RUN_NUMBER ?? 'local'
+const buildChannel = process.env.BUILD_CHANNEL ?? 'local'
+const versionSuffix = process.env.VERSION_SUFFIX ?? ''
+const displayVersion = version + versionSuffix
 
 // Feature flags for the open build.
 // Most Anthropic-internal features stay off; open-build features can be
@@ -63,12 +78,14 @@ const result = await Bun.build({
   minify: !!process.env.CI,
   naming: 'cli.mjs',
   define: {
-    // MACRO.* build-time constants
-    // Keep the internal compatibility version high enough to pass
-    // first-party minimum-version guards, but expose the real package
-    // version separately in Open Claude branding.
+    // MACRO.* 构建时常量
+    // MACRO.VERSION 保持 99.0.0 用于绕过 first-party min-version 检查，严禁修改
+    // MACRO.DISPLAY_VERSION 为用户可见的真实版本号（含 channel 后缀）
     'MACRO.VERSION': JSON.stringify('99.0.0'),
-    'MACRO.DISPLAY_VERSION': JSON.stringify(version),
+    'MACRO.DISPLAY_VERSION': JSON.stringify(displayVersion),
+    'MACRO.GIT_SHA': JSON.stringify(gitSha),
+    'MACRO.BUILD_ID': JSON.stringify(buildId),
+    'MACRO.BUILD_CHANNEL': JSON.stringify(buildChannel),
     'MACRO.BUILD_TIME': JSON.stringify(new Date().toISOString()),
     'MACRO.ISSUES_EXPLAINER':
       JSON.stringify('report the issue at https://github.com/anthropics/claude-code/issues'),
@@ -505,4 +522,4 @@ if (!result.success) {
   process.exit(1)
 }
 
-console.log(`✓ Built ywcoder v${version} → dist/cli.mjs`)
+console.log(`✓ Built ywcoder v${displayVersion} (sha:${gitSha}, build #${buildId}, channel:${buildChannel}) → dist/cli.mjs`)
