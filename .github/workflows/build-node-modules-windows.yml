@@ -1,0 +1,138 @@
+name: Build Windows Full Node Modules Package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-node-modules:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node.js 18.20.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '18.20.0'
+
+      - name: Install dependencies (full node_modules)
+        run: npm install
+
+      - name: Package node_modules
+        shell: pwsh
+        run: |
+          # 创建输出目录
+          New-Item -ItemType Directory -Force -Path "ywcoder-node-modules"
+
+          # 复制 node_modules（排除隐藏的 .cache 等目录，保留所有包文件）
+          Write-Host "正在复制 node_modules..."
+          Copy-Item -Path "node_modules" -Destination "ywcoder-node-modules/node_modules" -Recurse -Force
+
+          # 创建使用说明
+          @'
+          # YwCoder Windows 离线 node_modules 包
+
+          ## 适用场景
+          在无法连接外网的 Windows 环境中，配合 ywcoder 源码或构建产物使用。
+
+          ## 使用方法
+
+          1. 解压本压缩包到 ywcoder 项目根目录：
+             解压后目录结构应为：
+             ywcoder/
+               ├── src/            (源码，如需要)
+               ├── dist/           (构建产物，如需要)
+               ├── bin/            (启动脚本)
+               ├── node_modules/   <-- 本压缩包内容
+               └── package.json
+
+          2. 运行 ywcoder：
+             ```
+             node dist/cli.mjs
+             ```
+             或：
+             ```
+             npx ywcoder
+             ```
+
+          ## 包信息
+          '@ | Out-File -FilePath "ywcoder-node-modules/README.txt" -Encoding UTF8
+
+          # 统计信息
+          $pkgCount = (Get-ChildItem -Path "node_modules" -Directory | Measure-Object).Count
+          $fileCount = (Get-ChildItem -Path "node_modules" -Recurse -File | Measure-Object).Count
+          $actualBytes = (Get-ChildItem -Path "node_modules" -Recurse -File | Measure-Object -Property Length -Sum).Sum
+          $actualMB = [math]::Round($actualBytes / 1MB, 2)
+
+          # 估算磁盘占用（大量小文件导致文件系统 block 开销）
+          # Windows NTFS 默认 cluster 大小 4KB，每个小文件至少占用 4KB
+          $avgClusterKB = 4
+          $estimatedDiskMB = [math]::Round(($fileCount * $avgClusterKB) / 1024, 2)
+          if ($estimatedDiskMB -lt $actualMB) { $estimatedDiskMB = $actualMB }
+
+          Write-Host "========================================"
+          Write-Host "node_modules 统计"
+          Write-Host "========================================"
+          Write-Host "顶级包数量: $pkgCount"
+          Write-Host "文件总数: $fileCount"
+          Write-Host "实际内容大小: ${actualMB} MB"
+          Write-Host "预估磁盘占用: ${estimatedDiskMB} MB (含文件系统开销)"
+          Write-Host "========================================"
+
+          # 附加统计信息到 README
+          @"
+
+          生成时间: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+          顶级包数量: $pkgCount
+          文件总数: $fileCount
+          实际内容大小: $actualMB MB
+          预估解压后磁盘占用: $estimatedDiskMB MB
+          Node 版本: 18.20.0
+
+          ## 大小说明
+
+          - 实际内容大小：所有文件真实字节数之和（即 zip 压缩前的原始数据量）
+          - 磁盘占用：解压到文件系统后，由于大量小文件（package.json、.d.ts 等）
+            每个都会占用至少一个文件系统 block（Windows NTFS 通常 4KB），因此
+            磁盘占用会比实际内容大 20%~50%，这是正常现象，并非文件缺失。
+
+          示例：一个 500 字节的 package.json 实际占用 4KB 磁盘空间。
+          node_modules 通常包含数万个这样的小文件，累积的 block 开销显著。
+          "@ | Out-File -FilePath "ywcoder-node-modules/README.txt" -Encoding UTF8 -Append
+
+          # 压缩为 zip
+          Write-Host "正在压缩..."
+          Compress-Archive -Path "ywcoder-node-modules\*" -DestinationPath "ywcoder-windows-node-modules.zip"
+
+          # 显示最终文件大小
+          $zipSizeMB = [math]::Round((Get-Item "ywcoder-windows-node-modules.zip").Length / 1MB, 2)
+          Write-Host ""
+          Write-Host "压缩包大小: ${zipSizeMB} MB"
+
+      - name: Upload node_modules package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ywcoder-windows-node-modules
+          path: ywcoder-windows-node-modules.zip
+          retention-days: 30
+
+      - name: Show install instructions
+        run: |
+          Write-Host "========================================"
+          Write-Host "Windows 全量 node_modules 离线包构建完成！"
+          Write-Host "========================================"
+          Write-Host ""
+          Write-Host "Artifact 名称: ywcoder-windows-node-modules"
+          Write-Host ""
+          Write-Host "下载方式:"
+          Write-Host "  GitHub Actions 页面 → Artifacts → ywcoder-windows-node-modules"
+          Write-Host ""
+          Write-Host "使用方法:"
+          Write-Host "  1. 下载并解压到 ywcoder 项目根目录"
+          Write-Host "  2. 确保目录结构: ywcoder/node_modules/"
+          Write-Host "  3. 运行: node dist/cli.mjs"
+          Write-Host "========================================"

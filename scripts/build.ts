@@ -41,6 +41,16 @@ const featureFlags: Record<string, boolean> = {
   BUDDY: true,
   CHICAGO_MCP: false,
   COWORKER_TYPE_TELEMETRY: false,
+  // A+B 组安全增量功能（修复 explore/plan agent + 纯 UI/交互增量）
+  BUILTIN_EXPLORE_PLAN_AGENTS: true,
+  AUTO_THEME: true,
+  NATIVE_CLIPBOARD_IMAGE: true,
+  QUICK_SEARCH: true,
+  HISTORY_PICKER: true,
+  MCP_RICH_OUTPUT: true,
+  COMPACTION_REMINDERS: true,
+  POWERSHELL_AUTO_MODE: true,
+  HOOK_PROMPTS: true,
 }
 
 const result = await Bun.build({
@@ -495,4 +505,4 @@ if (!result.success) {
   process.exit(1)
 }
 
-console.log(`✓ Built openclaude v${version} → dist/cli.mjs`)
+console.log(`✓ Built ywcoder v${version} → dist/cli.mjs`)

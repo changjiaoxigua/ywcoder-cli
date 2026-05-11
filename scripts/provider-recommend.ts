@@ -113,7 +113,7 @@ function printHumanSummary(payload: {
   }
 
   if (payload.applied) {
-    console.log('\nSaved .openclaude-profile.json with the recommended profile.')
+    console.log('\nSaved provider profile at .ywcoder-profile.json.')
     console.log('Next: bun run dev:profile')
   } else {
     console.log(

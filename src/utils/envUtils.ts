@@ -1,3 +1,4 @@
+import { existsSync } from 'fs'
 import memoize from 'lodash-es/memoize.js'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -25,16 +26,49 @@ export function getYwCoderEnv(suffix: string): string | undefined {
   return process.env[`YWCODER_${suffix}`] ?? process.env[`CLAUDE_CODE_${suffix}`]
 }
 
+// Track if we've shown the migration hint to avoid duplicate messages
+let migrationHintShown = false
+
 // Memoized: 150+ callers, many on hot paths. Keyed off CLAUDE_CONFIG_DIR/YWCODER_CONFIG_DIR so
 // tests that change the env var get a fresh value without explicit cache.clear.
 export const getYwCoderConfigHomeDir = memoize(
   (): string => {
-    // Check YWCODER_CONFIG_DIR first, then fall back to CLAUDE_CONFIG_DIR, then ~/.claude
+    // Check YWCODER_CONFIG_DIR first, then fall back to CLAUDE_CONFIG_DIR
     const configDir = process.env.YWCODER_CONFIG_DIR ?? process.env.CLAUDE_CONFIG_DIR
     if (configDir) {
       return configDir.normalize('NFC')
     }
-    return join(homedir(), '.claude').normalize('NFC')
+
+    const newDefault = join(homedir(), '.ywcoder')
+    const legacyClaudePath = join(homedir(), '.claude')
+
+    // Multi-level fallback for backward compatibility:
+    // 1. ~/.ywcoder (new default)
+    // 2. ~/.claude (legacy)
+    //
+    // Migration logic:
+    // - New installs (none exist): use ~/.ywcoder
+    // - If ~/.ywcoder exists: use it (already migrated)
+    // - If only ~/.claude exists: use ~/.claude and show migration hint
+
+    if (existsSync(newDefault)) {
+      return newDefault.normalize('NFC')
+    }
+
+    if (existsSync(legacyClaudePath)) {
+      // Show migration hint once
+      if (!migrationHintShown && process.stderr.isTTY) {
+        migrationHintShown = true
+        process.stderr.write(
+          '\n\x1b[33m[YwCoder] Notice: Using legacy config from ~/.claude\x1b[0m\n' +
+          '\x1b[33m         Run `ywcoder --migrate-config` to migrate to ~/.ywcoder\x1b[0m\n\n'
+        )
+      }
+      return legacyClaudePath.normalize('NFC')
+    }
+
+    // New install - use the new default
+    return newDefault.normalize('NFC')
   },
   () => process.env.YWCODER_CONFIG_DIR ?? process.env.CLAUDE_CONFIG_DIR,
 )

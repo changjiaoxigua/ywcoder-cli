@@ -4,6 +4,7 @@ dist/
 .env
 .env.*
 !.env.example
+.ywcoder-profile.json
 .openclaude-profile.json
 reports/
 GEMINI.md

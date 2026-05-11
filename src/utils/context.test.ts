@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from 'bun:test'
+import { afterEach, describe, expect, mock, test } from 'bun:test'
 
 import { getMaxOutputTokensForModel } from '../services/api/claude.ts'
 import {
@@ -10,6 +10,8 @@ import { getYwCoderEnv } from './envUtils.js'
 const originalEnv = {
   CLAUDE_CODE_USE_OPENAI: getYwCoderEnv('USE_OPENAI'),
   CLAUDE_CODE_MAX_OUTPUT_TOKENS: getYwCoderEnv('MAX_OUTPUT_TOKENS'),
+  // 2026-04-30 内网网关 context_length 自报告测试新增
+  CLAUDE_CODE_MAX_CONTEXT_TOKENS: process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS,
 }
 
 afterEach(() => {
@@ -24,6 +26,12 @@ afterEach(() => {
     delete process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS
   } else {
     process.env.YWCODER_MAX_OUTPUT_TOKENS = process.env.CLAUDE_CODE_MAX_OUTPUT_TOKENS = originalEnv.CLAUDE_CODE_MAX_OUTPUT_TOKENS
+  }
+  // 2026-04-30 内网网关 context_length 自报告测试新增：恢复 MAX_CONTEXT_TOKENS
+  if (originalEnv.CLAUDE_CODE_MAX_CONTEXT_TOKENS === undefined) {
+    delete process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS
+  } else {
+    process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS = originalEnv.CLAUDE_CODE_MAX_CONTEXT_TOKENS
   }
 })
 
@@ -95,4 +103,80 @@ test('gpt-5.4 family keeps large max output overrides within provider limits', (
   expect(getMaxOutputTokensForModel('gpt-5.4')).toBe(128_000)
   expect(getMaxOutputTokensForModel('gpt-5.4-mini')).toBe(128_000)
   expect(getMaxOutputTokensForModel('gpt-5.4-nano')).toBe(128_000)
+})
+
+// 2026-04-30 内网网关 context_length 自报告测试新增
+// TC-09：环境变量优先于缓存和硬编码表
+test('环境变量 CLAUDE_CODE_MAX_CONTEXT_TOKENS 优先于缓存和硬编码表', () => {
+  process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS = '50000'
+
+  expect(getContextWindowForModel('gpt-4o')).toBe(50_000)
+})
+
+describe('findCachedModelOption scope 守卫与缓存优先级', () => {
+  afterEach(() => {
+    mock.restore()
+  })
+
+  async function importFreshContext() {
+    const nonce = `${Date.now()}-${Math.random()}`
+    return import(`./context.ts?ts=${nonce}`)
+  }
+
+  // TC-10：缓存命中时优先于硬编码表
+  test('缓存命中时优先于硬编码表', async () => {
+    mock.module('./config.js', () => ({
+      getGlobalConfig: () => ({
+        additionalModelOptionsCacheScope: 'openai:http://gw.intra/v1',
+        additionalModelOptionsCache: [
+          { value: 'gpt-4o', label: 'gpt-4o', contextWindow: 64000 },
+        ],
+        clientDataCache: {},
+      }),
+    }))
+
+    process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
+
+    const { getContextWindowForModel } = await importFreshContext()
+    expect(getContextWindowForModel('gpt-4o')).toBe(64_000)
+  })
+
+  // TC-11：openai scope 匹配时查缓存
+  test('openai scope 匹配时查缓存', async () => {
+    mock.module('./config.js', () => ({
+      getGlobalConfig: () => ({
+        additionalModelOptionsCacheScope: 'openai:http://gw.intra/v1',
+        additionalModelOptionsCache: [
+          { value: 'cached-model', label: 'cached-model', contextWindow: 32768 },
+        ],
+        clientDataCache: {},
+      }),
+    }))
+
+    process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
+
+    const { getContextWindowForModel } = await importFreshContext()
+    expect(getContextWindowForModel('cached-model')).toBe(32_768)
+  })
+
+  // TC-12：非 openai scope 时不查缓存
+  test('非 openai scope 时不查缓存', async () => {
+    mock.module('./config.js', () => ({
+      getGlobalConfig: () => ({
+        additionalModelOptionsCacheScope: 'firstParty',
+        additionalModelOptionsCache: [
+          { value: 'cached-model', label: 'cached-model', contextWindow: 32768 },
+        ],
+        clientDataCache: {},
+      }),
+    }))
+
+    process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
+
+    const { getContextWindowForModel } = await importFreshContext()
+    // cached-model 不在硬编码表中，scope 不匹配时 findCachedModelOption 返回 undefined
+    // 后续 getOpenAIContextWindow 也返回 undefined，最终 fallback 到默认值 200K
+    expect(getContextWindowForModel('cached-model')).toBe(200_000)
+  })
 })

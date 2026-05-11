@@ -1,29 +1,25 @@
 NOTICE
 
-This repository contains code derived from Anthropic's Claude Code CLI.
+This software contains code derived from Anthropic's Claude Code CLI.
 
-The original Claude Code source is proprietary software:
+ORIGINAL CODE SECTION:
   Copyright (c) Anthropic PBC. All rights reserved.
-  Subject to Anthropic's Commercial Terms of Service.
+  The original code is proprietary software and is distributed without
+  authorization from Anthropic. All copyright and intellectual property
+  rights remain with Anthropic PBC.
 
-Modifications and additions by OpenClaude contributors are offered under
-the MIT License where legally permissible:
+MODIFICATIONS AND ADDITIONS:
+  Copyright (c) 2026 YwCoder contributors. All rights reserved.
+  All modifications, enhancements, and additions are the exclusive
+  property of YwCoder contributors.
 
-  MIT License
-  Copyright (c) 2026 OpenClaude contributors (modifications only)
+GENERAL TERMS:
+  This software (including both original and modified portions) is
+  provided for INTERNAL USE ONLY within YwCoder contributors.
 
-  Permission is hereby granted, free of charge, to any person obtaining
-  a copy of the modifications made by OpenClaude contributors, to deal
-  in those modifications without restriction, including without limitation
-  the rights to use, copy, modify, merge, publish, distribute, sublicense,
-  and/or sell copies, subject to the following conditions:
+  Unauthorized distribution, modification, transmission, or commercial
+  use of this software, in whole or in part, is strictly prohibited.
 
-  The above copyright notice and this permission notice shall be included
-  in all copies or substantial portions of the modifications.
+  All rights not expressly granted herein are reserved.
 
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
-
-The underlying derived code remains subject to Anthropic's copyright.
-This project does not have Anthropic's authorization to distribute
-their proprietary source. Users and contributors should evaluate their
-own legal position.
+ALL RIGHTS RESERVED.

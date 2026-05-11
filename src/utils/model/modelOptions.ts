@@ -1,6 +1,7 @@
 // biome-ignore-all assist/source/organizeImports: internal-only import markers must not be reordered
 import { getInitialMainLoopModel } from '../../bootstrap/state.js'
-import { getAdditionalModelOptionsCacheScope } from '../../services/api/providerConfig.js'
+// 2026-05-10 方案A：内网环境下判断 provider 是否为本地地址，用于过滤硬编码预设模型
+import { getAdditionalModelOptionsCacheScope, isLocalProviderUrl } from '../../services/api/providerConfig.js'
 import {
   isYwCoderSubscriber,
   isMaxSubscriber,
@@ -597,7 +598,14 @@ export function getModelOptions(fastMode = false): ModelOption[] {
     return filterModelOptionsByAllowlist(getModelOptionsBase(fastMode))
   }
 
-  const options = getModelOptionsBase(fastMode)
+  // 2026-05-10 方案A：内网环境下过滤硬编码预设模型
+  // 当 provider 为本地地址且 bootstrap 发现模型非空时，只展示网关发现模型
+  const scope = getAdditionalModelOptionsCacheScope()
+  const isLocal = scope?.startsWith('openai:') && isLocalProviderUrl(scope.replace('openai:', ''))
+  const discovered = getScopedAdditionalModelOptions()
+  // 2026-05-11 修复：浅拷贝断开与 additionalModelOptionsCache 的共享引用，
+  // 避免后续 options.push() 意外 mutate 全局 config 内存缓存
+  const options = isLocal && discovered.length > 0 ? [...discovered] : getModelOptionsBase(fastMode)
 
   // Add the custom model from the ANTHROPIC_CUSTOM_MODEL_OPTION env var
   const envCustomModel = process.env.ANTHROPIC_CUSTOM_MODEL_OPTION

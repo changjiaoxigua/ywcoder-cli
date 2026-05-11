@@ -15,7 +15,8 @@ import {
 import { readGeminiAccessToken } from './geminiCredentials.ts'
 import { getOllamaChatBaseUrl } from './providerDiscovery.ts'
 
-export const PROFILE_FILE_NAME = '.openclaude-profile.json'
+export const PROFILE_FILE_NAME = '.ywcoder-profile.json'
+const LEGACY_PROFILE_FILE_NAME = '.openclaude-profile.json'
 export const DEFAULT_GEMINI_BASE_URL =
   'https://generativelanguage.googleapis.com/v1beta/openai'
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash'
@@ -85,7 +86,15 @@ function resolveProfileFilePath(options?: ProfileFileLocation): string {
     return options.filePath
   }
 
-  return resolve(options?.cwd ?? process.cwd(), PROFILE_FILE_NAME)
+  const cwd = options?.cwd ?? process.cwd()
+  const newPath = resolve(cwd, PROFILE_FILE_NAME)
+  const legacyPath = resolve(cwd, LEGACY_PROFILE_FILE_NAME)
+
+  // 旧文件存在且新文件尚未创建时，继续使用旧文件（向后兼容）
+  if (!existsSync(newPath) && existsSync(legacyPath)) {
+    return legacyPath
+  }
+  return newPath
 }
 
 export function isProviderProfile(value: unknown): value is ProviderProfile {

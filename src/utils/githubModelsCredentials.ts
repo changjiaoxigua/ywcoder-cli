@@ -1,7 +1,7 @@
 import { isBareMode, isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import { getSecureStorage } from './secureStorage/index.js'
 
-/** JSON key in the shared OpenClaude secure storage blob. */
+/** JSON key in the shared YwCoder secure storage blob. */
 export const GITHUB_MODELS_STORAGE_KEY = 'githubModels' as const
 export const GITHUB_MODELS_HYDRATED_ENV_MARKER =
   'CLAUDE_CODE_GITHUB_TOKEN_HYDRATED' as const

@@ -4,6 +4,8 @@ import { getGlobalConfig } from './config.js'
 import { isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 import { getCanonicalName } from './model/model.js'
 import { getModelCapability } from './model/modelCapabilities.js'
+// 2026-05-10 方案A：内网环境下判断 provider 是否为本地地址，用于过滤硬编码模型
+import { isLocalProviderUrl } from '../services/api/providerConfig.js'
 import { getOpenAIContextWindow, getOpenAIMaxOutputTokens } from './model/openaiContextWindows.js'
 
 // Model context window size (200k tokens for all models right now)
@@ -103,9 +105,16 @@ export function getContextWindowForModel(
       return cached.contextWindow
     }
 
-    const openaiWindow = getOpenAIContextWindow(model)
-    if (openaiWindow !== undefined) {
-      return openaiWindow
+    // 2026-05-10 方案A：内网环境且 bootstrap 缓存非空时，跳过硬编码表 fallback
+    // 原因：内网模型不在 openaiContextWindows.ts 硬编码表中，fallback 只会返回不准确的值
+    const config = getGlobalConfig()
+    const scope = config.additionalModelOptionsCacheScope
+    const isLocal = scope?.startsWith('openai:') && isLocalProviderUrl(scope.replace('openai:', ''))
+    if (!isLocal || !config.additionalModelOptionsCache?.length) {
+      const openaiWindow = getOpenAIContextWindow(model)
+      if (openaiWindow !== undefined) {
+        return openaiWindow
+      }
     }
   }
 

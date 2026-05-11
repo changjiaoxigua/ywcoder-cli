@@ -1,9 +1,6 @@
 name: Build Windows ZIP Offline Package
 
 on:
-  push:
-    branches:
-      - feature/brand-replacement
   workflow_dispatch:
 
 permissions:

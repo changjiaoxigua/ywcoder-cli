@@ -86,7 +86,7 @@
       "properties": {
         "openclaude.launchCommand": {
           "type": "string",
-          "default": "openclaude",
+          "default": "ywcoder",
           "description": "Command run in the integrated terminal when launching OpenClaude."
         },
         "openclaude.terminalName": {

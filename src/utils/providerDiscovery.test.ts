@@ -141,3 +141,24 @@ test('falls back to a generic local openai-compatible label', () => {
     getLocalOpenAICompatibleProviderLabel('http://127.0.0.1:8080/v1'),
   ).toBe('Local OpenAI-compatible')
 })
+
+// 2026-04-30 内网网关 context_length 自报告测试新增：TC-04 重复模型 ID 去重保留最后一个
+test('重复模型 ID 去重保留最后一个 context_length', async () => {
+  globalThis.fetch = mock(() =>
+    Promise.resolve(
+      new Response(
+        JSON.stringify({
+          data: [
+            { id: 'qwen2.5', context_length: 131072 },
+            { id: 'qwen2.5', context_length: 65536 },
+          ],
+        }),
+        { status: 200 },
+      ),
+    ),
+  ) as typeof globalThis.fetch
+
+  await expect(
+    listOpenAICompatibleModels({ baseUrl: 'http://gateway.local/v1' }),
+  ).resolves.toEqual([{ id: 'qwen2.5', contextWindow: 65536 }])
+})

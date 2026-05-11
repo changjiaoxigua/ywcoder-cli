@@ -1,12 +1,14 @@
 // 2026-04-30 内网网关 context_length 自报告特性——/doctor 诊断段落
 import React from 'react'
 import { Box, Text } from '../ink.js'
+import { isLocalProviderUrl } from '../services/api/providerConfig.js'
 import { getGlobalConfig } from '../utils/config.js'
 
 /**
  * 在 /doctor 中展示网关自报告的模型能力缓存状态。
  * 仅在 OpenAI 兼容 provider（scope 以 openai: 开头）时渲染，其他 provider 返回 null。
  * 2026-04-30 内网网关 context_length 自报告特性新增
+ * 2026-05-10 方案A：内网环境下增加"已过滤硬编码预设模型"提示
  */
 export function ModelCapabilitiesDoctorSection(): React.ReactElement | null {
   const config = getGlobalConfig()
@@ -20,10 +22,25 @@ export function ModelCapabilitiesDoctorSection(): React.ReactElement | null {
   const cache = config.additionalModelOptionsCache ?? []
   const withWindow = cache.filter(m => m.contextWindow && m.contextWindow > 0)
 
+  // 2026-05-10 方案A：内网环境下判断是否过滤了硬编码预设模型
+  const isLocal = isLocalProviderUrl(scope.replace('openai:', ''))
+
   return (
     <Box flexDirection="column" marginTop={1}>
       <Text bold>Model Capabilities</Text>
       <Text>└ 来源: {scope}</Text>
+      {isLocal && cache.length > 0 && (
+        // 2026-05-10 方案A：内网环境提示已过滤硬编码预设模型
+        <Text dimColor>
+          └ 内网模式：已过滤硬编码预设模型，仅展示网关发现模型
+        </Text>
+      )}
+      {isLocal && cache.length === 0 && (
+        // 2026-05-10 方案A：内网环境无可用模型时给出警告
+        <Text color="warning">
+          └ 内网模式：未从网关发现可用模型，/model 列表为空
+        </Text>
+      )}
       <Text>
         └ 缓存状态:{' '}
         {cache.length === 0 ? (

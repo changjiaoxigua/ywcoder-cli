@@ -15,7 +15,8 @@ const { buildControlCenterViewModel } = require('./presentation');
 
 const OPENCLAUDE_REPO_URL = 'https://github.com/Gitlawb/openclaude';
 const OPENCLAUDE_SETUP_URL = 'https://github.com/Gitlawb/openclaude/blob/main/README.md#quick-start';
-const PROFILE_FILE_NAME = '.openclaude-profile.json';
+const PROFILE_FILE_NAME = '.ywcoder-profile.json';
+const LEGACY_PROFILE_FILE_NAME = '.openclaude-profile.json';
 
 function escapeHtml(value) {
   return String(value)
@@ -217,7 +218,12 @@ async function collectControlCenterState() {
   });
   const installed = await isCommandAvailable(executable, launchTargets.projectAwareCwd);
   const profilePath = workspaceFolder
-    ? path.join(workspaceFolder, PROFILE_FILE_NAME)
+    ? (() => {
+        const newPath = path.join(workspaceFolder, PROFILE_FILE_NAME);
+        const legacyPath = path.join(workspaceFolder, LEGACY_PROFILE_FILE_NAME);
+        // 新文件不存在但旧文件存在时，使用旧文件（向后兼容）
+        return !fs.existsSync(newPath) && fs.existsSync(legacyPath) ? legacyPath : newPath;
+      })()
     : null;
 
   const profileState = workspaceFolder
@@ -1085,6 +1091,7 @@ function activate(context) {
   );
 
   const profileWatcher = vscode.workspace.createFileSystemWatcher(`**/${PROFILE_FILE_NAME}`);
+  const legacyProfileWatcher = vscode.workspace.createFileSystemWatcher(`**/${LEGACY_PROFILE_FILE_NAME}`);
 
   context.subscriptions.push(
     startCommand,
@@ -1095,6 +1102,7 @@ function activate(context) {
     openUiCommand,
     providerDisposable,
     profileWatcher,
+    legacyProfileWatcher,
     vscode.workspace.onDidChangeConfiguration(event => {
       if (event.affectsConfiguration('openclaude')) {
         refreshProvider();
@@ -1105,6 +1113,9 @@ function activate(context) {
     profileWatcher.onDidCreate(refreshProvider),
     profileWatcher.onDidChange(refreshProvider),
     profileWatcher.onDidDelete(refreshProvider),
+    legacyProfileWatcher.onDidCreate(refreshProvider),
+    legacyProfileWatcher.onDidChange(refreshProvider),
+    legacyProfileWatcher.onDidDelete(refreshProvider),
   );
 }
 
