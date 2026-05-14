@@ -8,11 +8,18 @@ import {
 const originalFetch = globalThis.fetch
 const originalEnv = {
   OPENAI_BASE_URL: process.env.OPENAI_BASE_URL,
+  // 2026-05-14 方案E：恢复 YWCODER_INTRANET 防止内网网关标签测试污染其他用例
+  YWCODER_INTRANET: process.env.YWCODER_INTRANET,
 }
 
 afterEach(() => {
   globalThis.fetch = originalFetch
   process.env.OPENAI_BASE_URL = originalEnv.OPENAI_BASE_URL
+  if (originalEnv.YWCODER_INTRANET === undefined) {
+    delete process.env.YWCODER_INTRANET
+  } else {
+    process.env.YWCODER_INTRANET = originalEnv.YWCODER_INTRANET
+  }
 })
 
 test('lists models from a local openai-compatible /models endpoint', async () => {
@@ -140,6 +147,19 @@ test('falls back to a generic local openai-compatible label', () => {
   expect(
     getLocalOpenAICompatibleProviderLabel('http://127.0.0.1:8080/v1'),
   ).toBe('Local OpenAI-compatible')
+})
+
+// 2026-05-14 方案E：显式声明企业内网网关时返回 YwCoder 专属标签
+test('显式声明 YWCODER_INTRANET=1 时返回 YwCoder-OpenAI协议网关标签', () => {
+  process.env.YWCODER_INTRANET = '1'
+  // 非 RFC1918 IP（76.x）走原 fallback 会得到 'Local OpenAI-compatible'
+  expect(
+    getLocalOpenAICompatibleProviderLabel('http://76.123.45.67:8080/v1'),
+  ).toBe('YwCoder-OpenAI协议网关')
+  // INTRANET 优先级高于关键字匹配：即使 URL 含 'vllm' 也返回内网网关标签
+  expect(
+    getLocalOpenAICompatibleProviderLabel('http://76.123.45.67/vllm/v1'),
+  ).toBe('YwCoder-OpenAI协议网关')
 })
 
 // 2026-04-30 内网网关 context_length 自报告测试新增：TC-04 重复模型 ID 去重保留最后一个

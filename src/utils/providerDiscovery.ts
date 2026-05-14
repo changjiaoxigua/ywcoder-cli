@@ -1,5 +1,6 @@
 import type { OllamaModelDescriptor } from './providerRecommendation.ts'
 import { DEFAULT_OPENAI_BASE_URL } from '../services/api/providerConfig.js'
+import { isEnvTruthy, getYwCoderEnv } from './envUtils.js'
 
 export const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434'
 export const DEFAULT_ATOMIC_CHAT_BASE_URL = 'http://127.0.0.1:1337'
@@ -61,6 +62,10 @@ export function getOpenAICompatibleModelsBaseUrl(baseUrl?: string): string {
 }
 
 export function getLocalOpenAICompatibleProviderLabel(baseUrl?: string): string {
+  // 2026-05-14 方案E：显式声明企业内网网关时使用专属标签，优先级高于关键字自动识别
+  if (isEnvTruthy(getYwCoderEnv('INTRANET'))) {
+    return 'YwCoder-OpenAI协议网关'
+  }
   try {
     const parsed = new URL(getOpenAICompatibleModelsBaseUrl(baseUrl))
     const host = parsed.host.toLowerCase()
