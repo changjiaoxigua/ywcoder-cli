@@ -73,7 +73,7 @@ export function createProjectOnboardingFeed(steps: Step[]): FeedConfig {
 }
 export function createGuestPassesFeed(): FeedConfig {
   const reward = getCachedReferrerReward();
-  const subtitle = reward ? `Share Open Claude and earn ${formatCreditAmount(reward)} of extra usage` : 'Share Open Claude with friends';
+  const subtitle = reward ? `Share YwCoder and earn ${formatCreditAmount(reward)} of extra usage` : 'Share YwCoder with friends';
   return {
     title: '3 guest passes',
     lines: [],
