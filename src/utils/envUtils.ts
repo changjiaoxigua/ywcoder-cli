@@ -56,12 +56,12 @@ export const getYwCoderConfigHomeDir = memoize(
     }
 
     if (existsSync(legacyClaudePath)) {
-      // Show migration hint once
+      // 仅提示一次，避免重复打扰
       if (!migrationHintShown && process.stderr.isTTY) {
         migrationHintShown = true
         process.stderr.write(
-          '\n\x1b[33m[YwCoder] Notice: Using legacy config from ~/.claude\x1b[0m\n' +
-          '\x1b[33m         Run `ywcoder --migrate-config` to migrate to ~/.ywcoder\x1b[0m\n\n'
+          '\n\x1b[33m[YwCoder] 提示：当前正在使用历史配置目录 ~/.claude\x1b[0m\n' +
+          '\x1b[33m         请在 shell 中运行 `ywcoder --migrate-config` 迁移至 ~/.ywcoder\x1b[0m\n\n'
         )
       }
       return legacyClaudePath.normalize('NFC')
