@@ -1,7 +1,10 @@
 // 2026-04-30 内网网关 context_length 自报告特性——/doctor 诊断段落
 import React from 'react'
 import { Box, Text } from '../ink.js'
-import { isLocalProviderUrl } from '../services/api/providerConfig.js'
+import {
+  getAdditionalModelOptionsCacheScope,
+  isLocalProviderUrl,
+} from '../services/api/providerConfig.js'
 import { getGlobalConfig } from '../utils/config.js'
 
 /**
@@ -25,10 +28,19 @@ export function ModelCapabilitiesDoctorSection(): React.ReactElement | null {
   // 2026-05-10 方案A：内网环境下判断是否过滤了硬编码预设模型
   const isLocal = isLocalProviderUrl(scope.replace('openai:', ''))
 
+  // 2026-05-14 方案E 延伸：磁盘缓存的 scope 与当前环境推导的 scope 不一致
+  // → 用户改了 BASE_URL 但本次 bootstrap 拉取失败，cache 仍是旧网关的快照
+  const scopeStale = getAdditionalModelOptionsCacheScope() !== scope
+
   return (
     <Box flexDirection="column" marginTop={1}>
       <Text bold>Model Capabilities</Text>
       <Text>└ 来源: {scope}</Text>
+      {scopeStale && (
+        <Text color="warning">
+          └ 缓存来自旧网关，本次启动拉取失败（bootstrap 未成功）
+        </Text>
+      )}
       {isLocal && cache.length > 0 && (
         // 2026-05-10 方案A：内网环境提示已过滤硬编码预设模型
         <Text dimColor>
