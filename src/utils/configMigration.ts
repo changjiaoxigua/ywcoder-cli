@@ -75,7 +75,7 @@ export async function migrateConfig(): Promise<MigrationResult> {
 
   // If already using ~/.ywcoder, nothing to migrate
   if (currentDir === targetDir) {
-    console.log('✓ Already using ~/.ywcoder')
+    console.log('✓ 已在使用 ~/.ywcoder 配置目录')
     return {
       success: true,
       from: currentDir || '',
@@ -86,7 +86,7 @@ export async function migrateConfig(): Promise<MigrationResult> {
 
   // If no source config found, target dir is already created above
   if (!sourceDir) {
-    console.log('✓ Created new config directory at ~/.ywcoder')
+    console.log('✓ 已创建新配置目录 ~/.ywcoder')
     return {
       success: true,
       from: '',
@@ -106,9 +106,11 @@ export async function migrateConfig(): Promise<MigrationResult> {
       preserveTimestamps: true,
     })
 
-    console.log(`✓ Migrated config from ${sourceDir} to ~/.ywcoder`)
-    console.log(`  You can now safely delete the old directory:`)
-    console.log(`  rm -rf ${sourceDir}`)
+    console.log(`✓ 已将配置从 ${sourceDir} 迁移到 ~/.ywcoder`)
+    console.log(`  你现在可以安全删除旧目录，根据使用的 shell 选择对应命令：`)
+    console.log(`    Linux:        rm -rf ${sourceDir}`)
+    console.log(`    PowerShell:   Remove-Item -Recurse -Force ${sourceDir}`)
+    console.log(`    Windows cmd:  rmdir /s /q "${sourceDir}"`)
 
     return {
       success: true,
@@ -118,7 +120,7 @@ export async function migrateConfig(): Promise<MigrationResult> {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    console.error(`✗ Migration failed: ${message}`)
+    console.error(`✗ 迁移失败：${message}`)
 
     return {
       success: false,

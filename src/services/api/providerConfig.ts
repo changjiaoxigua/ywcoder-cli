@@ -229,6 +229,10 @@ export function shouldUseCodexTransport(
 
 export function isLocalProviderUrl(baseUrl: string | undefined): boolean {
   if (!baseUrl) return false
+  // 2026-05-14 方案E：非 RFC1918 内网网关（如 76.x.x.x 段）通过 YWCODER_INTRANET=1 显式声明
+  if (isEnvTruthy(getYwCoderEnv('INTRANET'))) {
+    return true
+  }
   try {
     let hostname = new URL(baseUrl).hostname.toLowerCase()
 
