@@ -138,7 +138,7 @@ export async function migrateConfig(): Promise<MigrationResult> {
     }
     console.log(`  你现在可以安全删除旧目录，根据使用的 shell 选择对应命令：`)
     console.log(`    Linux:        rm -rf ${sourceDir}`)
-    console.log(`    PowerShell:   Remove-Item -Recurse -Force ${sourceDir}`)
+    console.log(`    PowerShell:   cmd /c rd /s /q "${sourceDir}"`)
     console.log(`    Windows cmd:  rmdir /s /q "${sourceDir}"`)
 
     return {
