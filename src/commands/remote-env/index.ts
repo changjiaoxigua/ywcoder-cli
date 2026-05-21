@@ -5,7 +5,7 @@ import { isYwCoderSubscriber } from '../../utils/auth.js'
 export default {
   type: 'local-jsx',
   name: 'remote-env',
-  description: 'Configure the default remote environment for teleport sessions',
+  description: '配置 teleport 会话使用的默认远程环境',
   isEnabled: () =>
     isYwCoderSubscriber() && isPolicyAllowed('allow_remote_sessions'),
   get isHidden() {

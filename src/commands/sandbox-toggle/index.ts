@@ -19,23 +19,21 @@ const command = {
       icon = currentlyEnabled ? figures.tick : figures.circle
     }
 
-    let statusText = 'sandbox disabled'
+    let statusText = '沙箱已关闭'
     if (currentlyEnabled) {
-      statusText = autoAllow
-        ? 'sandbox enabled (auto-allow)'
-        : 'sandbox enabled'
+      statusText = autoAllow ? '沙箱已开启（自动放行）' : '沙箱已开启'
 
-      // Add unsandboxed fallback status
-      statusText += allowUnsandboxed ? ', fallback allowed' : ''
+      // 是否允许非沙箱回退
+      statusText += allowUnsandboxed ? '，允许回退' : ''
     }
 
     if (isLocked) {
-      statusText += ' (managed)'
+      statusText += '（策略锁定）'
     }
 
-    return `${icon} ${statusText} (⏎ to configure)`
+    return `${icon} ${statusText}（按 ⏎ 进行配置）`
   },
-  argumentHint: 'exclude "command pattern"',
+  argumentHint: 'exclude "命令模式"',
   get isHidden() {
     return (
       !SandboxManager.isSupportedPlatform() ||

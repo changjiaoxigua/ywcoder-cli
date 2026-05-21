@@ -11,7 +11,7 @@ import {
   type InstallMethod,
 } from './config.js'
 import { getCwd } from './cwd.js'
-import { isEnvTruthy } from './envUtils.js'
+import { getYwCoderConfigHomeDir, isEnvTruthy } from './envUtils.js'
 import { execFileNoThrow } from './execFileNoThrow.js'
 import { getFsImplementation } from './fsOperations.js'
 import {
@@ -209,7 +209,8 @@ async function detectMultipleInstallations(): Promise<
   const installations: Array<{ type: string; path: string }> = []
 
   // Check for local installation
-  const localPath = join(homedir(), '.claude', 'local')
+  // 使用 helper：跟随 getYwCoderConfigHomeDir() 当前选定目录，与 localInstaller 保持一致。
+  const localPath = join(getYwCoderConfigHomeDir(), 'local')
   if (await localInstallationExists()) {
     installations.push({ type: 'npm-local', path: localPath })
   }

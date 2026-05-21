@@ -104,7 +104,7 @@ export function registerBatchSkill(): void {
       'Research and plan a large-scale change, then execute it in parallel across 5–30 isolated worktree agents that each open a PR.',
     whenToUse:
       'Use when the user wants to make a sweeping, mechanical change across many files (migrations, refactors, bulk renames) that can be decomposed into independent parallel units.',
-    argumentHint: '<instruction>',
+    argumentHint: '<指令>',
     userInvocable: true,
     disableModelInvocation: true,
     async getPromptForCommand(args) {

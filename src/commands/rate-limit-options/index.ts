@@ -4,7 +4,7 @@ import { isYwCoderSubscriber } from '../../utils/auth.js'
 const rateLimitOptions = {
   type: 'local-jsx',
   name: 'rate-limit-options',
-  description: 'Show options when rate limit is reached',
+  description: '触发限流时显示可选操作',
   isEnabled: () => {
     if (!isYwCoderSubscriber()) {
       return false

@@ -4,9 +4,9 @@ const btw = {
   type: 'local-jsx',
   name: 'btw',
   description:
-    'Ask a quick side question without interrupting the main conversation',
+    '在不打断主对话的前提下提个简短的旁支问题',
   immediate: true,
-  argumentHint: '<question>',
+  argumentHint: '<问题>',
   load: () => import('./btw.js'),
 } satisfies Command
 

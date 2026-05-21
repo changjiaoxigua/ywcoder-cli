@@ -6,7 +6,7 @@ export default {
   type: 'local-jsx',
   name: 'model',
   get description() {
-    return `Set the AI model for YwCoder (currently ${renderModelName(getMainLoopModel())})`
+    return `设置 YwCoder 使用的 AI 模型（当前：${renderModelName(getMainLoopModel())}）`
   },
   argumentHint: '[model]',
   get immediate() {

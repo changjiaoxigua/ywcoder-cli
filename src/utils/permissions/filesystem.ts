@@ -9,7 +9,6 @@ import { isAgentMemoryPath } from 'src/tools/AgentTool/agentMemory.js'
 import {
   CLAUDE_FOLDER_PERMISSION_PATTERN,
   FILE_EDIT_TOOL_NAME,
-  GLOBAL_CLAUDE_FOLDER_PERMISSION_PATTERN,
 } from 'src/tools/FileEditTool/constants.js'
 import type { z } from 'zod/v4'
 import { getOriginalCwd, getSessionId } from '../../bootstrap/state.js'
@@ -18,6 +17,10 @@ import type { AnyObject, Tool, ToolPermissionContext } from '../../Tool.js'
 import { FILE_READ_TOOL_NAME } from '../../tools/FileReadTool/prompt.js'
 import { getCwd } from '../cwd.js'
 import { getYwCoderConfigHomeDir, getYwCoderEnv } from '../envUtils.js'
+import {
+  getGlobalConfigCompatPrefixes,
+  getGlobalConfigDirCandidates,
+} from './globalConfigPattern.js'
 import {
   getFsImplementation,
   getPathsForPermissionCheck,
@@ -104,15 +107,19 @@ export function getClaudeSkillScope(
   const absolutePath = expandPath(filePath)
   const absolutePathLower = normalizeCaseForComparison(absolutePath)
 
+  // 全局候选 dir 与对应的"显示前缀"按索引对齐。
+  // dirs：绝对路径（用于路径归属比对）；prefixes：~/ 或绝对路径形式（用于权限规则字符串）。
+  const globalDirs = getGlobalConfigDirCandidates()
+  const globalPrefixes = getGlobalConfigCompatPrefixes()
   const bases = [
     {
       dir: expandPath(join(getOriginalCwd(), '.claude', 'skills')),
       prefix: '/.claude/skills/',
     },
-    {
-      dir: expandPath(join(homedir(), '.claude', 'skills')),
-      prefix: '~/.claude/skills/',
-    },
+    ...globalDirs.map((dir, i) => ({
+      dir: expandPath(join(dir, 'skills')),
+      prefix: `${globalPrefixes[i]}skills/`,
+    })),
   ]
 
   for (const { dir, prefix } of bases) {
@@ -1279,12 +1286,15 @@ export function checkWritePermissionForTool<Input extends AnyObject>(
     // this is an additional scope check. Reject '..' to prevent a rule like
     // '/.claude/../**' from leaking this bypass outside .claude/.
     const ruleContent = claudeFolderAllowRule.ruleValue.ruleContent
+    // 兼容前缀：项目级 /.claude/ + 当前全局目录前缀 + 历史 ~/.claude/。
+    // 老用户在 settings.json 里残存的 ~/.claude/** 规则迁移后仍能命中。
+    const validPrefixes = [
+      CLAUDE_FOLDER_PERMISSION_PATTERN.slice(0, -2),
+      ...getGlobalConfigCompatPrefixes(),
+    ]
     if (
       ruleContent &&
-      (ruleContent.startsWith(CLAUDE_FOLDER_PERMISSION_PATTERN.slice(0, -2)) ||
-        ruleContent.startsWith(
-          GLOBAL_CLAUDE_FOLDER_PERMISSION_PATTERN.slice(0, -2),
-        )) &&
+      validPrefixes.some(p => ruleContent.startsWith(p)) &&
       !ruleContent.includes('..') &&
       ruleContent.endsWith('/**')
     ) {

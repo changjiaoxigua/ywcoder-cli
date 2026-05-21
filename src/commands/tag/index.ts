@@ -3,7 +3,7 @@ import type { Command } from '../../commands.js'
 const tag = {
   type: 'local-jsx',
   name: 'tag',
-  description: 'Toggle a searchable tag on the current session',
+  description: '为当前会话切换一个可搜索的标签',
   isEnabled: () => process.env.USER_TYPE === 'ant',
   argumentHint: '<tag-name>',
   load: () => import('./tag.js'),

@@ -25,10 +25,14 @@ export function getLocalClaudePath(): string {
 
 /**
  * Check if we're running from our managed local installation
+ * 同时认 ~/.ywcoder/local 与历史 ~/.claude/local：避免老用户在迁移后被误判为非本地安装。
  */
 export function isRunningFromLocalInstallation(): boolean {
   const execPath = process.argv[1] || ''
-  return execPath.includes('/.claude/local/node_modules/')
+  return (
+    execPath.includes('/.ywcoder/local/node_modules/') ||
+    execPath.includes('/.claude/local/node_modules/')
+  )
 }
 
 /**

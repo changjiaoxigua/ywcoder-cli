@@ -14,9 +14,9 @@ const command = {
   type: 'prompt',
   name: 'dream',
   description:
-    'Run memory consolidation — synthesize recent sessions into durable memories',
+    '执行记忆整合 —— 把近期会话凝练成长期记忆',
   isEnabled: () => isAutoMemoryEnabled(),
-  progressMessage: 'consolidating memories',
+  progressMessage: '正在整合记忆',
   contentLength: 0,
   source: 'builtin',
   async getPromptForCommand(): Promise<ContentBlockParam[]> {

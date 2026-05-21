@@ -1,3 +1,20 @@
+/**
+ * 【死代码 - 待清理】
+ *
+ * 作用：从 Anthropic 官方 GCS（storage.googleapis.com）下载上游 Claude Code
+ * 原生二进制，安装到本地并清理掉旧的 npm 安装与 shell alias —— 本质是把
+ * "npm 装的 Claude Code" 迁移到 "native 装的 Claude Code" 的工具。
+ *
+ * 为何是死代码：
+ *   1. 整个 src/ 没有任何文件 import 本模块（既未在 commands.ts 注册，
+ *      也未被 cli.tsx 引用），无法触发；
+ *   2. 装出的二进制是上游 Claude Code 而非 YwCoder，对 YwCoder 用户而言
+ *      属于反向操作；
+ *   3. 下载源是 storage.googleapis.com，国内/隔离内网不可达。
+ *
+ * 保留原因：暂未删除以减少 diff 噪声；后续清理时连同确认 nativeInstaller
+ * 其它使用方未被本文件牵连即可安全删除整个文件。
+ */
 import { c as _c } from "react-compiler-runtime";
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -279,7 +296,7 @@ function Install({
 export const install = {
   type: 'local-jsx' as const,
   name: 'install',
-  description: 'Install Claude Code native build',
+  description: '安装 Claude Code 原生构建版本',
   argumentHint: '[options]',
   async call(onDone: (result: string, options?: {
     display?: CommandResultDisplay;

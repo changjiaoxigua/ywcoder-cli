@@ -1,5 +1,4 @@
-import { homedir } from 'os';
-import { basename, join, sep } from 'path';
+import { basename, sep } from 'path';
 import React, { type ReactNode } from 'react';
 import { getOriginalCwd } from '../../../bootstrap/state.js';
 import { Text } from '../../../ink.js';
@@ -7,6 +6,7 @@ import { getShortcutDisplay } from '../../../keybindings/shortcutFormat.js';
 import type { ToolPermissionContext } from '../../../Tool.js';
 import { expandPath, getDirectoryForPath } from '../../../utils/path.js';
 import { normalizeCaseForComparison, pathInAllowedWorkingPath } from '../../../utils/permissions/filesystem.js';
+import { getGlobalConfigDirCandidates } from '../../../utils/permissions/globalConfigPattern.js';
 import type { OptionWithDescription } from '../../CustomSelect/select.js';
 /**
  * Check if a path is within the project's .claude/ folder.
@@ -27,16 +27,20 @@ export function isInClaudeFolder(filePath: string): boolean {
 }
 
 /**
- * Check if a path is within the global ~/.claude/ folder.
- * This is used to determine whether to show the special ".claude folder" permission option
- * for files in the user's home directory.
+ * Check if a path is within the global config folder.
+ * 同时认当前 getYwCoderConfigHomeDir() 选定的目录与历史 ~/.claude，
+ * 让未迁移老用户和已迁移用户都能弹出"全局配置文件夹"快捷选项。
  */
 export function isInGlobalClaudeFolder(filePath: string): boolean {
   const absolutePath = expandPath(filePath);
-  const globalClaudeFolderPath = join(homedir(), '.claude');
   const normalizedAbsolutePath = normalizeCaseForComparison(absolutePath);
-  const normalizedGlobalClaudeFolderPath = normalizeCaseForComparison(globalClaudeFolderPath);
-  return normalizedAbsolutePath.startsWith(normalizedGlobalClaudeFolderPath + sep.toLowerCase()) || normalizedAbsolutePath.startsWith(normalizedGlobalClaudeFolderPath + '/');
+  return getGlobalConfigDirCandidates().some(dir => {
+    const n = normalizeCaseForComparison(dir);
+    return (
+      normalizedAbsolutePath.startsWith(n + sep.toLowerCase()) ||
+      normalizedAbsolutePath.startsWith(n + '/')
+    );
+  });
 }
 export type PermissionOption = {
   type: 'accept-once';

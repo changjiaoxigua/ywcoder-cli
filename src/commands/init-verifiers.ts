@@ -4,9 +4,9 @@ const command = {
   type: 'prompt',
   name: 'init-verifiers',
   description:
-    'Create verifier skill(s) for automated verification of code changes',
+    '创建用于自动校验代码改动的 verifier skill',
   contentLength: 0, // Dynamic content
-  progressMessage: 'analyzing your project and creating verifier skills',
+  progressMessage: '正在分析项目并创建 verifier skill',
   source: 'builtin',
   async getPromptForCommand() {
     return [

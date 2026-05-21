@@ -3,7 +3,7 @@ import type { Command } from '../../commands.js'
 const buddy = {
   type: 'local-jsx',
   name: 'buddy',
-  description: 'Hatch, pet, and manage your YwCoder companion',
+  description: '孵化、抚养并管理你的 YwCoder 小伙伴',
   immediate: true,
   argumentHint: '[status|mute|unmute|help]',
   load: () => import('./buddy.js'),

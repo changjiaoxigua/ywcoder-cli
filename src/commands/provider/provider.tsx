@@ -455,28 +455,28 @@ function ProviderChooser({
       label: 'Auto',
       value: 'auto',
       description:
-        'Prefer local Ollama when available, otherwise guide you into OpenAI-compatible setup',
+        '优先使用本地 Ollama，若不可用则引导你完成 OpenAI 兼容接口配置',
     },
     {
       label: 'Ollama',
       value: 'ollama',
-      description: 'Use a local Ollama model with no API key',
+      description: '使用本地 Ollama 模型，无需 API key',
     },
     {
       label: 'OpenAI-compatible',
       value: 'openai',
       description:
-        'GPT-4o, DeepSeek, OpenRouter, Groq, LM Studio, and similar APIs',
+        '适用于 GPT-4o、DeepSeek、OpenRouter、Groq、LM Studio 等类似 API',
     },
     {
       label: 'Gemini',
       value: 'gemini',
-      description: 'Use Google Gemini with API key, access token, or local ADC',
+      description: '使用 Google Gemini，支持 API key、access token 或本地 ADC',
     },
     {
       label: 'Codex',
       value: 'codex',
-      description: 'Use existing ChatGPT Codex CLI auth or env credentials',
+      description: '复用已有的 ChatGPT Codex CLI 凭据或环境变量凭据',
     },
   ]
 
@@ -484,7 +484,7 @@ function ProviderChooser({
     options.push({
       label: 'Clear saved profile',
       value: 'clear',
-      description: 'Remove saved profile (.ywcoder-profile.json) and return to normal startup',
+      description: '删除已保存的配置档案（.ywcoder-profile.json），恢复默认启动行为',
     })
   }
 
@@ -527,17 +527,17 @@ function AutoGoalChooser({
     {
       label: 'Balanced',
       value: 'balanced',
-      description: 'Strong everyday default for most users',
+      description: '面向大多数用户的稳健日常默认选项',
     },
     {
       label: 'Coding',
       value: 'coding',
-      description: 'Prefer coding-oriented local models or GPT-4o defaults',
+      description: '优先选择面向编码的本地模型或 GPT-4o 默认配置',
     },
     {
       label: 'Latency',
       value: 'latency',
-      description: 'Prefer faster local models or gpt-4o-mini defaults',
+      description: '优先选择更快的本地模型或 gpt-4o-mini 默认配置',
     },
   ]
 
@@ -877,12 +877,12 @@ function CodexCredentialStep({
     {
       label: 'codexplan',
       value: 'codexplan',
-      description: 'GPT-5.4 with higher reasoning on the Codex backend',
+      description: '在 Codex 后端使用 GPT-5.4，启用更高的推理能力',
     },
     {
       label: 'codexspark',
       value: 'codexspark',
-      description: 'Faster Codex Spark tool loop profile',
+      description: '更快的 Codex Spark 工具循环配置',
     },
   ]
 

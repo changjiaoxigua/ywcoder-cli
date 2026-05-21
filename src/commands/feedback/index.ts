@@ -7,8 +7,8 @@ const feedback = {
   aliases: ['bug'],
   type: 'local-jsx',
   name: 'feedback',
-  description: `Submit feedback about Claude Code`,
-  argumentHint: '[report]',
+  description: `提交关于 YwCoder 的反馈`,
+  argumentHint: '[问题报告]',
   isEnabled: () =>
     !(
       isEnvTruthy(getYwCoderEnv('USE_BEDROCK')) ||
