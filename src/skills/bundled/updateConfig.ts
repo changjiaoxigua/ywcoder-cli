@@ -445,8 +445,9 @@ If a hook isn't running:
 export function registerUpdateConfigSkill(): void {
   registerBundledSkill({
     name: 'update-config',
+    // 'Use this skill to configure the Claude Code harness via settings.json. Automated behaviors ("from now on when X", "each time X", "whenever X", "before/after X") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions ("allow X", "add permission", "move permission to"), env vars ("set X=Y"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: "allow npm commands", "add bq permission to global settings", "move permission to user settings", "set DEBUG=true", "when claude stops show X". For simple settings like theme/model, use Config tool.'
     description:
-      'Use this skill to configure the Claude Code harness via settings.json. Automated behaviors ("from now on when X", "each time X", "whenever X", "before/after X") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions ("allow X", "add permission", "move permission to"), env vars ("set X=Y"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: "allow npm commands", "add bq permission to global settings", "move permission to user settings", "set DEBUG=true", "when claude stops show X". For simple settings like theme/model, use Config tool.',
+      '通过 settings.json 配置 YwCoder 运行时。自动化行为（"从现在起 X"、"每次 X"、"只要 X"、"X 前/后"）需要在 settings.json 中配置 hooks —— 由运行时执行，而非 YwCoder 本身，无法通过记忆/偏好满足。同时适用于：权限设置（"允许 X"、"添加权限"）、环境变量（"设置 X=Y"）、hook 排查，或任何 settings.json/settings.local.json 的修改。简单设置如主题/模型，请使用 Config 工具。',
     allowedTools: ['Read'],
     userInvocable: true,
     async getPromptForCommand(args) {

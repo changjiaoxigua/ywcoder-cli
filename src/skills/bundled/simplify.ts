@@ -55,8 +55,9 @@ When done, briefly summarize what was fixed (or confirm the code was already cle
 export function registerSimplifySkill(): void {
   registerBundledSkill({
     name: 'simplify',
+    // 'Review changed code for reuse, quality, and efficiency, then fix any issues found.'
     description:
-      'Review changed code for reuse, quality, and efficiency, then fix any issues found.',
+      '检查改动代码的复用性、质量和效率，并修复发现的问题',
     userInvocable: true,
     async getPromptForCommand(args) {
       let prompt = SIMPLIFY_PROMPT
