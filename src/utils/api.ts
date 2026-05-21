@@ -346,6 +346,7 @@ export function splitSysPromptPrefix(
     }
 
     const result: SystemPromptBlock[] = []
+      // Attribution header — 不参与缓存（cacheScope: null）
     if (attributionHeader) {
       result.push({ text: attributionHeader, cacheScope: null })
     }

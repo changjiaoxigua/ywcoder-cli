@@ -48,7 +48,7 @@ const review: Command = {
 const ultrareview: Command = {
   type: 'local-jsx',
   name: 'ultrareview',
-  description: `约 10–20 分钟 · 在云端 Claude Code 中查找并验证当前分支的 bug。详见 ${CCR_TERMS_URL}`,
+  description: `约 10–20 分钟 · 在云端 YwCoder 中查找并验证当前分支的 bug。详见 ${CCR_TERMS_URL}`,
   isEnabled: () => isUltrareviewEnabled(),
   load: () => import('./review/ultrareviewCommand.js'),
 }

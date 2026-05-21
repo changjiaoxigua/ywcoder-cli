@@ -18,6 +18,8 @@ export function registerDebugSkill(): void {
         : '启用此会话的调试日志并帮助诊断问题',
     allowedTools: ['Read', 'Grep', 'Glob'],
     argumentHint: '[问题描述]',
+        //'Debug your current YwCoder session by reading the session debug log. Includes all event logging'
+      //'Enable debug logging for this session and help diagnose issues'
     // disableModelInvocation so that the user has to explicitly request it in
     // interactive mode and so the description does not take up context.
     disableModelInvocation: true,
