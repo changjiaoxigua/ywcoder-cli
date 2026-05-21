@@ -14,8 +14,8 @@ export function registerDebugSkill(): void {
     name: 'debug',
     description:
       process.env.USER_TYPE === 'ant'
-        ? 'Debug your current YwCoder session by reading the session debug log. Includes all event logging'
-        : 'Enable debug logging for this session and help diagnose issues',
+        ? '通过阅读会话调试日志来调试你当前的 YwCoder 会话。包含所有事件日志'
+        : '启用此会话的调试日志并帮助诊断问题',
     allowedTools: ['Read', 'Grep', 'Glob'],
     argumentHint: '[问题描述]',
     // disableModelInvocation so that the user has to explicitly request it in
