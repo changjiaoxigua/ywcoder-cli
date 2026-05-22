@@ -56,6 +56,15 @@ function isAttributionHeaderEnabled(): boolean {
   if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_ATTRIBUTION_HEADER)) {
     return false
   }
+  // 白名单：只有 Anthropic 托管的 provider 才启用 attribution header
+  const provider = getAPIProvider()
+  if (
+    provider !== 'firstParty' &&
+    provider !== 'bedrock' &&
+    provider !== 'vertex'
+  ) {
+    return false
+  }
   return getFeatureValue_CACHED_MAY_BE_STALE('tengu_attribution_header', true)
 }
 
