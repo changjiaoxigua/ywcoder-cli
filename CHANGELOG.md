@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.0](https://github.com/changjiaoxigua/ywcoder-cli/compare/v1.1.0...v1.2.0) (2026-05-22)
+
+
+### Features
+
+* 禁用 /mobile 命令（YwCoder 暂不提供手机端） ([33d21e5](https://github.com/changjiaoxigua/ywcoder-cli/commit/33d21e5462c6da6dd7021772ebcb8ccfc5cbfbbb))
+
+
+### Bug Fixes
+
+* --migrate-config 输出的 PowerShell 删除命令改用 cmd /c rd /s /q ([94cbf90](https://github.com/changjiaoxigua/ywcoder-cli/commit/94cbf90b0fc68325d9dd1e838167e57ca935bd25))
+* 修复 --migrate-config 在双目录场景下漏拷贝与老配置反向覆盖 ([4888d78](https://github.com/changjiaoxigua/ywcoder-cli/commit/4888d7836a1d39bec818e22248fbd9f157c26775))
+* 修复品牌引用并汉化参数提示 ([06eb4a3](https://github.com/changjiaoxigua/ywcoder-cli/commit/06eb4a37d66670dfdfb77dc1c1d42dec26003430))
+* 汉化 /batch 和 /debug skill 的 description ([5ec0ba2](https://github.com/changjiaoxigua/ywcoder-cli/commit/5ec0ba2e24087452e2c886ddc054ab1c9d5e27b8))
+* 汉化 /copy /logout，修复 /review /ultraplan 中的品牌引用 ([7454248](https://github.com/changjiaoxigua/ywcoder-cli/commit/7454248ecb92322dc7f733fc320ddf24cc07be31))
+* 汉化 /simplify /update-config /status 描述，替换 Claude Code 主语为 YwCoder ([a684a8a](https://github.com/changjiaoxigua/ywcoder-cli/commit/a684a8a6430adb512449128d6098b9f3e2949141))
+* 汉化 tipRegistry.ts 全部 48 条 tip，英文原文保留为注释 ([d42e33f](https://github.com/changjiaoxigua/ywcoder-cli/commit/d42e33fd7ac3da853e4a81dd5bfd1919e84137c4))
+* 汉化中断提示文字，Claude 主语改为 YwCoder ([27f85b5](https://github.com/changjiaoxigua/ywcoder-cli/commit/27f85b53a572a0e5adc657358f761d3d137d6446))
+* 非 Anthropic 托管 provider 禁用 attribution header ([776339c](https://github.com/changjiaoxigua/ywcoder-cli/commit/776339cbae20ba88fee8863ab4e3d29fe51c3ef2))
+
 ## [1.1.0](https://github.com/changjiaoxigua/ywcoder-cli/compare/v1.0.1...v1.1.0) (2026-05-14)
 
 
