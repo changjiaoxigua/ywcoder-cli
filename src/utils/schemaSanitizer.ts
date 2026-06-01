@@ -22,7 +22,11 @@ function isSchemaRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-function stripSchemaKeywords(schema: unknown, keywords: Set<string>): unknown {
+function stripSchemaKeywords(
+  schema: unknown,
+  keywords: Set<string>,
+  inPropertiesKeys = false,
+): unknown {
   if (Array.isArray(schema)) {
     return schema.map(item => stripSchemaKeywords(item, keywords))
   }
@@ -33,11 +37,19 @@ function stripSchemaKeywords(schema: unknown, keywords: Set<string>): unknown {
 
   const result: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(schema)) {
-    if (keywords.has(key)) {
+    // 在 properties / patternProperties 的 key 层级，这些 key 是字段名，
+    // 不是 JSON Schema 关键字，不能删除（如 Grep 工具的 pattern 字段）。
+    if (keywords.has(key) && !inPropertiesKeys) {
       continue
     }
 
-    result[key] = stripSchemaKeywords(value, keywords)
+    // 仅当当前不在字段名层级时，properties / patternProperties 的下一层 key
+    // 才是字段名/模式名。字段名层级的下一层是该字段自身的 schema 定义，
+    // 即使字段恰好叫 properties，其内部的关键字也应正常清理（不依赖外层第二遍兜底）。
+    const nextInPropertiesKeys =
+      !inPropertiesKeys &&
+      (key === 'properties' || key === 'patternProperties')
+    result[key] = stripSchemaKeywords(value, keywords, nextInPropertiesKeys)
   }
 
   return result
