@@ -416,8 +416,11 @@ export const FileReadTool = buildTool({
   },
   renderToolUseErrorMessage,
   async validateInput({ file_path, pages }, toolUseContext: ToolUseContext) {
-    // Validate pages parameter (pure string parsing, no I/O)
-    if (pages !== undefined) {
+    // 校验 pages 参数（纯字符串解析，无 I/O）。
+    // pages 仅在 PDF 读取路径（见 callInner）被使用，对非 PDF 文件该参数会被
+    // 静默忽略。因此这里只对 PDF 文件做格式校验——否则较弱的第三方模型在分析
+    // 普通源码文件时常会塞入 pages: "*"（误当通配符），白白触发报错打断分析。
+    if (pages !== undefined && isPDFExtension(path.extname(file_path))) {
       const parsed = parsePDFPageRange(pages)
       if (!parsed) {
         return {
