@@ -479,34 +479,38 @@ function getModelOptionsBase(fastMode = false): ModelOption[] {
     payg3pOptions.push(...getCodexModelOptions())
   }
 
+  // YwCoder: 内网无可用 Anthropic 模型，移除硬编码 Sonnet/Opus/Haiku 兜底，
+  // 仅保留用户自定义映射（ANTHROPIC_DEFAULT_{SONNET,OPUS,HAIKU}_MODEL）。
+  // 如需把网关模型映射到对应槽位，配置上述变量即可；下方原始兜底已注释保留以便回滚。
   const customSonnet = getCustomSonnetOption()
   if (customSonnet !== undefined) {
     payg3pOptions.push(customSonnet)
-  } else {
-    // Add Sonnet 4.6 since Sonnet 4.5 is the default
-    payg3pOptions.push(getSonnet46Option())
-    if (checkSonnet1mAccess()) {
-      payg3pOptions.push(getSonnet46_1MOption())
-    }
   }
+  // else {
+  //   payg3pOptions.push(getSonnet46Option())
+  //   if (checkSonnet1mAccess()) {
+  //     payg3pOptions.push(getSonnet46_1MOption())
+  //   }
+  // }
 
   const customOpus = getCustomOpusOption()
   if (customOpus !== undefined) {
     payg3pOptions.push(customOpus)
-  } else {
-    // Add Opus 4.1, Opus 4.6 and Opus 4.6 1M
-    payg3pOptions.push(getOpus41Option()) // This is the default opus
-    payg3pOptions.push(getOpus46Option(fastMode))
-    if (checkOpus1mAccess()) {
-      payg3pOptions.push(getOpus46_1MOption(fastMode))
-    }
   }
+  // else {
+  //   payg3pOptions.push(getOpus41Option())
+  //   payg3pOptions.push(getOpus46Option(fastMode))
+  //   if (checkOpus1mAccess()) {
+  //     payg3pOptions.push(getOpus46_1MOption(fastMode))
+  //   }
+  // }
   const customHaiku = getCustomHaikuOption()
   if (customHaiku !== undefined) {
     payg3pOptions.push(customHaiku)
-  } else {
-    payg3pOptions.push(getHaikuOption())
   }
+  // else {
+  //   payg3pOptions.push(getHaikuOption())
+  // }
   return payg3pOptions
 }
 

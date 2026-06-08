@@ -16,7 +16,8 @@ const desktop = {
   aliases: ['app'],
   description: '在 Claude 桌面端继续当前会话',
   availability: ['claude-ai'],
-  isEnabled: isSupportedPlatform,
+  // YwCoder: 在 Anthropic 桌面端继续会话，属 Anthropic 专有功能，内网不提供，禁用
+  isEnabled: () => false,
   get isHidden() {
     return !isSupportedPlatform()
   },

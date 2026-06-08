@@ -23,12 +23,15 @@ function isSupportedPlatform(): boolean {
   return process.platform === 'darwin' || process.platform === 'win32' && process.arch === 'x64';
 }
 export function shouldShowDesktopUpsellStartup(): boolean {
-  if (!isSupportedPlatform()) return false;
-  if (!getDesktopUpsellConfig().enable_startup_dialog) return false;
-  const config = getGlobalConfig();
-  if (config.desktopUpsellDismissed) return false;
-  if ((config.desktopUpsellSeenCount ?? 0) >= 3) return false;
-  return true;
+  // YwCoder: 升级 Anthropic 桌面端的弹窗属 Anthropic 专有，内网不展示，直接禁用。
+  // 原逻辑保留如下以便将来回滚:
+  // if (!isSupportedPlatform()) return false;
+  // if (!getDesktopUpsellConfig().enable_startup_dialog) return false;
+  // const config = getGlobalConfig();
+  // if (config.desktopUpsellDismissed) return false;
+  // if ((config.desktopUpsellSeenCount ?? 0) >= 3) return false;
+  // return true;
+  return false;
 }
 type DesktopUpsellSelection = 'try' | 'not-now' | 'never';
 type Props = {

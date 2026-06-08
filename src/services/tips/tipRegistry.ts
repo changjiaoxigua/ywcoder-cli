@@ -477,7 +477,7 @@ const externalTips: Tip[] = [
   {
     id: 'desktop-app',
     content: async () =>
-      'Run Claude Code locally or remotely using the Claude desktop app: clau.de/desktop',
+      'Run YwCoder locally or remotely using the Claude desktop app: clau.de/desktop',
     cooldownSessions: 15,
     // YwCoder: 禁用 — 指向 Anthropic Claude Desktop，YwCoder 不提供此功能
     isRelevant: async () => false,
@@ -503,7 +503,7 @@ const externalTips: Tip[] = [
   {
     id: 'mobile-app',
     content: async () =>
-      '/mobile to use Claude Code from the Claude app on your phone',
+      '/mobile to use YwCoder from the Claude app on your phone',
     cooldownSessions: 15,
     // YwCoder: 禁用 — /mobile 命令打开 Anthropic Claude 手机 app，YwCoder 不提供此功能
     isRelevant: async () => false,

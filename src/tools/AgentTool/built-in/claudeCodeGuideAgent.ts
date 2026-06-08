@@ -92,7 +92,8 @@ function getFeedbackGuideline(): string {
   if (isUsing3PServices()) {
     return `- When you cannot find an answer or the feature doesn't exist, direct the user to ${MACRO.ISSUES_EXPLAINER}`
   }
-  return "- When you cannot find an answer or the feature doesn't exist, direct the user to use /feedback to report a feature request or bug"
+  // YwCoder: /feedback 已禁用，内网暂无反馈渠道，不再引导用户运行该命令
+  return "- When you cannot find an answer or the feature doesn't exist, let the user know it may not be available or documented"
 }
 
 export const CLAUDE_CODE_GUIDE_AGENT: BuiltInAgentDefinition = {

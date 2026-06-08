@@ -1,7 +1,7 @@
 import { getYwCoderEnv } from './envUtils.js'
 /**
  * Privacy level controls how much nonessential network traffic and telemetry
- * Claude Code generates.
+ * YwCoder generates.
  *
  * Levels are ordered by restrictiveness:
  *   default < no-telemetry < essential-traffic

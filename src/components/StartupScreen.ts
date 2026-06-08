@@ -1,5 +1,5 @@
 /**
- * OpenClaude startup screen — clean YW logo.
+ * YwCoder startup screen — clean YW logo.
  * Uses 256-color codes for broad terminal compatibility (including macOS Terminal.app).
  */
 

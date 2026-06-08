@@ -195,6 +195,8 @@ const usageReport: Command = {
   type: 'prompt',
   name: 'insights',
   description: '生成 YwCoder 会话的分析报告',
+  // YwCoder: 报告依赖云端 S3 上传/分享，内网暂不提供，整体禁用（后续做内网启用适配可重启用）
+  isEnabled: () => false,
   contentLength: 0,
   progressMessage: '正在分析你的会话',
   source: 'builtin',

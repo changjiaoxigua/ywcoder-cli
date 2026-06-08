@@ -1,11 +1,11 @@
-import { getIsNonInteractiveSession } from '../../bootstrap/state.js'
 import type { Command } from '../../commands.js'
 
 const command: Command = {
   name: 'chrome',
   description: 'Chrome 浏览器集成（Beta）设置',
   availability: ['claude-ai'],
-  isEnabled: () => !getIsNonInteractiveSession(),
+  // YwCoder: 依赖 Anthropic 的 Claude in Chrome 浏览器扩展，内网不提供，禁用
+  isEnabled: () => false,
   type: 'local-jsx',
   load: () => import('./chrome.js'),
 }

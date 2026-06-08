@@ -1,7 +1,4 @@
 import type { Command } from '../../commands.js'
-import { isPolicyAllowed } from '../../services/policyLimits/index.js'
-import { isEnvTruthy, getYwCoderEnv } from '../../utils/envUtils.js'
-import { isEssentialTrafficOnly } from '../../utils/privacyLevel.js'
 
 const feedback = {
   aliases: ['bug'],
@@ -9,17 +6,8 @@ const feedback = {
   name: 'feedback',
   description: `提交关于 YwCoder 的反馈`,
   argumentHint: '[问题报告]',
-  isEnabled: () =>
-    !(
-      isEnvTruthy(getYwCoderEnv('USE_BEDROCK')) ||
-      isEnvTruthy(getYwCoderEnv('USE_VERTEX')) ||
-      isEnvTruthy(getYwCoderEnv('USE_FOUNDRY')) ||
-      isEnvTruthy(process.env.DISABLE_FEEDBACK_COMMAND) ||
-      isEnvTruthy(process.env.DISABLE_BUG_COMMAND) ||
-      isEssentialTrafficOnly() ||
-      process.env.USER_TYPE === 'ant' ||
-      !isPolicyAllowed('allow_product_feedback')
-    ),
+  // YwCoder: 反馈提交至公网 GitHub，内网不可达，禁用（将来接内网反馈渠道可重启用）
+  isEnabled: () => false,
   load: () => import('./feedback.js'),
 } satisfies Command
 

@@ -14,6 +14,8 @@ export default {
     }
     return '邀请好友免费试用 Claude Code 一周'
   },
+  // YwCoder: Anthropic 订阅推荐返利功能，内网不提供，禁用
+  isEnabled: () => false,
   get isHidden() {
     const { eligible, hasCache } = checkCachedPassesEligibility()
     return !eligible || !hasCache
