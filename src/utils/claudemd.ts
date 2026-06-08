@@ -694,9 +694,13 @@ export async function processMemoryFile(
 }
 
 /**
- * D4-b: 项目记忆文件优先读 YWCODER.md / YWCODER.local.md，缺失（或为空）时
- * 回退到旧的 CLAUDE.md / CLAUDE.local.md（永久兼容存量项目与生态）。
- * 二者都存在时只取 YWCODER 版本，避免重复加载。
+ * D4-b: 项目记忆文件优先读 YWCODER.md / YWCODER.local.md，文件不存在时回退
+ * 到旧的 CLAUDE.md / CLAUDE.local.md（永久兼容存量项目与生态）。
+ *
+ * 命中判据用「文件是否存在」（而非内容是否为空），与 config.ts 里
+ * resolveMemoryFilePath（写入/排除路径）的判据保持一致——避免出现
+ * 「空 YWCODER.md + 有内容 CLAUDE.md」时读到 CLAUDE.md、却写进 YWCODER.md
+ * 的分歧。即：只要 YWCODER.md 存在（哪怕为空）就以它为准，不再回退。
  */
 async function processMemoryFileWithFallback(
   primaryPath: string,
@@ -705,16 +709,10 @@ async function processMemoryFileWithFallback(
   processedPaths: Set<string>,
   includeExternal: boolean,
 ): Promise<MemoryFileInfo[]> {
-  const primary = await processMemoryFile(
-    primaryPath,
-    type,
-    processedPaths,
-    includeExternal,
-  )
-  if (primary.length > 0) {
-    return primary
-  }
-  return processMemoryFile(legacyPath, type, processedPaths, includeExternal)
+  const targetPath = getFsImplementation().existsSync(primaryPath)
+    ? primaryPath
+    : legacyPath
+  return processMemoryFile(targetPath, type, processedPaths, includeExternal)
 }
 
 /**

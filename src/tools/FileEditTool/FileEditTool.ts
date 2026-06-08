@@ -524,8 +524,11 @@ export const FileEditTool = buildTool({
       limit: undefined,
     })
 
-    // 7. Log events
-    if (absoluteFilePath.endsWith(`${sep}CLAUDE.md`)) {
+    // 7. Log events（YWCODER.md，兼容旧 CLAUDE.md）
+    if (
+      absoluteFilePath.endsWith(`${sep}YWCODER.md`) ||
+      absoluteFilePath.endsWith(`${sep}CLAUDE.md`)
+    ) {
       logEvent('tengu_write_claudemd', {})
     }
     countLinesChanged(patch)
