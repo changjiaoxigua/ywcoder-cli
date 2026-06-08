@@ -233,7 +233,7 @@ export async function exec(
       cwd = fallback
     } catch {
       return createFailedCommand(
-        `Working directory "${cwd}" no longer exists. Please restart Claude from an existing directory.`,
+        `Working directory "${cwd}" no longer exists. Please restart YwCoder from an existing directory.`,
       )
     }
   }

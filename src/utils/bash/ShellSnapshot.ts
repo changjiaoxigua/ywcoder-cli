@@ -485,7 +485,7 @@ export const createAndSaveSnapshot = async (
             logForDebugging(`  - Config file: ${getConfigFile(binShell)}`)
             logForDebugging(`  - Config file exists: ${configFileExists}`)
             logForDebugging(`  - Working directory: ${getCwd()}`)
-            logForDebugging(`  - Claude home: ${getYwCoderConfigHomeDir()}`)
+            logForDebugging(`  - YwCoder home: ${getYwCoderConfigHomeDir()}`)
             logForDebugging(`Full snapshot script:\n${snapshotScript}`)
             if (stdout) {
               logForDebugging(

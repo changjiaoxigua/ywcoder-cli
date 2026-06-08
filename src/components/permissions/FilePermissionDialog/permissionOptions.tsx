@@ -80,7 +80,7 @@ export function getFilePermissionOptions({
       type: 'input',
       label: 'Yes',
       value: 'yes',
-      placeholder: 'and tell Claude what to do next',
+      placeholder: 'and tell YwCoder what to do next',
       onChange: onAcceptFeedbackChange,
       allowEmptySubmitToCancel: true,
       option: {
@@ -108,7 +108,7 @@ export function getFilePermissionOptions({
   // persisted permission rules.
   if ((inClaudeFolder || inGlobalClaudeFolder) && operationType !== 'read') {
     options.push({
-      label: 'Yes, and allow Claude to edit its own settings for this session',
+      label: 'Yes, and allow YwCoder to edit its own settings for this session',
       value: 'yes-claude-folder',
       option: {
         type: 'accept-session',
@@ -159,7 +159,7 @@ export function getFilePermissionOptions({
       type: 'input',
       label: 'No',
       value: 'no',
-      placeholder: 'and tell Claude what to do differently',
+      placeholder: 'and tell YwCoder what to do differently',
       onChange: onRejectFeedbackChange,
       allowEmptySubmitToCancel: true,
       option: {

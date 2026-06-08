@@ -3941,7 +3941,7 @@ export function REPL({
         // Use ref to get current dialog state, avoiding stale closure
         focusedInputDialogRef.current === undefined && idleTimeSinceResponse >= getGlobalConfig().messageIdleNotifThresholdMs) {
         void sendNotification({
-          message: 'Claude is waiting for your input',
+          message: 'YwCoder is waiting for your input',
           notificationType: 'idle_prompt'
         }, terminal);
       }
@@ -4132,7 +4132,7 @@ export function REPL({
   useEffect(() => {
     const handleSuspend = () => {
       // Print suspension instructions
-      process.stdout.write(`\nClaude has been suspended. Run \`fg\` to bring YwCoder back.\nNote: ctrl + z now suspends YwCoder, ctrl + _ undoes input.\n`);
+      process.stdout.write(`\nYwCoder has been suspended. Run \`fg\` to bring YwCoder back.\nNote: ctrl + z now suspends YwCoder, ctrl + _ undoes input.\n`);
     };
     const handleResume = () => {
       // Force complete component tree replacement instead of terminal clear

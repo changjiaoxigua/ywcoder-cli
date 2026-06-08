@@ -239,7 +239,7 @@ export async function update() {
           : ''
         writeToStdout(
           chalk.yellow(
-            `Another Claude process${pidInfo} is currently running. Please try again in a moment.`,
+            `Another YwCoder process${pidInfo} is currently running. Please try again in a moment.`,
           ) + '\n',
         )
         await gracefulShutdown(0)

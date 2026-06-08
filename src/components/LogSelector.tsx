@@ -1315,7 +1315,7 @@ export function LogSelector(t0) {
   }
   let t66;
   if ($[187] !== agenticSearchState.results || $[188] !== agenticSearchState.status) {
-    t66 = agenticSearchState.status === "results" && agenticSearchState.results.length > 0 && <Box paddingLeft={1} marginBottom={1} flexShrink={0}><Text dimColor={true} italic={true}>Claude found these results:</Text></Box>;
+    t66 = agenticSearchState.status === "results" && agenticSearchState.results.length > 0 && <Box paddingLeft={1} marginBottom={1} flexShrink={0}><Text dimColor={true} italic={true}>YwCoder found these results:</Text></Box>;
     $[187] = agenticSearchState.results;
     $[188] = agenticSearchState.status;
     $[189] = t66;
