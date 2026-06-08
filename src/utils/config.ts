@@ -1,6 +1,6 @@
 import { feature } from 'bun:bundle'
 import { randomBytes } from 'crypto'
-import { unwatchFile, watchFile } from 'fs'
+import { existsSync, unwatchFile, watchFile } from 'fs'
 import memoize from 'lodash-es/memoize.js'
 import pickBy from 'lodash-es/pickBy.js'
 import { basename, dirname, join, resolve } from 'path'
@@ -1814,18 +1814,41 @@ export function recordFirstStartTime(): void {
   }
 }
 
+// D4-b: 记忆文件路径解析——优先已存在的 YWCODER.md，其次已存在的旧 CLAUDE.md，
+// 都不存在（新建场景）时落到 YWCODER.md。这样既兼容存量 CLAUDE.md（读取/追加写
+// 仍命中旧文件），新项目又统一生成 YWCODER.md。
+function resolveMemoryFilePath(
+  dir: string,
+  ywName: string,
+  legacyName: string,
+): string {
+  const ywPath = join(dir, ywName)
+  if (existsSync(ywPath)) {
+    return ywPath
+  }
+  const legacyPath = join(dir, legacyName)
+  if (existsSync(legacyPath)) {
+    return legacyPath
+  }
+  return ywPath
+}
+
 export function getMemoryPath(memoryType: MemoryType): string {
   const cwd = getOriginalCwd()
 
   switch (memoryType) {
     case 'User':
-      return join(getYwCoderConfigHomeDir(), 'CLAUDE.md')
+      return resolveMemoryFilePath(
+        getYwCoderConfigHomeDir(),
+        'YWCODER.md',
+        'CLAUDE.md',
+      )
     case 'Local':
-      return join(cwd, 'CLAUDE.local.md')
+      return resolveMemoryFilePath(cwd, 'YWCODER.local.md', 'CLAUDE.local.md')
     case 'Project':
-      return join(cwd, 'CLAUDE.md')
+      return resolveMemoryFilePath(cwd, 'YWCODER.md', 'CLAUDE.md')
     case 'Managed':
-      return join(getManagedFilePath(), 'CLAUDE.md')
+      return resolveMemoryFilePath(getManagedFilePath(), 'YWCODER.md', 'CLAUDE.md')
     case 'AutoMem':
       return getAutoMemEntrypoint()
   }

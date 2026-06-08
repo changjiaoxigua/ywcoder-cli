@@ -17,9 +17,11 @@ export type Step = {
 }
 
 export function getSteps(): Step[] {
-  const hasClaudeMd = getFsImplementation().existsSync(
-    join(getCwd(), 'CLAUDE.md'),
-  )
+  // D4-b: 优先识别 YWCODER.md，并回退兼容存量 CLAUDE.md
+  const fs = getFsImplementation()
+  const hasClaudeMd =
+    fs.existsSync(join(getCwd(), 'YWCODER.md')) ||
+    fs.existsSync(join(getCwd(), 'CLAUDE.md'))
   const isWorkspaceDirEmpty = isDirEmpty(getCwd())
 
   return [

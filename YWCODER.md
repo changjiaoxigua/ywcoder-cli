@@ -1,4 +1,4 @@
-# CLAUDE.md
+# YWCODER.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -158,7 +158,7 @@ export OPENAI_BASE_URL=http://localhost:11434/v1
 export OPENAI_MODEL=qwen2.5-coder:7b
 ```
 
-# CLAUDE.md
+# YWCODER.md
 
 行为指南，用于减少大语言模型在编码时的常见错误。可根据需要与项目特定说明合并。
 

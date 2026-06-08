@@ -694,6 +694,30 @@ export async function processMemoryFile(
 }
 
 /**
+ * D4-b: 项目记忆文件优先读 YWCODER.md / YWCODER.local.md，缺失（或为空）时
+ * 回退到旧的 CLAUDE.md / CLAUDE.local.md（永久兼容存量项目与生态）。
+ * 二者都存在时只取 YWCODER 版本，避免重复加载。
+ */
+async function processMemoryFileWithFallback(
+  primaryPath: string,
+  legacyPath: string,
+  type: MemoryType,
+  processedPaths: Set<string>,
+  includeExternal: boolean,
+): Promise<MemoryFileInfo[]> {
+  const primary = await processMemoryFile(
+    primaryPath,
+    type,
+    processedPaths,
+    includeExternal,
+  )
+  if (primary.length > 0) {
+    return primary
+  }
+  return processMemoryFile(legacyPath, type, processedPaths, includeExternal)
+}
+
+/**
  * Processes all .md files in the .claude/rules/ directory and its subdirectories
  * @param rulesDir The path to the rules directory
  * @param type Type of memory file (User, Project, Local)
@@ -896,7 +920,8 @@ export const getMemoryFiles = memoize(
       if (isSettingSourceEnabled('projectSettings') && !skipProject) {
         const projectPath = join(dir, 'CLAUDE.md')
         result.push(
-          ...(await processMemoryFile(
+          ...(await processMemoryFileWithFallback(
+            join(dir, 'YWCODER.md'),
             projectPath,
             'Project',
             processedPaths,
@@ -907,7 +932,8 @@ export const getMemoryFiles = memoize(
         // Try reading .claude/CLAUDE.md (Project)
         const dotClaudePath = join(dir, '.claude', 'CLAUDE.md')
         result.push(
-          ...(await processMemoryFile(
+          ...(await processMemoryFileWithFallback(
+            join(dir, '.claude', 'YWCODER.md'),
             dotClaudePath,
             'Project',
             processedPaths,
@@ -932,7 +958,8 @@ export const getMemoryFiles = memoize(
       if (isSettingSourceEnabled('localSettings')) {
         const localPath = join(dir, 'CLAUDE.local.md')
         result.push(
-          ...(await processMemoryFile(
+          ...(await processMemoryFileWithFallback(
+            join(dir, 'YWCODER.local.md'),
             localPath,
             'Local',
             processedPaths,
@@ -952,7 +979,8 @@ export const getMemoryFiles = memoize(
         // Try reading CLAUDE.md from the additional directory
         const projectPath = join(dir, 'CLAUDE.md')
         result.push(
-          ...(await processMemoryFile(
+          ...(await processMemoryFileWithFallback(
+            join(dir, 'YWCODER.md'),
             projectPath,
             'Project',
             processedPaths,
@@ -963,7 +991,8 @@ export const getMemoryFiles = memoize(
         // Try reading .claude/CLAUDE.md from the additional directory
         const dotClaudePath = join(dir, '.claude', 'CLAUDE.md')
         result.push(
-          ...(await processMemoryFile(
+          ...(await processMemoryFileWithFallback(
+            join(dir, '.claude', 'YWCODER.md'),
             dotClaudePath,
             'Project',
             processedPaths,
@@ -1266,7 +1295,8 @@ export async function getMemoryFilesForNestedDirectory(
   if (isSettingSourceEnabled('projectSettings')) {
     const projectPath = join(dir, 'CLAUDE.md')
     result.push(
-      ...(await processMemoryFile(
+      ...(await processMemoryFileWithFallback(
+        join(dir, 'YWCODER.md'),
         projectPath,
         'Project',
         processedPaths,
@@ -1275,7 +1305,8 @@ export async function getMemoryFilesForNestedDirectory(
     )
     const dotClaudePath = join(dir, '.claude', 'CLAUDE.md')
     result.push(
-      ...(await processMemoryFile(
+      ...(await processMemoryFileWithFallback(
+        join(dir, '.claude', 'YWCODER.md'),
         dotClaudePath,
         'Project',
         processedPaths,
@@ -1288,7 +1319,13 @@ export async function getMemoryFilesForNestedDirectory(
   if (isSettingSourceEnabled('localSettings')) {
     const localPath = join(dir, 'CLAUDE.local.md')
     result.push(
-      ...(await processMemoryFile(localPath, 'Local', processedPaths, false)),
+      ...(await processMemoryFileWithFallback(
+        join(dir, 'YWCODER.local.md'),
+        localPath,
+        'Local',
+        processedPaths,
+        false,
+      )),
     )
   }
 
@@ -1444,8 +1481,13 @@ export async function shouldShowClaudeMdExternalIncludesWarning(): Promise<boole
 export function isMemoryFilePath(filePath: string): boolean {
   const name = basename(filePath)
 
-  // CLAUDE.md or CLAUDE.local.md anywhere
-  if (name === 'CLAUDE.md' || name === 'CLAUDE.local.md') {
+  // YWCODER.md / YWCODER.local.md（主），或回退兼容的 CLAUDE.md / CLAUDE.local.md
+  if (
+    name === 'YWCODER.md' ||
+    name === 'YWCODER.local.md' ||
+    name === 'CLAUDE.md' ||
+    name === 'CLAUDE.local.md'
+  ) {
     return true
   }
 
