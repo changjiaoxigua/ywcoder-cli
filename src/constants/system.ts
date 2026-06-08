@@ -10,7 +10,7 @@ import { getWorkload } from '../utils/workloadContext.js'
 const DEFAULT_PREFIX =
   `You are YwCoder, an AI coding assistant designed for software engineering tasks.`
 const AGENT_SDK_CLAUDE_CODE_PRESET_PREFIX =
-  `You are YwCoder, an AI coding assistant designed for software engineering tasks, running within the Claude Agent SDK.`
+  `You are YwCoder, an AI coding assistant designed for software engineering tasks.`
 const AGENT_SDK_PREFIX =
   `You are an AI agent running in YwCoder, an AI coding assistant.`
 
