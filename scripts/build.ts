@@ -88,7 +88,7 @@ const result = await Bun.build({
     'MACRO.BUILD_CHANNEL': JSON.stringify(buildChannel),
     'MACRO.BUILD_TIME': JSON.stringify(new Date().toISOString()),
     'MACRO.ISSUES_EXPLAINER':
-      JSON.stringify('report the issue at https://github.com/anthropics/claude-code/issues'),
+      JSON.stringify('report the issue to your YwCoder administrator'),
     'MACRO.PACKAGE_URL': JSON.stringify('@dcywzc/ywcoder'),
     'MACRO.NATIVE_PACKAGE_URL': 'undefined',
   },

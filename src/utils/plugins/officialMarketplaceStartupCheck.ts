@@ -45,9 +45,10 @@ export type OfficialMarketplaceSkipReason =
  * Check if official marketplace auto-install is disabled via environment variable.
  */
 export function isOfficialMarketplaceAutoInstallDisabled(): boolean {
-  return isEnvTruthy(
-    process.env.CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL,
-  )
+  // YwCoder: 官方插件市场（anthropics/claude-plugins-official）内网不可达，
+  // 自动安装一律禁用。将来接内网插件市场时，恢复下方 env 判断即可。
+  // return isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL)
+  return true
 }
 
 /**

@@ -431,7 +431,7 @@ async function runCodexWebSearch(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${credentials.apiKey}`,
       'chatgpt-account-id': credentials.accountId,
-      originator: 'openclaude',
+      originator: 'ywcoder',
     },
     body: JSON.stringify(body),
     signal,

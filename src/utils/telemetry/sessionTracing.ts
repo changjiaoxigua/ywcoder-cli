@@ -150,7 +150,7 @@ function isAnyTracingEnabled(): boolean {
 }
 
 function getTracer() {
-  return trace.getTracer('com.anthropic.claude_code.tracing', '1.0.0')
+  return trace.getTracer('ywcoder.tracing', '1.0.0')
 }
 
 function createSpanAttributes(
@@ -213,7 +213,7 @@ export function startInteractionSpan(userPrompt: string): Span {
     'interaction.sequence': interactionSequence,
   })
 
-  const span = tracer.startSpan('claude_code.interaction', {
+  const span = tracer.startSpan('ywcoder.interaction', {
     attributes,
   })
 
@@ -316,7 +316,7 @@ export function startLLMRequestSpan(
   const ctx = parentSpanCtx
     ? trace.setSpan(otelContext.active(), parentSpanCtx.span)
     : otelContext.active()
-  const span = tracer.startSpan('claude_code.llm_request', { attributes }, ctx)
+  const span = tracer.startSpan('ywcoder.llm_request', { attributes }, ctx)
 
   // Add query_source (agent name) if provided
   if (newContext?.querySource) {
@@ -502,7 +502,7 @@ export function startToolSpan(
   const ctx = parentSpanCtx
     ? trace.setSpan(otelContext.active(), parentSpanCtx.span)
     : otelContext.active()
-  const span = tracer.startSpan('claude_code.tool', { attributes }, ctx)
+  const span = tracer.startSpan('ywcoder.tool', { attributes }, ctx)
 
   // Add experimental tool input attributes
   if (toolInput) {
@@ -556,7 +556,7 @@ export function startToolBlockedOnUserSpan(): Span {
     ? trace.setSpan(otelContext.active(), parentSpanCtx.span)
     : otelContext.active()
   const span = tracer.startSpan(
-    'claude_code.tool.blocked_on_user',
+    'ywcoder.tool.blocked_on_user',
     { attributes },
     ctx,
   )
@@ -637,7 +637,7 @@ export function startToolExecutionSpan(): Span {
     ? trace.setSpan(otelContext.active(), parentSpanCtx.span)
     : otelContext.active()
   const span = tracer.startSpan(
-    'claude_code.tool.execution',
+    'ywcoder.tool.execution',
     { attributes },
     ctx,
   )
@@ -864,7 +864,7 @@ export function startHookSpan(
   const ctx = parentSpanCtx
     ? trace.setSpan(otelContext.active(), parentSpanCtx.span)
     : otelContext.active()
-  const span = tracer.startSpan('claude_code.hook', { attributes }, ctx)
+  const span = tracer.startSpan('ywcoder.hook', { attributes }, ctx)
 
   const spanId = getSpanId(span)
   const spanContextObj: SpanContext = {
