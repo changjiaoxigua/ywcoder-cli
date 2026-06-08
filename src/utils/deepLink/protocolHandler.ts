@@ -50,7 +50,7 @@ export async function handleDeepLinkUri(uri: string): Promise<number> {
 
   // Always the running executable — no PATH lookup. The OS launched us via
   // an absolute path (bundle symlink / .desktop Exec= / registry command)
-  // baked at registration time, and we want the terminal-launched Claude to
+  // baked at registration time, and we want the terminal-launched YwCoder to
   // be the same binary. process.execPath is that binary.
   const { cwd, resolvedRepo } = await resolveCwd(action)
   // Resolve FETCH_HEAD age here, in the trampoline process, so main.tsx

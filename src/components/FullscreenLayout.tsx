@@ -537,7 +537,7 @@ function NewMessagesPill(t0) {
 }
 
 // Context breadcrumb: when scrolled up into history, pin the current
-// conversation turn's prompt above the viewport so you know what Claude was
+// conversation turn's prompt above the viewport so you know what YwCoder was
 // responding to. Normal-flow sibling BEFORE the ScrollBox (mirrors the pill
 // below it) — shrinks the ScrollBox by exactly 1 row via flex, stays outside
 // the DECSTBM scroll region. Click jumps back to the prompt.

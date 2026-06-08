@@ -495,7 +495,7 @@ export async function ripGrep(
         logError(error)
       }
 
-      // If we timed out with no results, throw an error so Claude knows the search
+      // If we timed out with no results, throw an error so YwCoder knows the search
       // didn't complete rather than thinking there were no matches
       if (isTimeout && lines.length === 0) {
         reject(

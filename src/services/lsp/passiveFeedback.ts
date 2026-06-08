@@ -187,7 +187,7 @@ export function registerLSPNotificationHandlers(
               `Received diagnostics from ${serverName}: ${diagnosticParams.diagnostics.length} diagnostic(s) for ${diagnosticParams.uri}`,
             )
 
-            // Convert LSP diagnostics to Claude format (can throw on invalid URIs)
+            // Convert LSP diagnostics to YwCoder format (can throw on invalid URIs)
             const diagnosticFiles =
               formatDiagnosticsForAttachment(diagnosticParams)
 

@@ -96,7 +96,7 @@ const externalTips: Tip[] = [
   {
     id: 'new-user-warmup',
     content: async () =>
-      // 'Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits'
+      // 'Start with small features or bug fixes, tell YwCoder to propose a plan, and verify its suggested edits'
       `从小功能或 bug 修复开始，让 YwCoder 先提出计划，然后确认它的修改建议`,
     cooldownSessions: 3,
     async isRelevant() {
@@ -146,7 +146,7 @@ const externalTips: Tip[] = [
   {
     id: 'git-worktrees',
     content: async () =>
-      // 'Use git worktrees to run multiple Claude sessions in parallel.'
+      // 'Use git worktrees to run multiple YwCoder sessions in parallel.'
       '使用 git worktree 并行运行多个 YwCoder 会话',
     cooldownSessions: 10,
     isRelevant: async () => {
@@ -162,7 +162,7 @@ const externalTips: Tip[] = [
   {
     id: 'color-when-multi-clauding',
     content: async () =>
-      // 'Running multiple Claude sessions? Use /color and /rename to tell them apart at a glance.'
+      // 'Running multiple YwCoder sessions? Use /color and /rename to tell them apart at a glance.'
       '同时运行多个 YwCoder 会话？使用 /color 和 /rename 一眼区分它们',
     cooldownSessions: 10,
     isRelevant: async () => {
@@ -230,7 +230,7 @@ const externalTips: Tip[] = [
   },
   {
     id: 'memory-command',
-    // content: async () => 'Use /memory to view and manage Claude memory',
+    // content: async () => 'Use /memory to view and manage YwCoder memory',
     content: async () => '使用 /memory 查看和管理 YwCoder 的记忆',
     cooldownSessions: 15,
     async isRelevant() {
@@ -274,7 +274,7 @@ const externalTips: Tip[] = [
   {
     id: 'prompt-queue',
     content: async () =>
-      // 'Hit Enter to queue up additional messages while Claude is working.'
+      // 'Hit Enter to queue up additional messages while YwCoder is working.'
       'YwCoder 工作时，可按 Enter 继续排队输入消息',
     cooldownSessions: 5,
     async isRelevant() {
@@ -285,7 +285,7 @@ const externalTips: Tip[] = [
   {
     id: 'enter-to-steer-in-relatime',
     content: async () =>
-      // 'Send messages to Claude while it works to steer Claude in real-time'
+      // 'Send messages to YwCoder while it works to steer YwCoder in real-time'
       'YwCoder 工作时可随时发消息，实时调整方向',
     cooldownSessions: 20,
     isRelevant: async () => true,
@@ -293,7 +293,7 @@ const externalTips: Tip[] = [
   {
     id: 'todo-list',
     content: async () =>
-      // 'Ask Claude to create a todo list when working on complex tasks to track progress and remain on track'
+      // 'Ask YwCoder to create a todo list when working on complex tasks to track progress and remain on track'
       '处理复杂任务时，让 YwCoder 创建待办清单以追踪进度',
     cooldownSessions: 20,
     isRelevant: async () => true,
@@ -328,7 +328,7 @@ const externalTips: Tip[] = [
   },
   {
     id: 'ide-upsell-external-terminal',
-    // content: async () => 'Connect Claude to your IDE · /ide',
+    // content: async () => 'Connect YwCoder to your IDE · /ide',
     content: async () => '将 YwCoder 接入你的 IDE · /ide',
     cooldownSessions: 4,
     async isRelevant() {
@@ -562,7 +562,7 @@ const externalTips: Tip[] = [
         'off' | 'copy_a' | 'copy_b'
       >('tengu_tide_elm', 'off')
       // return variant === 'copy_b'
-      //   ? `Use ${cmd} for better one-shot answers. Claude thinks it through first.`
+      //   ? `Use ${cmd} for better one-shot answers. YwCoder thinks it through first.`
       //   : `Working on something tricky? ${cmd} gives better first answers`
       return variant === 'copy_b'
         ? `使用 ${cmd} 获得更好的一次性回答，YwCoder 会先深入思考`
@@ -594,8 +594,8 @@ const externalTips: Tip[] = [
         'off' | 'copy_a' | 'copy_b'
       >('tengu_tern_alloy', 'off')
       // return variant === 'copy_b'
-      //   ? `For big tasks, tell Claude to ${blue('use subagents')}. They work in parallel and keep your main thread clean.`
-      //   : `Say ${blue('"fan out subagents"')} and Claude sends a team. Each one digs deep so nothing gets missed.`
+      //   ? `For big tasks, tell YwCoder to ${blue('use subagents')}. They work in parallel and keep your main thread clean.`
+      //   : `Say ${blue('"fan out subagents"')} and YwCoder sends a team. Each one digs deep so nothing gets missed.`
       return variant === 'copy_b'
         ? `处理大任务时，让 YwCoder ${blue('使用子 agents')} 并行执行，保持主线程清爽`
         : `说 ${blue('"fan out subagents"')}，YwCoder 会派出团队，每个 agent 深入挖掘，不遗漏任何细节`
