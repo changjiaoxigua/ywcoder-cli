@@ -3,7 +3,7 @@ import { getIsNonInteractiveSession } from '../../bootstrap/state.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import { isEnvTruthy, getYwCoderEnv } from '../../utils/envUtils.js'
 // YwCoder: guide agent 已禁用（见下方注册处说明）。import 一并注释，
-// 使其 Claude Code/Anthropic API 文档字符串被 tree-shaking 移出打包产物。
+// 使其 YwCoder/Anthropic API 文档字符串被 tree-shaking 移出打包产物。
 // import { CLAUDE_CODE_GUIDE_AGENT } from './built-in/claudeCodeGuideAgent.js'
 import { EXPLORE_AGENT } from './built-in/exploreAgent.js'
 import { GENERAL_PURPOSE_AGENT } from './built-in/generalPurposeAgent.js'
@@ -53,7 +53,7 @@ export function getBuiltInAgents(): AgentDefinition[] {
     agents.push(EXPLORE_AGENT, PLAN_AGENT)
   }
 
-  // YwCoder: guide agent（Claude Code / Anthropic SDK·API 文档助手）内网用不上、
+  // YwCoder: guide agent（YwCoder / Anthropic SDK·API 文档助手）内网用不上、
   // 且属品牌泄漏点，整体禁用（连同顶部 import 注释，字符串不进打包产物）。
   // 将来接内网文档时，恢复 import 与下方注册逻辑即可：
   //   const isNonSdkEntrypoint =

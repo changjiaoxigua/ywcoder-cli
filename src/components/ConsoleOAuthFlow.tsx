@@ -384,7 +384,7 @@ function OAuthStatusMessage({
     case 'idle': {
       const promptText =
         startingMessage ||
-        'Claude Code can be used with your Claude subscription or billed based on API usage through your Console account.'
+        'YwCoder can be used with your Claude subscription or billed based on API usage through your Console account.'
 
       const loginOptions = [
         {

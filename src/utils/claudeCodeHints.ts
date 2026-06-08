@@ -1,5 +1,5 @@
 /**
- * Claude Code hints protocol.
+ * YwCoder hints protocol.
  *
  * CLIs and SDKs running under YwCoder can emit a self-closing
  * `<claude-code-hint />` tag to stderr (merged into stdout by the shell

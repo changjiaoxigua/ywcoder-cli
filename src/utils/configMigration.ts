@@ -81,7 +81,7 @@ export async function migrateConfig(): Promise<MigrationResult> {
 
   // 步骤 1（独立）：迁移 ~/.claude.json → ~/.ywcoder/.config.json
   // 不依赖 ~/.claude 目录是否存在，覆盖以下场景：
-  //   a. 官方 Claude Code 已卸载但 ~/.claude.json 残留
+  //   a. 官方 YwCoder 已卸载但 ~/.claude.json 残留
   //   b. 用户清理过 ~/.claude 目录但 JSON 配置还在
   // 仅在目标文件不存在时复制，防止覆盖已在 ywcoder 中单独修改过的配置
   const sourceClaudeJson = join(homedir(), '.claude.json')
@@ -92,7 +92,7 @@ export async function migrateConfig(): Promise<MigrationResult> {
   } else if (existsSync(targetConfigJson)) {
     console.log(`  ~/.ywcoder/.config.json 已存在，跳过（保留现有配置）`)
   }
-  // 若 ~/.claude.json 不存在，静默跳过——用户可能从未用过 Claude Code
+  // 若 ~/.claude.json 不存在，静默跳过——用户可能从未用过 YwCoder
 
   // 步骤 2：目录迁移
   // 注意：判断"是否已在新目录"用的是 mkdir 之前的快照（targetExistedBefore），
