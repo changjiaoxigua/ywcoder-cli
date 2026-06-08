@@ -307,30 +307,33 @@ export function isScratchpadEnabled(): boolean {
 }
 
 /**
- * Returns the user-specific Claude temp directory name.
- * On Unix: 'claude-{uid}' to prevent multi-user permission conflicts
- * On Windows: 'claude' (tmpdir() is already per-user)
+ * Returns the user-specific YwCoder temp directory name.
+ * On Unix: 'ywcoder-{uid}' to prevent multi-user permission conflicts
+ * On Windows: 'ywcoder' (tmpdir() is already per-user)
+ *
+ * 临时目录是易失的，无需对旧 'claude'/'claude-{uid}' 目录做回退兼容——
+ * 旧目录会被系统清理，新会话直接用新名。创建与权限白名单都经本函数，保持一致。
  */
 export function getClaudeTempDirName(): string {
   if (getPlatform() === 'windows') {
-    return 'claude'
+    return 'ywcoder'
   }
   // Use UID to create per-user directories, preventing permission conflicts
   // when multiple users share the same /tmp directory
   const uid = process.getuid?.() ?? 0
-  return `claude-${uid}`
+  return `ywcoder-${uid}`
 }
 
 /**
- * Returns the Claude temp directory path with symlinks resolved.
+ * Returns the YwCoder temp directory path with symlinks resolved.
  * Uses TMPDIR env var if set, otherwise:
- * - On Unix: /tmp/claude-{uid}/ (resolved to /private/tmp/claude-{uid}/ on macOS)
- * - On Windows: {tmpdir}/claude/ (e.g., C:\Users\{user}\AppData\Local\Temp\claude\)
+ * - On Unix: /tmp/ywcoder-{uid}/ (resolved to /private/tmp/ywcoder-{uid}/ on macOS)
+ * - On Windows: {tmpdir}/ywcoder/ (e.g., C:\Users\{user}\AppData\Local\Temp\ywcoder\)
  * This is a per-user temporary directory used by YwCoder for all temp files.
  *
  * NOTE: We resolve symlinks to ensure this path matches the resolved paths used
  * in permission checks. On macOS, /tmp is a symlink to /private/tmp, so without
- * resolution, paths like /tmp/claude-{uid}/... wouldn't match /private/tmp/claude-{uid}/...
+ * resolution, paths like /tmp/ywcoder-{uid}/... wouldn't match /private/tmp/ywcoder-{uid}/...
  */
 // Memoized: called per-tool from permission checks (yoloClassifier, sandbox-adapter)
 // and per-turn from BashTool prompt. Inputs (CLAUDE_CODE_TMPDIR env + platform) are
