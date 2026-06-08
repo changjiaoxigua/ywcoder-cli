@@ -692,7 +692,7 @@ const internalOnlyTips: Tip[] =
         {
           id: 'important-claudemd',
           content: async () =>
-            '[internal] Use "IMPORTANT:" prefix for must-follow CLAUDE.md rules',
+            '[internal] Use "IMPORTANT:" prefix for must-follow YWCODER.md rules',
           cooldownSessions: 30,
           isRelevant: async () => true,
         },

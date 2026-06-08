@@ -6,7 +6,7 @@ const web = {
   type: 'local-jsx',
   name: 'web-setup',
   description:
-    '在网页端配置 Claude Code（需绑定 GitHub 账号）',
+    '在网页端配置 YwCoder（需绑定 GitHub 账号）',
   availability: ['claude-ai'],
   isEnabled: () =>
     getFeatureValue_CACHED_MAY_BE_STALE('tengu_cobalt_lantern', false) &&

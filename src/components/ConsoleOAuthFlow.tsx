@@ -262,7 +262,7 @@ export function ConsoleOAuthFlow({
           state: 'success'
         });
         void sendNotification({
-          message: 'Claude Code login successful',
+          message: 'YwCoder login successful',
           notificationType: 'auth_success'
         }, terminal);
       }
@@ -511,7 +511,7 @@ function OAuthStatusMessage({
         <Box flexDirection="column" gap={1}>
           <Box>
             <Spinner />
-            <Text>Creating API key for Claude Code…</Text>
+            <Text>Creating API key for YwCoder…</Text>
           </Box>
         </Box>
       )

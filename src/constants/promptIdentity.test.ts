@@ -12,7 +12,7 @@ afterEach(() => {
   process.env.YWCODER_SIMPLE = process.env.CLAUDE_CODE_SIMPLE = originalSimpleEnv
 })
 
-test('CLI identity prefixes describe YwCoder instead of Claude Code', () => {
+test('CLI identity prefixes describe YwCoder', () => {
   expect(getCLISyspromptPrefix()).toContain('YwCoder')
   expect(getCLISyspromptPrefix()).not.toContain("Anthropic's official CLI for Claude")
 

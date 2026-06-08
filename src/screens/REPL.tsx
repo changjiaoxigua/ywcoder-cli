@@ -3807,9 +3807,9 @@ export function REPL({
     const memoryFiles = await getMemoryFiles();
     if (memoryFiles.length > 0) {
       const fileList = memoryFiles.map(f => `  [${f.type}] ${f.path} (${f.content.length} chars)${f.parent ? ` (included by ${f.parent})` : ''}`).join('\n');
-      logForDebugging(`Loaded ${memoryFiles.length} CLAUDE.md/rules files:\n${fileList}`);
+      logForDebugging(`Loaded ${memoryFiles.length} YWCODER.md/rules files:\n${fileList}`);
     } else {
-      logForDebugging('No CLAUDE.md/rules files found');
+      logForDebugging('No YWCODER.md/rules files found');
     }
     for (const file of memoryFiles) {
       // When the injected content doesn't match disk (stripped HTML comments,
