@@ -383,7 +383,7 @@ const externalTips: Tip[] = [
   {
     id: 'paste-images-mac',
     content: async () =>
-      // 'Paste images into Claude Code using control+v (not cmd+v!)'
+      // 'Paste images into YwCoder using control+v (not cmd+v!)'
       '使用 control+v（而非 cmd+v）将图片粘贴到 YwCoder',
     cooldownSessions: 10,
     isRelevant: async () => getPlatform() === 'macos',
@@ -643,7 +643,7 @@ const externalTips: Tip[] = [
       const claude = color('claude', ctx.theme)
       const reward = getCachedReferrerReward()
       return reward
-        // ? `Share Claude Code and earn ${claude(formatCreditAmount(reward))} of extra usage · ${claude('/passes')}`
+        // ? `Share YwCoder and earn ${claude(formatCreditAmount(reward))} of extra usage · ${claude('/passes')}`
         // : `You have free guest passes to share · ${claude('/passes')}`
         ? `分享 YwCoder 并获得 ${claude(formatCreditAmount(reward))} 的额外用量 · ${claude('/passes')}`
         : `你有免费访客通行证可分享 · ${claude('/passes')}`
