@@ -115,9 +115,11 @@
   'When the user wants to schedule a recurring remote agent, set up automated tasks, create a cron job for Claude Code, or manage their scheduled agents/triggers.',
   ```
 
-- src/services/rateLimitMessages.ts:282 — rate limit upsell（Anthropic 订阅）
+- ~~src/services/rateLimitMessages.ts:282 — rate limit upsell（Anthropic 订阅）~~ **【已裁决：改】**
+  Pro/Max 限流告警活跃路径，用户可见。"keep using Claude Code" 中 Claude Code 指本工具自身，
+  非外部产品/订阅；`/upgrade` 命令保留。已改为 `'/upgrade to keep using YwCoder'`（d343ff6 复核修）。
   ```
-  return '/upgrade to keep using Claude Code'
+  return '/upgrade to keep using Claude Code'  →  '/upgrade to keep using YwCoder'
   ```
 
 - src/services/voiceStreamSTT.ts:6 — 外部 Anthropic 产品 token: OAuth
