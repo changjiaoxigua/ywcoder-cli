@@ -31,6 +31,16 @@ const PROJECT_CONFIG_DIR = '.ywcoder'
 const LEGACY_PROJECT_CONFIG_DIR = '.claude'
 
 /**
+ * 显示 / prompt 用的当前生效项目配置目录**名字**（编译期常量，受 flag 门控、可 DCE）：
+ * ON→`.ywcoder`、OFF→`.claude`。用于把"在 X 目录下建技能/读规则/写 settings"等指引
+ * 与发往 LLM 的 prompt 文案对齐到真实落盘目录（区别于 getProjectConfigDir 的运行时存在性择优）。
+ * 取写目标名即可——Stage 2 迁移在启动期已把 .claude/ 搬到 .ywcoder/，故 prompt 指向 .ywcoder 正确。
+ */
+export const ACTIVE_PROJECT_CONFIG_DIR_NAME = feature('MIGRATE_PROJECT_CONFIG')
+  ? PROJECT_CONFIG_DIR
+  : LEGACY_PROJECT_CONFIG_DIR
+
+/**
  * 写 / mkdir 的纯解析器：`migrate=true` → 恒落 `.ywcoder/`（不做存在性回退，否则全新项目会回退
  * 建出 `.claude/`，违背去标识）；`migrate=false` → 恒落旧 `.claude/`（原版行为）。
  */

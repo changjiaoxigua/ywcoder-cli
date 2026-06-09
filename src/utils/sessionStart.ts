@@ -9,6 +9,7 @@ import { shouldAllowManagedHooksOnly } from './hooks/hooksConfigSnapshot.js'
 import { executeSessionStartHooks, executeSetupHooks } from './hooks.js'
 import { logError } from './log.js'
 import { loadPluginHooks } from './plugins/loadPluginHooks.js'
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from './projectConfigDir.js'
 
 type SessionStartHooksOptions = {
   sessionId?: string
@@ -109,7 +110,7 @@ export async function processSessionStartHooks(
         errorMessage.includes('schema')
       ) {
         userGuidance =
-          'This appears to be a configuration issue. Check your plugin settings in .claude/settings.json'
+          `This appears to be a configuration issue. Check your plugin settings in ${ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.json`
       } else {
         userGuidance =
           'Please fix the plugin configuration or remove problematic plugins from your settings.'

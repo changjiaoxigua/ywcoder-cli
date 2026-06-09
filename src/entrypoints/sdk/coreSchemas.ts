@@ -9,6 +9,7 @@
 
 import { z } from 'zod/v4'
 import { lazySchema } from '../../utils/lazySchema.js'
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../../utils/projectConfigDir.js'
 
 // ============================================================================
 // Usage & Model Types
@@ -1192,8 +1193,8 @@ export const SettingSourceSchema = lazySchema(() =>
     .describe(
       'Source for loading filesystem-based settings. ' +
         "'user' - Global user settings (~/.claude/settings.json). " +
-        "'project' - Project settings (.claude/settings.json). " +
-        "'local' - Local settings (.claude/settings.local.json).",
+        `'project' - Project settings (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.json). ` +
+        `'local' - Local settings (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.local.json).`,
     ),
 )
 

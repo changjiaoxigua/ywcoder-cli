@@ -9,6 +9,7 @@ import { KeyboardShortcutHint } from '../../../design-system/KeyboardShortcutHin
 import { useWizard } from '../../../wizard/index.js';
 import { WizardDialogLayout } from '../../../wizard/WizardDialogLayout.js';
 import type { AgentWizardData } from '../types.js';
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../../../../utils/projectConfigDir.js';
 export function LocationStep() {
   const $ = _c(11);
   const {
@@ -19,7 +20,7 @@ export function LocationStep() {
   let t0;
   if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
     t0 = {
-      label: "Project (.claude/agents/)",
+      label: `Project (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/agents/)`,
       value: "projectSettings" as SettingSource
     };
     $[0] = t0;

@@ -66,6 +66,7 @@ import {
   getSettingsForSource,
   updateSettingsForSource,
 } from '../../utils/settings/settings.js'
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../../utils/projectConfigDir.js'
 import { plural } from '../../utils/stringUtils.js'
 
 /** Valid installable scopes (excludes 'managed' which can only be installed from managed-settings.json) */
@@ -487,7 +488,7 @@ export async function uninstallPluginOp(
       if (actualScope === 'project') {
         return {
           success: false,
-          message: `Plugin "${plugin}" is enabled at project scope (.claude/settings.json, shared with your team). To disable just for you: claude plugin disable ${plugin} --scope local`,
+          message: `Plugin "${plugin}" is enabled at project scope (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.json, shared with your team). To disable just for you: ywcoder plugin disable ${plugin} --scope local`,
         }
       }
       return {

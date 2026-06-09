@@ -6,6 +6,7 @@ import { color } from '../../ink.js';
 import { getPlatform } from '../../utils/platform.js';
 import { addToExcludedCommands, SandboxManager } from '../../utils/sandbox/sandbox-adapter.js';
 import { getSettings_DEPRECATED, getSettingsFilePathForSource } from '../../utils/settings/settings.js';
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../../utils/projectConfigDir.js';
 import type { ThemeName } from '../../utils/theme.js';
 export async function call(onDone: (result?: string) => void, _context: unknown, args?: string): Promise<React.ReactNode | null> {
   const settings = getSettings_DEPRECATED();
@@ -65,7 +66,7 @@ export async function call(onDone: (result?: string) => void, _context: unknown,
 
       // Get the local settings path and make it relative to cwd
       const localSettingsPath = getSettingsFilePathForSource('localSettings');
-      const relativePath = localSettingsPath ? relative(getCwdState(), localSettingsPath) : '.claude/settings.local.json';
+      const relativePath = localSettingsPath ? relative(getCwdState(), localSettingsPath) : `${ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.local.json`;
       const message = color('success', themeName)(`Added "${cleanPattern}" to excluded commands in ${relativePath}`);
       onDone(message);
       return null;

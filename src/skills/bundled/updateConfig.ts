@@ -1,4 +1,5 @@
 import { toJSONSchema } from 'zod/v4'
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../../utils/projectConfigDir.js'
 import { SettingsSchema } from '../../utils/settings/types.js'
 import { jsonStringify } from '../../utils/slowOperations.js'
 import { registerBundledSkill } from '../bundledSkills.js'
@@ -285,7 +286,7 @@ Given an event, matcher, target file, and desired behavior, follow this flow. Ea
 
    Check exit code AND side effect (file actually formatted, test actually ran). If it fails you get a real error — fix (wrong package manager? tool not installed? jq path wrong?) and retest. Once it works, wrap with \`2>/dev/null || true\` (unless the user wants a blocking check).
 
-4. **Write the JSON.** Merge into the target file (schema shape in the "Hook Structure" section above). If this creates \`.claude/settings.local.json\` for the first time, add it to .gitignore — the Write tool doesn't auto-gitignore it.
+4. **Write the JSON.** Merge into the target file (schema shape in the "Hook Structure" section above). If this creates \`${ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.local.json\` for the first time, add it to .gitignore — the Write tool doesn't auto-gitignore it.
 
 5. **Validate syntax + schema in one shot:**
 

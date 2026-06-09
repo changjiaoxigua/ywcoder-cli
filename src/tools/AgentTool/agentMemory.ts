@@ -10,6 +10,7 @@ import { findCanonicalGitRoot } from '../../utils/git.js'
 import { sanitizePath } from '../../utils/path.js'
 import { getYwCoderEnv } from '../../utils/envUtils.js'
 import {
+  ACTIVE_PROJECT_CONFIG_DIR_NAME,
   getProjectConfigDir,
   getProjectConfigDirVariants,
 } from '../../utils/projectConfigDir.js'
@@ -127,7 +128,7 @@ export function getMemoryScopeDisplay(
     case 'user':
       return `User (${join(getMemoryBaseDir(), 'agent-memory')}/)`
     case 'project':
-      return 'Project (.claude/agent-memory/)'
+      return `Project (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/agent-memory/)`
     case 'local':
       return `Local (${getLocalAgentMemoryDir('...')})`
     default:

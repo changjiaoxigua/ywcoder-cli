@@ -4,6 +4,7 @@ import { Box } from '../../../../ink.js';
 import { useKeybinding } from '../../../../keybindings/useKeybinding.js';
 import { isAutoMemoryEnabled } from '../../../../memdir/paths.js';
 import { type AgentMemoryScope, loadAgentMemoryPrompt } from '../../../../tools/AgentTool/agentMemory.js';
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../../../../utils/projectConfigDir.js';
 import { ConfigurableShortcutHint } from '../../../ConfigurableShortcutHint.js';
 import { Select } from '../../../CustomSelect/select.js';
 import { Byline } from '../../../design-system/Byline.js';
@@ -43,13 +44,13 @@ export function MemoryStep() {
       label: "None (no persistent memory)",
       value: "none"
     }, {
-      label: "Project scope (.claude/agent-memory/)",
+      label: `Project scope (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/agent-memory/)`,
       value: "project"
     }, {
-      label: "Local scope (.claude/agent-memory-local/)",
+      label: `Local scope (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/agent-memory-local/)`,
       value: "local"
     }] : [{
-      label: "Project scope (.claude/agent-memory/) (Recommended)",
+      label: `Project scope (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/agent-memory/) (Recommended)`,
       value: "project"
     }, {
       label: "None (no persistent memory)",
@@ -58,7 +59,7 @@ export function MemoryStep() {
       label: "User scope (~/.claude/agent-memory/)",
       value: "user"
     }, {
-      label: "Local scope (.claude/agent-memory-local/)",
+      label: `Local scope (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/agent-memory-local/)`,
       value: "local"
     }];
     $[1] = isUserScope;

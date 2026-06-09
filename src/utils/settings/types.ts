@@ -28,6 +28,7 @@ export {
 // Also import for use within this file
 import { type HookCommand, HooksSchema } from '../../schemas/hooks.js'
 import { count } from '../array.js'
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../projectConfigDir.js'
 
 /**
  * Schema for environment variables
@@ -596,7 +597,7 @@ export const SettingsSchema = lazySchema(() =>
         })
         .optional()
         .describe(
-          'Additional marketplaces to make available for this repository. Typically used in repository .claude/settings.json to ensure team members have required plugin sources.',
+          `Additional marketplaces to make available for this repository. Typically used in repository ${ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.json to ensure team members have required plugin sources.`,
         ),
       // Enterprise strict list of allowed marketplace sources (policy settings only)
       // When set, ONLY these exact sources can be added. Check happens BEFORE download.
@@ -1078,7 +1079,7 @@ export const SettingsSchema = lazySchema(() =>
           'Glob patterns or absolute paths of YWCODER.md files to exclude from loading. ' +
             'Patterns are matched against absolute file paths using picomatch. ' +
             'Only applies to User, Project, and Local memory types (Managed/policy files cannot be excluded). ' +
-            'Examples: "/home/user/monorepo/YWCODER.md", "**/code/YWCODER.md", "**/some-dir/.claude/rules/**"',
+            `Examples: "/home/user/monorepo/YWCODER.md", "**/code/YWCODER.md", "**/some-dir/${ACTIVE_PROJECT_CONFIG_DIR_NAME}/rules/**"`,
         ),
       pluginTrustMessage: z
         .string()

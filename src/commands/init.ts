@@ -2,6 +2,10 @@ import { feature } from 'bun:bundle'
 import type { Command } from '../commands.js'
 import { maybeMarkProjectOnboardingComplete } from '../projectOnboardingState.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../utils/projectConfigDir.js'
+
+// 指引 agent 读/建文件的活跃配置目录名（flag 门控）：ON→.ywcoder、OFF→.claude。
+const CFG = ACTIVE_PROJECT_CONFIG_DIR_NAME
 
 const OLD_INIT_PROMPT = `Please analyze this codebase and create a YWCODER.md file, which will be given to future instances of YwCoder to operate in this repository.
 
@@ -43,7 +47,7 @@ Use AskUserQuestion to find out what the user wants:
 
 ## Phase 2: Explore the codebase
 
-Launch a subagent to survey the codebase, and ask it to read key files to understand the project: manifest files (package.json, Cargo.toml, pyproject.toml, go.mod, pom.xml, etc.), README, Makefile/build configs, CI config, existing YWCODER.md, .claude/rules/, AGENTS.md, .cursor/rules or .cursorrules, .github/copilot-instructions.md, .windsurfrules, .clinerules, .mcp.json.
+Launch a subagent to survey the codebase, and ask it to read key files to understand the project: manifest files (package.json, Cargo.toml, pyproject.toml, go.mod, pom.xml, etc.), README, Makefile/build configs, CI config, existing YWCODER.md, ${CFG}/rules/, AGENTS.md, .cursor/rules or .cursorrules, .github/copilot-instructions.md, .windsurfrules, .clinerules, .mcp.json.
 
 Detect:
 - Build, test, and lint commands (especially non-standard ones)
@@ -51,7 +55,7 @@ Detect:
 - Project structure (monorepo with workspaces, multi-module, or single project)
 - Code style rules that differ from language defaults
 - Non-obvious gotchas, required env vars, or workflow quirks
-- Existing .claude/skills/ and .claude/rules/ directories
+- Existing ${CFG}/skills/ and ${CFG}/rules/ directories
 - Formatter configuration (prettier, biome, ruff, black, gofmt, rustfmt, or a unified format script like \`npm run format\` / \`make fmt\`)
 - Git worktree usage: run \`git worktree list\` to check if this repo has multiple worktrees (only relevant if the user wants a personal YWCODER.local.md)
 
@@ -130,7 +134,7 @@ This file provides guidance to YwCoder when working with code in this repository
 
 If YWCODER.md already exists: read it, propose specific changes as diffs, and explain why each change improves it. Do not silently overwrite.
 
-For projects with multiple concerns, suggest organizing instructions into \`.claude/rules/\` as separate focused files (e.g., \`code-style.md\`, \`testing.md\`, \`security.md\`). These are loaded automatically alongside YWCODER.md and can be scoped to specific file paths using \`paths\` frontmatter.
+For projects with multiple concerns, suggest organizing instructions into \`${CFG}/rules/\` as separate focused files (e.g., \`code-style.md\`, \`testing.md\`, \`security.md\`). These are loaded automatically alongside YWCODER.md and can be scoped to specific file paths using \`paths\` frontmatter.
 
 For projects with distinct subdirectories (monorepos, multi-module projects, etc.): mention that subdirectory YWCODER.md files can be added for module-specific instructions (they're loaded automatically when Claude works in those directories). Offer to create them if the user wants.
 
@@ -166,9 +170,9 @@ Skills add capabilities Claude can use on demand without bloating every session.
 
 For each suggested skill, provide: name, one-line purpose, and why it fits this repo.
 
-If \`.claude/skills/\` already exists with skills, review them first. Do not overwrite existing skills — only propose new ones that complement what is already there.
+If \`${CFG}/skills/\` already exists with skills, review them first. Do not overwrite existing skills — only propose new ones that complement what is already there.
 
-Create each skill at \`.claude/skills/<skill-name>/SKILL.md\`:
+Create each skill at \`${CFG}/skills/<skill-name>/SKILL.md\`:
 
 \`\`\`yaml
 ---
@@ -195,7 +199,7 @@ Check the environment and ask about each gap you find (use AskUserQuestion):
 
   For each hook preference (from the queue or the formatter fallback):
 
-  1. Target file: default based on the Phase 1 YWCODER.md choice — project → \`.claude/settings.json\` (team-shared, committed); personal → \`.claude/settings.local.json\`. Only ask if the user chose "both" in Phase 1 or the preference is ambiguous. Ask once for all hooks, not per-hook.
+  1. Target file: default based on the Phase 1 YWCODER.md choice — project → \`${CFG}/settings.json\` (team-shared, committed); personal → \`${CFG}/settings.local.json\`. Only ask if the user chose "both" in Phase 1 or the preference is ambiguous. Ask once for all hooks, not per-hook.
 
   2. Pick the event and matcher from the preference:
      - "after every edit" → \`PostToolUse\` with matcher \`Write|Edit\`
@@ -204,7 +208,7 @@ Check the environment and ask about each gap you find (use AskUserQuestion):
      - "before committing" (literal git-commit gate) → **not a hooks.json hook.** Matchers can't filter Bash by command content, so there's no way to target only \`git commit\`. Route this to a git pre-commit hook (\`.git/hooks/pre-commit\`, husky, pre-commit framework) instead — offer to write one. If the user actually means "before I review and commit Claude's output", that's \`Stop\` — probe to disambiguate.
      Probe if the preference is ambiguous.
 
-  3. **Load the hook reference** (once per \`/init\` run, before the first hook): invoke the Skill tool with \`skill: 'update-config'\` and args starting with \`[hooks-only]\` followed by a one-line summary of what you're building — e.g., \`[hooks-only] Constructing a PostToolUse/Write|Edit format hook for .claude/settings.json using ruff\`. This loads the hooks schema and verification flow into context. Subsequent hooks reuse it — don't re-invoke.
+  3. **Load the hook reference** (once per \`/init\` run, before the first hook): invoke the Skill tool with \`skill: 'update-config'\` and args starting with \`[hooks-only]\` followed by a one-line summary of what you're building — e.g., \`[hooks-only] Constructing a PostToolUse/Write|Edit format hook for ${CFG}/settings.json using ruff\`. This loads the hooks schema and verification flow into context. Subsequent hooks reuse it — don't re-invoke.
 
   4. Follow the skill's **"Constructing a Hook"** flow: dedup check → construct for THIS project → pipe-test raw → wrap → write JSON → \`jq -e\` validate → live-proof (for \`Pre|PostToolUse\` on triggerable matchers) → cleanup → handoff. Target file and event/matcher come from steps 1–2 above.
 
