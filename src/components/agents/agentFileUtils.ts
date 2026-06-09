@@ -1,5 +1,5 @@
 import { mkdir, open, unlink } from 'fs/promises'
-import { join } from 'path'
+import { basename, join } from 'path'
 import type { SettingSource } from 'src/utils/settings/constants.js'
 import { getManagedFilePath } from 'src/utils/settings/managedPath.js'
 import type { AgentMemoryScope } from '../../tools/AgentTool/agentMemory.js'
@@ -12,6 +12,7 @@ import { getCwd } from '../../utils/cwd.js'
 import type { EffortValue } from '../../utils/effort.js'
 import { getYwCoderConfigHomeDir } from '../../utils/envUtils.js'
 import { getErrnoCode } from '../../utils/errors.js'
+import { getProjectConfigDir } from '../../utils/projectConfigDir.js'
 import { AGENT_PATHS } from './types.js'
 
 /**
@@ -63,8 +64,10 @@ function getAgentDirectoryPath(location: SettingSource): string {
       throw new Error(`Cannot get directory path for ${location} agents`)
     case 'userSettings':
       return join(getYwCoderConfigHomeDir(), AGENT_PATHS.AGENTS_DIR)
+    // 项目/本地：走 getProjectConfigDir（受 flag 门控，活跃目录）。
+    // policy 为 managed 系统级（getManagedFilePath），按护栏恒留 .claude（FOLDER_NAME）。
     case 'projectSettings':
-      return join(getCwd(), AGENT_PATHS.FOLDER_NAME, AGENT_PATHS.AGENTS_DIR)
+      return join(getProjectConfigDir(getCwd()), AGENT_PATHS.AGENTS_DIR)
     case 'policySettings':
       return join(
         getManagedFilePath(),
@@ -72,14 +75,14 @@ function getAgentDirectoryPath(location: SettingSource): string {
         AGENT_PATHS.AGENTS_DIR,
       )
     case 'localSettings':
-      return join(getCwd(), AGENT_PATHS.FOLDER_NAME, AGENT_PATHS.AGENTS_DIR)
+      return join(getProjectConfigDir(getCwd()), AGENT_PATHS.AGENTS_DIR)
   }
 }
 
 function getRelativeAgentDirectoryPath(location: SettingSource): string {
   switch (location) {
     case 'projectSettings':
-      return join('.', AGENT_PATHS.FOLDER_NAME, AGENT_PATHS.AGENTS_DIR)
+      return join('.', basename(getProjectConfigDir(getCwd())), AGENT_PATHS.AGENTS_DIR)
     default:
       return getAgentDirectoryPath(location)
   }

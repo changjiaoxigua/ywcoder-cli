@@ -31,6 +31,7 @@ import {
 } from '../../bootstrap/state.js'
 import { logForDebugging } from '../debug.js'
 import { expandPath } from '../path.js'
+import { getProjectConfigDirVariants } from '../projectConfigDir.js'
 import { getPlatform, type Platform } from '../platform.js'
 import { settingsChangeDetector } from '../settings/changeDetector.js'
 import { SETTING_SOURCES, type SettingSource } from '../settings/constants.js'
@@ -239,19 +240,27 @@ export function convertToSandboxRuntimeConfig(
   // This handles the case where the user has cd'd to a different directory
   const cwd = getCwdState()
   const originalCwd = getOriginalCwd()
+  // 安全：认两边（.ywcoder 与旧 .claude 都拒写），flag 无关恒做——多认无害，
+  // flag OFF 时也只有 .claude 存在，不会因 .ywcoder 缺失而漏保护。
   if (cwd !== originalCwd) {
-    denyWrite.push(resolve(cwd, '.claude', 'settings.json'))
-    denyWrite.push(resolve(cwd, '.claude', 'settings.local.json'))
+    for (const dir of getProjectConfigDirVariants(resolve(cwd))) {
+      denyWrite.push(join(dir, 'settings.json'))
+      denyWrite.push(join(dir, 'settings.local.json'))
+    }
   }
 
-  // Block writes to .claude/skills in both original and current working directories.
-  // The sandbox-runtime's getDangerousDirectories() protects .claude/commands and
-  // .claude/agents but not .claude/skills. Skills have the same privilege level
+  // Block writes to .claude/.ywcoder skills in both original and current working
+  // directories. The sandbox-runtime's getDangerousDirectories() protects
+  // commands/agents but not skills. Skills have the same privilege level
   // (auto-discovered, auto-loaded, full YwCoder capabilities) so they need the
-  // same OS-level sandbox protection.
-  denyWrite.push(resolve(originalCwd, '.claude', 'skills'))
+  // same OS-level sandbox protection. 认两边同上。
+  for (const dir of getProjectConfigDirVariants(resolve(originalCwd))) {
+    denyWrite.push(join(dir, 'skills'))
+  }
   if (cwd !== originalCwd) {
-    denyWrite.push(resolve(cwd, '.claude', 'skills'))
+    for (const dir of getProjectConfigDirVariants(resolve(cwd))) {
+      denyWrite.push(join(dir, 'skills'))
+    }
   }
 
   // SECURITY: Git's is_git_directory() treats cwd as a bare repo if it has

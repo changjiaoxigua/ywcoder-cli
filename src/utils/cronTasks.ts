@@ -72,15 +72,18 @@ export type CronTask = {
 
 type CronFile = { tasks: CronTask[] }
 
-const CRON_FILE_REL = join('.claude', 'scheduled_tasks.json')
+const CRON_FILE_NAME = 'scheduled_tasks.json'
 
 /**
  * Path to the cron file. `dir` defaults to getProjectRoot() — pass it
  * explicitly from contexts that don't run through main.tsx (e.g. the Agent
  * SDK daemon, which has no bootstrap state).
+ *
+ * 走 getProjectConfigDir（受 flag 门控）与下方 mkdir 的活跃目录保持一致：
+ * flag ON 落 .ywcoder/、OFF 落 .claude/（原 CRON_FILE_REL 硬编码 .claude 会与 mkdir 矛盾）。
  */
 export function getCronFilePath(dir?: string): string {
-  return join(dir ?? getProjectRoot(), CRON_FILE_REL)
+  return join(getProjectConfigDir(dir ?? getProjectRoot()), CRON_FILE_NAME)
 }
 
 /**

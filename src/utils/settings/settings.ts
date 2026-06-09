@@ -1,6 +1,6 @@
 import { feature } from 'bun:bundle'
 import mergeWith from 'lodash-es/mergeWith.js'
-import { dirname, join, resolve } from 'path'
+import { basename, dirname, join, resolve } from 'path'
 import { z } from 'zod/v4'
 import {
   getFlagSettingsInline,
@@ -28,6 +28,7 @@ import {
   getEnabledSettingSources,
   type SettingSource,
 } from './constants.js'
+import { getProjectConfigDir } from '../projectConfigDir.js'
 import { markInternalWrite } from './internalWrites.js'
 import {
   getManagedFilePath,
@@ -298,11 +299,15 @@ export function getSettingsFilePathForSource(
 export function getRelativeSettingsFilePathForSource(
   source: 'projectSettings' | 'localSettings',
 ): string {
+  // 项目 settings 的路径-of-record。子目录名走 getProjectConfigDir（受 MIGRATE_PROJECT_CONFIG
+  // 门控）：flag OFF→恒 .claude（原版）；ON→.ywcoder 优先、未迁移时回退 .claude。
+  // root 为 getOriginalCwd（见 getSettingsRootPathForSource），故 basename 取活跃子目录名即可。
+  const dirName = basename(getProjectConfigDir(getOriginalCwd()))
   switch (source) {
     case 'projectSettings':
-      return join('.claude', 'settings.json')
+      return join(dirName, 'settings.json')
     case 'localSettings':
-      return join('.claude', 'settings.local.json')
+      return join(dirName, 'settings.local.json')
   }
 }
 

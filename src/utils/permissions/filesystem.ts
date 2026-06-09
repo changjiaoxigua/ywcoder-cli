@@ -79,7 +79,10 @@ export const DANGEROUS_DIRECTORIES = [
   '.git',
   '.vscode',
   '.idea',
+  // 认两边：新 .ywcoder 与旧 .claude 都是受保护配置目录（自动编辑保护）。
+  // flag 无关恒列——多列无害，flag OFF 时只有 .claude 存在。
   '.claude',
+  '.ywcoder',
 ] as const
 
 /**
@@ -223,12 +226,16 @@ export function isClaudeSettingsPath(filePath: string): boolean {
   const normalizedPath = normalizeCaseForComparison(expandedPath)
 
   // Use platform separator so endsWith checks work on both Unix (/) and Windows (\)
-  if (
-    normalizedPath.endsWith(`${sep}.claude${sep}settings.json`) ||
-    normalizedPath.endsWith(`${sep}.claude${sep}settings.local.json`)
-  ) {
-    // Include .claude/settings.json even for other projects
-    return true
+  // 认两边：新 .ywcoder 与旧 .claude 下的 settings(.local).json 都识别为受保护配置
+  // （flag 无关恒认；endsWith 适配任意项目，故直接匹配两种目录名）。
+  for (const dir of ['.claude', '.ywcoder']) {
+    if (
+      normalizedPath.endsWith(`${sep}${dir}${sep}settings.json`) ||
+      normalizedPath.endsWith(`${sep}${dir}${sep}settings.local.json`)
+    ) {
+      // Include project settings even for other projects
+      return true
+    }
   }
   // Check for current project's settings files (including managed settings and CLI args)
   // Both paths are now absolute and normalized for consistent comparison
@@ -471,10 +478,11 @@ function isDangerousFilePathToAutoEdit(path: string): boolean {
       }
 
       // Special case: .claude/worktrees/ is a structural path (where YwCoder stores
-      // git worktrees), not a user-created dangerous directory. Skip the .claude
-      // segment when it's followed by 'worktrees'. Any nested .claude directories
+      // git worktrees), not a user-created dangerous directory. Skip the config-dir
+      // segment when it's followed by 'worktrees'. Any nested config directories
       // within the worktree (not followed by 'worktrees') are still blocked.
-      if (dir === '.claude') {
+      // worktrees 天窗本就留 .claude（迁移跳过 worktrees/ 不搬），认两边以防 .ywcoder 也存。
+      if (dir === '.claude' || dir === '.ywcoder') {
         const nextSegment = pathSegments[i + 1]
         if (
           nextSegment &&
@@ -1296,10 +1304,11 @@ export function checkWritePermissionForTool<Input extends AnyObject>(
     // this is an additional scope check. Reject '..' to prevent a rule like
     // '/.claude/../**' from leaking this bypass outside .claude/.
     const ruleContent = claudeFolderAllowRule.ruleValue.ruleContent
-    // 兼容前缀：项目级 /.claude/ + 当前全局目录前缀 + 历史 ~/.claude/。
-    // 老用户在 settings.json 里残存的 ~/.claude/** 规则迁移后仍能命中。
+    // 兼容前缀：项目级认两边（新 /.ywcoder/ + 旧 /.claude/）+ 当前全局目录前缀 + 历史 ~/.claude/。
+    // 老用户在 settings.json 里残存的 /.claude/** 或 ~/.claude/** 规则迁移后仍能命中。
     const validPrefixes = [
       CLAUDE_FOLDER_PERMISSION_PATTERN.slice(0, -2),
+      '/.ywcoder/',
       ...getGlobalConfigCompatPrefixes(),
     ]
     if (

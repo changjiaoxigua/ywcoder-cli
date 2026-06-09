@@ -13,6 +13,7 @@ import { dirname, join } from 'path'
 import { z } from 'zod/v4'
 import { getProjectRoot, getSessionId } from '../bootstrap/state.js'
 import { registerCleanup } from './cleanupRegistry.js'
+import { getProjectConfigDir } from './projectConfigDir.js'
 import { logForDebugging } from './debug.js'
 import { getErrnoCode } from './errors.js'
 import { isProcessRunning } from './genericProcessUtils.js'
@@ -20,7 +21,7 @@ import { safeParseJSON } from './json.js'
 import { lazySchema } from './lazySchema.js'
 import { jsonStringify } from './slowOperations.js'
 
-const LOCK_FILE_REL = join('.claude', 'scheduled_tasks.lock')
+const LOCK_FILE_NAME = 'scheduled_tasks.lock'
 
 const schedulerLockSchema = lazySchema(() =>
   z.object({
@@ -47,7 +48,9 @@ let unregisterCleanup: (() => void) | undefined
 let lastBlockedBy: string | undefined
 
 function getLockPath(dir?: string): string {
-  return join(dir ?? getProjectRoot(), LOCK_FILE_REL)
+  // 与 cronTasks.getCronFilePath 一致走 getProjectConfigDir（受 flag 门控）：
+  // 锁文件须与 scheduled_tasks.json 同目录（活跃配置目录）。
+  return join(getProjectConfigDir(dir ?? getProjectRoot()), LOCK_FILE_NAME)
 }
 
 async function readLock(dir?: string): Promise<SchedulerLock | undefined> {

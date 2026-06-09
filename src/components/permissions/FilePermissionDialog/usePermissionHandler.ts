@@ -4,13 +4,12 @@ import {
 } from '../../../services/analytics/index.js'
 import { sanitizeToolNameForAnalytics } from '../../../services/analytics/metadata.js'
 import type { ToolPermissionContext } from '../../../Tool.js'
-import {
-  CLAUDE_FOLDER_PERMISSION_PATTERN,
-  FILE_EDIT_TOOL_NAME,
-} from '../../../tools/FileEditTool/constants.js'
+import { FILE_EDIT_TOOL_NAME } from '../../../tools/FileEditTool/constants.js'
+import { getOriginalCwd } from '../../../bootstrap/state.js'
 import { env } from '../../../utils/env.js'
 import { generateSuggestions } from '../../../utils/permissions/filesystem.js'
 import { getGlobalConfigPermissionPattern } from '../../../utils/permissions/globalConfigPattern.js'
+import { getProjectConfigFolderPermissionPattern } from '../../../utils/projectConfigDir.js'
 import type { PermissionUpdate } from '../../../utils/permissions/PermissionUpdateSchema.js'
 import {
   type CompletionType,
@@ -106,10 +105,12 @@ function handleAcceptSession(
     options?.scope === 'claude-folder' ||
     options?.scope === 'global-claude-folder'
   ) {
+    // 项目级：按当前生效配置目录（flag ON→.ywcoder、OFF→.claude）生成规则，
+    // 保证规则命中用户实际编辑的活跃目录。
     const pattern =
       options.scope === 'global-claude-folder'
         ? getGlobalConfigPermissionPattern()
-        : CLAUDE_FOLDER_PERMISSION_PATTERN
+        : getProjectConfigFolderPermissionPattern(getOriginalCwd())
     const suggestions: PermissionUpdate[] = [
       {
         type: 'addRules',

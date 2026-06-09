@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { homedir } from 'os'
+import { sep } from 'path'
 
-import { getClaudeSkillScope } from './filesystem.js'
+import {
+  DANGEROUS_DIRECTORIES,
+  getClaudeSkillScope,
+  isClaudeSettingsPath,
+} from './filesystem.js'
 
 describe('getClaudeSkillScope（全局 skills 兼容前缀）', () => {
   let originalYwcoder: string | undefined
@@ -61,5 +66,37 @@ describe('getClaudeSkillScope（全局 skills 兼容前缀）', () => {
         pattern: '~/.claude/skills/foo/**',
       })
     })
+  })
+})
+
+// Stage 1b-2 认两边（flag 无关恒做）：新 .ywcoder 与旧 .claude 都识别为受保护配置
+describe('isClaudeSettingsPath（认两边）', () => {
+  test('.claude/settings.json → true', () => {
+    expect(isClaudeSettingsPath(`${homedir()}${sep}.claude${sep}settings.json`)).toBe(
+      true,
+    )
+  })
+
+  test('.ywcoder/settings.json → true', () => {
+    expect(
+      isClaudeSettingsPath(`${homedir()}${sep}.ywcoder${sep}settings.json`),
+    ).toBe(true)
+  })
+
+  test('.ywcoder/settings.local.json → true', () => {
+    expect(
+      isClaudeSettingsPath(`${homedir()}${sep}.ywcoder${sep}settings.local.json`),
+    ).toBe(true)
+  })
+
+  test('无关文件 → false', () => {
+    expect(isClaudeSettingsPath(`${homedir()}${sep}foo${sep}bar.json`)).toBe(false)
+  })
+})
+
+describe('DANGEROUS_DIRECTORIES（认两边）', () => {
+  test('同时包含旧 .claude 与新 .ywcoder', () => {
+    expect(DANGEROUS_DIRECTORIES).toContain('.claude')
+    expect(DANGEROUS_DIRECTORIES).toContain('.ywcoder')
   })
 })

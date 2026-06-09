@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { feature } from 'bun:bundle'
 
 /**
@@ -91,4 +91,13 @@ export function getProjectConfigDirVariants(baseDir: string): [string, string] {
     join(baseDir, PROJECT_CONFIG_DIR),
     join(baseDir, LEGACY_PROJECT_CONFIG_DIR),
   ]
+}
+
+/**
+ * **生成**会话级"允许 YwCoder 编辑自身配置目录"权限规则用的 glob（项目相对，前导 `/`）。
+ * 取当前生效目录名（受 flag 门控：ON→`.ywcoder`、OFF→`.claude`），保证新建规则能命中
+ * 用户实际正在编辑的活跃目录下文件。**匹配存量规则**请认两边（见 filesystem 的 validPrefixes）。
+ */
+export function getProjectConfigFolderPermissionPattern(baseDir: string): string {
+  return `/${basename(getProjectConfigDir(baseDir))}/**`
 }
