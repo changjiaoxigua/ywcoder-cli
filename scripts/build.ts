@@ -66,6 +66,10 @@ const featureFlags: Record<string, boolean> = {
   COMPACTION_REMINDERS: true,
   POWERSHELL_AUTO_MODE: true,
   HOOK_PROMPTS: true,
+  // D7 项目级配置目录迁移（.claude/ → .ywcoder/）总开关。默认 OFF：读/写恒用旧 .claude/，
+  // 行为=原版，与官方 Claude Code 完全共用（开发者同一项目并用 CC + ywcoder 不受干扰）。
+  // 仅内网发布构建经构建 env 设 true 才启用 .ywcoder active-dir + 启动期整目录迁移。
+  MIGRATE_PROJECT_CONFIG: false,
 }
 
 const result = await Bun.build({
