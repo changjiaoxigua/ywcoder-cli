@@ -21,6 +21,7 @@ import {
   getGlobalConfigCompatPrefixes,
   getGlobalConfigDirCandidates,
 } from './globalConfigPattern.js'
+import { getProjectClaudeDir } from '../projectConfigDir.js'
 import {
   getFsImplementation,
   getPathsForPermissionCheck,
@@ -113,7 +114,7 @@ export function getClaudeSkillScope(
   const globalPrefixes = getGlobalConfigCompatPrefixes()
   const bases = [
     {
-      dir: expandPath(join(getOriginalCwd(), '.claude', 'skills')),
+      dir: expandPath(join(getProjectClaudeDir(getOriginalCwd()), 'skills')),
       prefix: '/.claude/skills/',
     },
     ...globalDirs.map((dir, i) => ({
@@ -237,9 +238,9 @@ function isClaudeConfigFilePath(filePath: string): boolean {
   // Check if file is within .claude/commands or .claude/agents directories
   // using proper path segment validation (not string matching with includes())
   // pathInWorkingPath now handles case-insensitive comparison to prevent bypasses
-  const commandsDir = join(getOriginalCwd(), '.claude', 'commands')
-  const agentsDir = join(getOriginalCwd(), '.claude', 'agents')
-  const skillsDir = join(getOriginalCwd(), '.claude', 'skills')
+  const commandsDir = join(getProjectClaudeDir(getOriginalCwd()), 'commands')
+  const agentsDir = join(getProjectClaudeDir(getOriginalCwd()), 'agents')
+  const skillsDir = join(getProjectClaudeDir(getOriginalCwd()), 'skills')
 
   return (
     pathInWorkingPath(filePath, commandsDir) ||
@@ -1602,7 +1603,7 @@ export function checkEditableInternalPath(
   // .claude/ only (not ~/.claude/) since launch.json is per-project.
   if (
     normalizeCaseForComparison(normalizedPath) ===
-    normalizeCaseForComparison(join(getOriginalCwd(), '.claude', 'launch.json'))
+    normalizeCaseForComparison(join(getProjectClaudeDir(getOriginalCwd()), 'launch.json'))
   ) {
     return {
       behavior: 'allow',

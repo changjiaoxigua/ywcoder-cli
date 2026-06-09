@@ -19,6 +19,7 @@ import {
   getSessionCronTasks,
   removeSessionCronTasks,
 } from '../bootstrap/state.js'
+import { getProjectClaudeDir } from './projectConfigDir.js'
 import { computeNextCronRun, parseCronExpression } from './cron.js'
 import { logForDebugging } from './debug.js'
 import { isFsInaccessible } from './errors.js'
@@ -167,7 +168,7 @@ export async function writeCronTasks(
   dir?: string,
 ): Promise<void> {
   const root = dir ?? getProjectRoot()
-  await mkdir(join(root, '.claude'), { recursive: true })
+  await mkdir(getProjectClaudeDir(root), { recursive: true })
   // Strip the runtime-only `durable` flag — everything on disk is durable
   // by definition, and keeping the flag out means readCronTasks() naturally
   // yields durable: undefined without having to set it explicitly.
