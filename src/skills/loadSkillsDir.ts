@@ -60,7 +60,7 @@ import type { SettingSource } from '../utils/settings/constants.js'
 import { isSettingSourceEnabled } from '../utils/settings/constants.js'
 import { getManagedFilePath } from '../utils/settings/managedPath.js'
 import { isRestrictedToPluginOnly } from '../utils/settings/pluginOnlyPolicy.js'
-import { getProjectClaudeDir } from '../utils/projectConfigDir.js'
+import { getProjectConfigDir } from '../utils/projectConfigDir.js'
 import { HooksSchema, type HooksSettings } from '../utils/settings/types.js'
 import { createSignal } from '../utils/signal.js'
 import { registerMCPSkillBuilders } from './mcpSkillBuilders.js'
@@ -751,7 +751,7 @@ export const getSkillDirCommands = memoize(
       const additionalSkillsNested = await Promise.all(
         additionalDirs.map(dir =>
           loadSkillsFromSkillsDir(
-            join(getProjectClaudeDir(dir), 'skills'),
+            join(getProjectConfigDir(dir), 'skills'),
             'projectSettings',
           ),
         ),
@@ -786,7 +786,7 @@ export const getSkillDirCommands = memoize(
         ? Promise.all(
             additionalDirs.map(dir =>
               loadSkillsFromSkillsDir(
-                join(getProjectClaudeDir(dir), 'skills'),
+                join(getProjectConfigDir(dir), 'skills'),
                 'projectSettings',
               ),
             ),
@@ -960,7 +960,7 @@ export async function discoverSkillDirsForPaths(
     // CWD-level skills are already loaded at startup, so we only discover nested ones
     // Use prefix+separator check to avoid matching /project-backup when cwd is /project
     while (currentDir.startsWith(resolvedCwd + pathSep)) {
-      const skillDir = join(getProjectClaudeDir(currentDir), 'skills')
+      const skillDir = join(getProjectConfigDir(currentDir), 'skills')
 
       // Skip if we've already checked this path (hit or miss) — avoids
       // repeating the same failed stat on every Read/Write/Edit call when

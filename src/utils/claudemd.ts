@@ -77,7 +77,7 @@ import { expandPath } from './path.js'
 import { pathInWorkingPath } from './permissions/filesystem.js'
 import { isSettingSourceEnabled } from './settings/constants.js'
 import { getInitialSettings } from './settings/settings.js'
-import { getProjectClaudeDir } from './projectConfigDir.js'
+import { getProjectConfigDir } from './projectConfigDir.js'
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const teamMemPaths = feature('TEAMMEM')
@@ -929,10 +929,10 @@ export const getMemoryFiles = memoize(
         )
 
         // Try reading .claude/YWCODER.md (Project)
-        const dotClaudePath = join(getProjectClaudeDir(dir), 'CLAUDE.md')
+        const dotClaudePath = join(getProjectConfigDir(dir), 'CLAUDE.md')
         result.push(
           ...(await processMemoryFileWithFallback(
-            join(getProjectClaudeDir(dir), 'YWCODER.md'),
+            join(getProjectConfigDir(dir), 'YWCODER.md'),
             dotClaudePath,
             'Project',
             processedPaths,
@@ -941,7 +941,7 @@ export const getMemoryFiles = memoize(
         )
 
         // Try reading .claude/rules/*.md files (Project)
-        const rulesDir = join(getProjectClaudeDir(dir), 'rules')
+        const rulesDir = join(getProjectConfigDir(dir), 'rules')
         result.push(
           ...(await processMdRules({
             rulesDir,
@@ -988,10 +988,10 @@ export const getMemoryFiles = memoize(
         )
 
         // Try reading .claude/YWCODER.md from the additional directory
-        const dotClaudePath = join(getProjectClaudeDir(dir), 'CLAUDE.md')
+        const dotClaudePath = join(getProjectConfigDir(dir), 'CLAUDE.md')
         result.push(
           ...(await processMemoryFileWithFallback(
-            join(getProjectClaudeDir(dir), 'YWCODER.md'),
+            join(getProjectConfigDir(dir), 'YWCODER.md'),
             dotClaudePath,
             'Project',
             processedPaths,
@@ -1000,7 +1000,7 @@ export const getMemoryFiles = memoize(
         )
 
         // Try reading .claude/rules/*.md files from the additional directory
-        const rulesDir = join(getProjectClaudeDir(dir), 'rules')
+        const rulesDir = join(getProjectConfigDir(dir), 'rules')
         result.push(
           ...(await processMdRules({
             rulesDir,
@@ -1302,10 +1302,10 @@ export async function getMemoryFilesForNestedDirectory(
         false,
       )),
     )
-    const dotClaudePath = join(getProjectClaudeDir(dir), 'CLAUDE.md')
+    const dotClaudePath = join(getProjectConfigDir(dir), 'CLAUDE.md')
     result.push(
       ...(await processMemoryFileWithFallback(
-        join(getProjectClaudeDir(dir), 'YWCODER.md'),
+        join(getProjectConfigDir(dir), 'YWCODER.md'),
         dotClaudePath,
         'Project',
         processedPaths,
@@ -1328,7 +1328,7 @@ export async function getMemoryFilesForNestedDirectory(
     )
   }
 
-  const rulesDir = join(getProjectClaudeDir(dir), 'rules')
+  const rulesDir = join(getProjectConfigDir(dir), 'rules')
 
   // Process project unconditional .claude/rules/*.md files, which were not eagerly loaded
   // Use a separate processedPaths set to avoid marking conditional rule files as processed
@@ -1376,7 +1376,7 @@ export async function getConditionalRulesForCwdLevelDirectory(
   targetPath: string,
   processedPaths: Set<string>,
 ): Promise<MemoryFileInfo[]> {
-  const rulesDir = join(getProjectClaudeDir(dir), 'rules')
+  const rulesDir = join(getProjectConfigDir(dir), 'rules')
   return processConditionedMdRules(
     targetPath,
     rulesDir,

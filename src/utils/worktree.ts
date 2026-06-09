@@ -44,7 +44,7 @@ import {
 } from './settings/settings.js'
 import { sleep } from './sleep.js'
 import { isInITerm2 } from './swarm/backends/detection.js'
-import { getProjectClaudeDir } from './projectConfigDir.js'
+import { getProjectConfigDir } from './projectConfigDir.js'
 
 const VALID_WORKTREE_SLUG_SEGMENT = /^[a-zA-Z0-9._-]+$/
 const MAX_WORKTREE_SLUG_LENGTH = 64
@@ -203,7 +203,7 @@ const GIT_NO_PROMPT_ENV = {
 }
 
 function worktreesDir(repoRoot: string): string {
-  return join(getProjectClaudeDir(repoRoot), 'worktrees')
+  return join(getProjectConfigDir(repoRoot), 'worktrees')
 }
 
 // Flatten nested slugs (`user/feature` → `user+feature`) for both the branch

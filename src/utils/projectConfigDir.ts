@@ -28,10 +28,14 @@ export function getProjectConfigWriteDir(baseDir: string): string {
 }
 
 /**
- * 读：`.ywcoder/` 存在则用；否则回退已存在的 `.claude/`（未迁移/迁移失败的项目）；
- * 两者都无则默认指向 `.ywcoder/`（全新项目，让"该在哪"指向新名）。
+ * 当前生效的项目配置目录（**读和写都用它**）：`.ywcoder/` 存在则用；否则回退已存在的
+ * `.claude/`（未迁移/迁移失败/只读仓库）；两者都无则默认 `.ywcoder/`（全新项目）。
+ *
+ * 用于写也安全：全新项目走"默认 `.ywcoder/`"分支，**不会**回退去建 `.claude/`；
+ * 迁移在启动早期把 `.claude/` 整体搬到 `.ywcoder/`，故运行时正常项目此函数恒返回 `.ywcoder/`，
+ * 读写一致（避免"读旧写新"的分裂）。强制新目录（迁移目标）用 getProjectConfigWriteDir。
  */
-export function getProjectConfigReadDir(baseDir: string): string {
+export function getProjectConfigDir(baseDir: string): string {
   const newDir = join(baseDir, PROJECT_CONFIG_DIR)
   if (existsSync(newDir)) return newDir
   const legacyDir = join(baseDir, LEGACY_PROJECT_CONFIG_DIR)
@@ -48,13 +52,4 @@ export function getProjectConfigDirVariants(baseDir: string): [string, string] {
     join(baseDir, PROJECT_CONFIG_DIR),
     join(baseDir, LEGACY_PROJECT_CONFIG_DIR),
   ]
-}
-
-/**
- * @deprecated D7 Phase 0 的过渡 getter（恒返回 `.claude`）。Phase 1 起按读/写/匹配
- * 改用 getProjectConfig{Write,Read}Dir / getProjectConfigDirVariants；本函数仅供尚未
- * 切换的调用点临时兜底，切换完成后移除。
- */
-export function getProjectClaudeDir(baseDir: string): string {
-  return join(baseDir, LEGACY_PROJECT_CONFIG_DIR)
 }

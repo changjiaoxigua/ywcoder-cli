@@ -21,7 +21,7 @@ import {
   getGlobalConfigCompatPrefixes,
   getGlobalConfigDirCandidates,
 } from './globalConfigPattern.js'
-import { getProjectClaudeDir } from '../projectConfigDir.js'
+import { getProjectConfigDirVariants } from '../projectConfigDir.js'
 import {
   getFsImplementation,
   getPathsForPermissionCheck,
@@ -112,9 +112,17 @@ export function getClaudeSkillScope(
   // dirs：绝对路径（用于路径归属比对）；prefixes：~/ 或绝对路径形式（用于权限规则字符串）。
   const globalDirs = getGlobalConfigDirCandidates()
   const globalPrefixes = getGlobalConfigCompatPrefixes()
+  // 认两边：.ywcoder/skills 与 .claude/skills（迁移过渡期旧路径也要识别）
+  const [newConfigDir, legacyConfigDir] = getProjectConfigDirVariants(
+    getOriginalCwd(),
+  )
   const bases = [
     {
-      dir: expandPath(join(getProjectClaudeDir(getOriginalCwd()), 'skills')),
+      dir: expandPath(join(newConfigDir, 'skills')),
+      prefix: '/.ywcoder/skills/',
+    },
+    {
+      dir: expandPath(join(legacyConfigDir, 'skills')),
       prefix: '/.claude/skills/',
     },
     ...globalDirs.map((dir, i) => ({
@@ -238,14 +246,12 @@ function isClaudeConfigFilePath(filePath: string): boolean {
   // Check if file is within .claude/commands or .claude/agents directories
   // using proper path segment validation (not string matching with includes())
   // pathInWorkingPath now handles case-insensitive comparison to prevent bypasses
-  const commandsDir = join(getProjectClaudeDir(getOriginalCwd()), 'commands')
-  const agentsDir = join(getProjectClaudeDir(getOriginalCwd()), 'agents')
-  const skillsDir = join(getProjectClaudeDir(getOriginalCwd()), 'skills')
-
-  return (
-    pathInWorkingPath(filePath, commandsDir) ||
-    pathInWorkingPath(filePath, agentsDir) ||
-    pathInWorkingPath(filePath, skillsDir)
+  // 认两边：.ywcoder/ 与 .claude/ 下的 commands/agents/skills
+  return getProjectConfigDirVariants(getOriginalCwd()).some(
+    base =>
+      pathInWorkingPath(filePath, join(base, 'commands')) ||
+      pathInWorkingPath(filePath, join(base, 'agents')) ||
+      pathInWorkingPath(filePath, join(base, 'skills')),
   )
 }
 
@@ -1602,8 +1608,11 @@ export function checkEditableInternalPath(
   // applied → silent downgrade from auto mode. Matches the project-level
   // .claude/ only (not ~/.claude/) since launch.json is per-project.
   if (
-    normalizeCaseForComparison(normalizedPath) ===
-    normalizeCaseForComparison(join(getProjectClaudeDir(getOriginalCwd()), 'launch.json'))
+    getProjectConfigDirVariants(getOriginalCwd()).some(
+      base =>
+        normalizeCaseForComparison(normalizedPath) ===
+        normalizeCaseForComparison(join(base, 'launch.json')),
+    )
   ) {
     return {
       behavior: 'allow',

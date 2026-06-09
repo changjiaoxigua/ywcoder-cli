@@ -9,7 +9,10 @@ import { getCwd } from '../../utils/cwd.js'
 import { findCanonicalGitRoot } from '../../utils/git.js'
 import { sanitizePath } from '../../utils/path.js'
 import { getYwCoderEnv } from '../../utils/envUtils.js'
-import { getProjectClaudeDir } from '../../utils/projectConfigDir.js'
+import {
+  getProjectConfigDir,
+  getProjectConfigDirVariants,
+} from '../../utils/projectConfigDir.js'
 
 // Persistent agent memory scope: 'user' (~/.claude/agent-memory/), 'project' (.claude/agent-memory/), or 'local' (.claude/agent-memory-local/)
 export type AgentMemoryScope = 'user' | 'project' | 'local'
@@ -42,7 +45,7 @@ function getLocalAgentMemoryDir(dirName: string): string {
       ) + sep
     )
   }
-  return join(getProjectClaudeDir(getCwd()), 'agent-memory-local', dirName) + sep
+  return join(getProjectConfigDir(getCwd()), 'agent-memory-local', dirName) + sep
 }
 
 /**
@@ -58,7 +61,7 @@ export function getAgentMemoryDir(
   const dirName = sanitizeAgentTypeForPath(agentType)
   switch (scope) {
     case 'project':
-      return join(getProjectClaudeDir(getCwd()), 'agent-memory', dirName) + sep
+      return join(getProjectConfigDir(getCwd()), 'agent-memory', dirName) + sep
     case 'local':
       return getLocalAgentMemoryDir(dirName)
     case 'user':
@@ -79,7 +82,9 @@ export function isAgentMemoryPath(absolutePath: string): boolean {
 
   // Project scope: always cwd-based (not redirected)
   if (
-    normalizedPath.startsWith(join(getProjectClaudeDir(getCwd()), 'agent-memory') + sep)
+    getProjectConfigDirVariants(getCwd()).some(base =>
+      normalizedPath.startsWith(join(base, 'agent-memory') + sep),
+    )
   ) {
     return true
   }
@@ -95,8 +100,8 @@ export function isAgentMemoryPath(absolutePath: string): boolean {
       return true
     }
   } else if (
-    normalizedPath.startsWith(
-      join(getProjectClaudeDir(getCwd()), 'agent-memory-local') + sep,
+    getProjectConfigDirVariants(getCwd()).some(base =>
+      normalizedPath.startsWith(join(base, 'agent-memory-local') + sep),
     )
   ) {
     return true

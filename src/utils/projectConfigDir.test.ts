@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   getProjectConfigDirVariants,
-  getProjectConfigReadDir,
+  getProjectConfigDir,
   getProjectConfigWriteDir,
 } from './projectConfigDir.js'
 
@@ -28,20 +28,20 @@ describe('projectConfigDir', () => {
     withTempBase(base => {
       mkdirSync(join(base, '.ywcoder'))
       mkdirSync(join(base, '.claude'))
-      expect(getProjectConfigReadDir(base)).toBe(join(base, '.ywcoder'))
+      expect(getProjectConfigDir(base)).toBe(join(base, '.ywcoder'))
     })
   })
 
   test('read：仅 .claude 存在（未迁移）→ 回退 .claude', () => {
     withTempBase(base => {
       mkdirSync(join(base, '.claude'))
-      expect(getProjectConfigReadDir(base)).toBe(join(base, '.claude'))
+      expect(getProjectConfigDir(base)).toBe(join(base, '.claude'))
     })
   })
 
   test('read：两者都不存在（全新项目）→ 默认 .ywcoder', () => {
     withTempBase(base => {
-      expect(getProjectConfigReadDir(base)).toBe(join(base, '.ywcoder'))
+      expect(getProjectConfigDir(base)).toBe(join(base, '.ywcoder'))
     })
   })
 

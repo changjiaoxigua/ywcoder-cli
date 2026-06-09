@@ -23,7 +23,7 @@ import {
   type SettingSource,
 } from './settings/constants.js'
 import { getManagedFilePath } from './settings/managedPath.js'
-import { getProjectClaudeDir } from './projectConfigDir.js'
+import { getProjectConfigDir } from './projectConfigDir.js'
 import { isRestrictedToPluginOnly } from './settings/pluginOnlyPolicy.js'
 
 // YwCoder configuration directory names
@@ -251,7 +251,7 @@ export function getProjectDirsUpToHome(
       break
     }
 
-    const claudeSubdir = join(getProjectClaudeDir(current), subdir)
+    const claudeSubdir = join(getProjectConfigDir(current), subdir)
     // Filter to existing dirs. This is a perf filter (avoids spawning
     // ripgrep on non-existent dirs downstream) and the worktree fallback
     // in loadMarkdownFilesForSubdir relies on it. statSync + explicit error
@@ -322,13 +322,13 @@ export const loadMarkdownFilesForSubdir = memoize(
     const canonicalRoot = findCanonicalGitRoot(cwd)
     if (gitRoot && canonicalRoot && canonicalRoot !== gitRoot) {
       const worktreeSubdir = normalizePathForComparison(
-        join(getProjectClaudeDir(gitRoot), subdir),
+        join(getProjectConfigDir(gitRoot), subdir),
       )
       const worktreeHasSubdir = projectDirs.some(
         dir => normalizePathForComparison(dir) === worktreeSubdir,
       )
       if (!worktreeHasSubdir) {
-        const mainClaudeSubdir = join(getProjectClaudeDir(canonicalRoot), subdir)
+        const mainClaudeSubdir = join(getProjectConfigDir(canonicalRoot), subdir)
         if (!projectDirs.includes(mainClaudeSubdir)) {
           projectDirs.push(mainClaudeSubdir)
         }
