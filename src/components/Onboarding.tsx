@@ -73,7 +73,7 @@ export function Onboarding({
           <OrderedList.Item>
             <Text>YwCoder can make mistakes</Text>
             <Text dimColor wrap="wrap">
-              You should always review Claude&apos;s responses, especially when
+              You should always review YwCoder&apos;s responses, especially when
               <Newline />
               running code.
               <Newline />

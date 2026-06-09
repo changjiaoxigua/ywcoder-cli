@@ -216,24 +216,23 @@
 
 ---
 
-## B2 追加（裸 Claude 字符串·待人工裁决，2026-06-08）
+## B2 追加（裸 Claude 字符串，2026-06-08 → 已裁决 2026-06-09）
 
-> 由 B2 首遍分类（agent 草拟 + 人工复审）产出。高置信"助手自指"已落地（见 [B2_CLASSIFICATION.md](B2_CLASSIFICATION.md)）；下列为复审中判定"需人工裁决"的，**未改**。
+> 由 B2 首遍分类（agent 草拟 + 人工复审）产出。高置信"助手自指"已落地（见 [B2_CLASSIFICATION.md](B2_CLASSIFICATION.md)）。下列两类经用户裁决，**已全部落地**。
 
-### ⚖️ 法务复核文案（不可机械改，需你/Legal 决定）
+### ⚖️ 法务复核文案 — 【已裁决：改】
 
-- src/components/AutoModeOptInDialog.tsx:10 — `AUTO_MODE_DESCRIPTION`，整段 6 处裸 `Claude` 均为助手自指（语义上该→YwCoder），**但第 9 行有 `// NOTE: This copy is legally reviewed — do not modify without Legal team approval.`**。auto mode 同意对话框用户可见。判断：品牌一致性该改，但受法务批准门控——**留待你拍板**，不在自动批次内改。
-  ```
-  export const AUTO_MODE_DESCRIPTION = "Auto mode lets Claude handle permission prompts automatically — Claude checks each tool call ... Claude may try a different approach ... Claude can make mistakes ...";
-  ```
+- ~~src/components/AutoModeOptInDialog.tsx:10 — `AUTO_MODE_DESCRIPTION`，6 处自指，带 "legally reviewed" 注释~~
+  **用户裁决：内网无法务部门、不对外发布，UI 文案可直接改。已将 6 处 `Claude`→`YwCoder`**（行 9 的 legally-reviewed 注释保留原样）。
 
-### 🔧 install / update / 二进制名 / 配置文件展示名（一类，建议统一裁决）
+### 🔧 install / update / 二进制名 / 配置文件展示名 — 【已裁决：改（纯展示，零功能影响）】
 
-> 共性：这些 `Claude` 既可能指"本工具自身"（→YwCoder），也可能指**安装在系统上的二进制/包名**（若实际 bin 名为 `ywcoder` 则该随之改，但涉及包管理器/symlink/上游下载语境，错改风险高）。多数属已禁用的 install 路径。与现有 install.tsx / 二进制相关条目同源，建议你统一定调后我再批量落地。
+> 复审确认：这 11 处**全部是 `writeToStdout` / `messages.push` / `stderr.write` 的展示型字符串**，不参与二进制查找或包管理器检测（检测靠 `installationType`/`getPackageManager()`/`isPossibleClaudeBinary()` 函数与文件路径，不读这些字符串）。改动=纯文案，零功能影响；且对 native 二进制/`~/.ywcoder` 配置而言改后更**准确**。已落地。
+> **例外（保留）**：`update.ts` 里内嵌的包注册表 ID —— `brew upgrade claude-code`、`winget upgrade Anthropic.ClaudeCode`、`apk upgrade claude-code` —— 是外部仓库标识（同 `anthropics/` 类），且该包管理器分支对内网 .tgz/native 分发不可达，**不动**。
 
-- src/utils/Shell.ts:131 — `"No suitable shell found. Claude CLI requires a Posix shell environment."`（CLI 自指 vs 二进制名）
-- src/utils/localInstaller.ts:125 — `"Failed to install Claude CLI package: ..."`（install 功能，已禁用）
-- src/cli/update.ts:137,148,161,175 — `"Claude is managed by Homebrew/winget/apk/a package manager."`（包管理器检测，指安装的二进制）
-- src/cli/update.ts:145,158,169 — `"Claude is up to date!"`（update 输出，疑自指但属 update/install 路径）
-- src/utils/nativeInstaller/installer.ts:870,886 — `"Claude symlink points to missing or invalid binary"` / `"... is not a valid Claude binary"`（二进制/symlink 名，功能性）
-- src/utils/config.ts:1495,1542 — `"Claude configuration file not found at/corrupted"`（配置文件展示名；与 claudemd.ts/config.ts 的 CLAUDE.md 回退护栏相邻，需裁决展示文案是否随品牌改）
+- ~~src/utils/Shell.ts:131~~ → `YwCoder CLI requires a Posix shell environment.`
+- ~~src/utils/localInstaller.ts:125~~ → `Failed to install YwCoder CLI package`
+- ~~src/cli/update.ts:137,148,161,175~~ → `YwCoder is managed by Homebrew/winget/apk/a package manager.`（升级命令的包 ID 保留）
+- ~~src/cli/update.ts:145,158,169~~ → `YwCoder is up to date!`
+- ~~src/utils/nativeInstaller/installer.ts:870,878,886~~ → `YwCoder symlink…` / `ywcoder command not found` / `valid YwCoder binary`
+- ~~src/utils/config.ts:1495,1542~~ → `YwCoder configuration file not found/corrupted`（非 CLAUDE.md 回退护栏，互不影响）
