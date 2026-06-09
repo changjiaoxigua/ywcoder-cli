@@ -1756,6 +1756,7 @@ export type AutoUpdaterDisabledReason =
   | { type: 'development' }
   | { type: 'env'; envVar: string }
   | { type: 'config' }
+  | { type: 'ywcoder' }
 
 export function formatAutoUpdaterDisabledReason(
   reason: AutoUpdaterDisabledReason,
@@ -1767,6 +1768,8 @@ export function formatAutoUpdaterDisabledReason(
       return `${reason.envVar} set`
     case 'config':
       return 'config'
+    case 'ywcoder':
+      return '暂未开启在线更新'
   }
 }
 
@@ -1789,7 +1792,12 @@ export function getAutoUpdaterDisabledReason(): AutoUpdaterDisabledReason | null
   ) {
     return { type: 'config' }
   }
-  return null
+  // YwCoder: 默认禁用在线自动更新 — 原版默认 return null（启用），会让
+  // NativeAutoUpdater / PackageManagerAutoUpdater 挂载即查 + 每 30 分钟从
+  // Anthropic GCS（claude-code-dist）轮询下载更新包，内网不可达、反复网络失败。
+  // 改为默认返回"已禁用"，各 updater 的 checkForUpdates 早退、不发起网络。
+  // 将来接入更新源时，改回 return null 即可恢复自动更新。
+  return { type: 'ywcoder' }
 }
 
 export function getOrCreateUserID(): string {
