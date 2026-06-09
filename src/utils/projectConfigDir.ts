@@ -1,25 +1,60 @@
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 /**
- * 项目级配置目录（仓库内的 `.claude/`）的中心解析点。
+ * 项目级配置目录（仓库内的 `.claude/` → `.ywcoder/`）的中心解析点。
  *
- * 这是 `.claude/` → `.ywcoder/` 迁移（DECISIONS.md D7）的单一改动点：
- * - **Phase 0（当前）**：行为保持不变——仍返回 `.claude`。本阶段只把散落各处的
- *   `join(base, '.claude', …)` 收敛到此函数，零行为变更（build/test 应完全等价）。
- * - **Phase 1（后续）**：改为 `.ywcoder/` 优先 + `.claude/` 读回退（写策略 Option B：
- *   写 `.ywcoder/`，`.claude/` 仅读回退 + 一次性迁移存量）。届时只改这里（及拆分
- *   读/写 helper），不必再动各调用点。
+ * D7 迁移策略（DECISIONS.md，Option B「整目录搬」）：
+ * - 启动早期一次性把项目 `.claude/` 搬到 `.ywcoder/`（跳过 `worktrees/`，同步 gitignore，
+ *   备份、幂等、优雅降级，见 projectConfigMigration）。
+ * - 之后**写**恒落 `.ywcoder/`；**读** `.ywcoder/` 优先、回退 `.claude/`（未迁/迁失败时）。
+ *   因迁移把整个目录搬走，读用**目录级择优**即可，无需逐文件合并。
  *
- * 适用范围：**仅项目级**（cwd / 项目根 / git 根 / worktree 等 baseDir 下的 `.claude/`）。
- * 不覆盖、调用方也不要经此处理：
- * - HOME 配置目录 `~/.ywcoder`（见 getYwCoderConfigHomeDir）
- * - 全局配置文件 `~/.claude.json`（见 getGlobalClaudeFile，Phase 3 单独处理）
- * - 插件清单约定 `.claude-plugin/`（生态硬约定，永久保留）
- * - 记忆文件 `CLAUDE.md` / `YWCODER.md`
- *
- * @param baseDir 项目级基准目录（如 getCwd()、git 根、遍历到的目录）
- * @returns 该基准目录下的项目配置目录路径
+ * 适用范围：**仅项目级**（cwd / 项目根 / git 根 等 baseDir 下的配置目录）。不覆盖：
+ * HOME `~/.ywcoder`（getYwCoderConfigHomeDir）、全局配置文件 `~/.claude.json`
+ * （getGlobalClaudeFile，Phase 3）、插件清单约定 `.claude-plugin/`（生态硬约定，永久保留）、
+ * 记忆文件名 `CLAUDE.md`/`YWCODER.md`、managed 系统级 `getManagedFilePath()/.claude`。
+ */
+
+const PROJECT_CONFIG_DIR = '.ywcoder'
+const LEGACY_PROJECT_CONFIG_DIR = '.claude'
+
+/**
+ * 写 / mkdir：新建内容恒落 `.ywcoder/`。
+ * 不做存在性回退——否则全新项目（两者都不存在）会回退建出 `.claude/`，违背去标识。
+ */
+export function getProjectConfigWriteDir(baseDir: string): string {
+  return join(baseDir, PROJECT_CONFIG_DIR)
+}
+
+/**
+ * 读：`.ywcoder/` 存在则用；否则回退已存在的 `.claude/`（未迁移/迁移失败的项目）；
+ * 两者都无则默认指向 `.ywcoder/`（全新项目，让"该在哪"指向新名）。
+ */
+export function getProjectConfigReadDir(baseDir: string): string {
+  const newDir = join(baseDir, PROJECT_CONFIG_DIR)
+  if (existsSync(newDir)) return newDir
+  const legacyDir = join(baseDir, LEGACY_PROJECT_CONFIG_DIR)
+  if (existsSync(legacyDir)) return legacyDir
+  return newDir
+}
+
+/**
+ * 匹配：返回 baseDir 下两个变体目录 `[.ywcoder, .claude]`，供权限/比较场景同时识别。
+ * 过渡期旧 `.claude/` 路径也要被认作内部配置目录（否则旧路径会被权限拒/漏匹配）。
+ */
+export function getProjectConfigDirVariants(baseDir: string): [string, string] {
+  return [
+    join(baseDir, PROJECT_CONFIG_DIR),
+    join(baseDir, LEGACY_PROJECT_CONFIG_DIR),
+  ]
+}
+
+/**
+ * @deprecated D7 Phase 0 的过渡 getter（恒返回 `.claude`）。Phase 1 起按读/写/匹配
+ * 改用 getProjectConfig{Write,Read}Dir / getProjectConfigDirVariants；本函数仅供尚未
+ * 切换的调用点临时兜底，切换完成后移除。
  */
 export function getProjectClaudeDir(baseDir: string): string {
-  return join(baseDir, '.claude')
+  return join(baseDir, LEGACY_PROJECT_CONFIG_DIR)
 }
