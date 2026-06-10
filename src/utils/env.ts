@@ -11,18 +11,34 @@ import { which } from './which.js'
 type Platform = 'win32' | 'darwin' | 'linux'
 
 // Config and data paths
+//
+// 全局配置文件（含登录 auth/token）的路径解析。D7 Stage 3：纯新装默认落
+// `<configHome>/.config.json`（去标识，不再新生成 `~/.claude.json`），但**存量
+// `~/.claude.json` 用户完全保留**（读回退，不丢登录态）。三分支：
+//   1. 新目录 `.config.json` 已存在（已迁移 / 已在新目录）→ 用它。
+//   2. 存量 legacy `~/.claude{oauth后缀}.json` 存在（未迁移用户，或与官方 CC 共用同一文件）→
+//      继续用它，保 auth、读回退；不被新默认抢走。
+//   3. 纯新装（两者都无）→ 落新目录 `.config.json`（此前会落 `~/.claude.json`，是去标识缺口）。
+// 注意：HOME 配置不受 MIGRATE_PROJECT_CONFIG（项目级）门控；ywcoder 与官方 CC 的全局文件
+// 本就分离（CC 用 .claude.json、ywcoder 用 .config.json），故无项目级那种双场景冲突。
+// ⚠️ auth 敏感：改动后需连真实登录/认证流程验证（存量登录态保留 + 新装登录落 .config.json）。
 export const getGlobalClaudeFile = memoize((): string => {
-  // Legacy fallback for backwards compatibility
-  if (
-    getFsImplementation().existsSync(
-      join(getYwCoderConfigHomeDir(), '.config.json'),
-    )
-  ) {
-    return join(getYwCoderConfigHomeDir(), '.config.json')
+  const fs = getFsImplementation()
+  const newConfig = join(getYwCoderConfigHomeDir(), '.config.json')
+  // 1. 已迁移 / 已在新目录
+  if (fs.existsSync(newConfig)) {
+    return newConfig
   }
-
-  const filename = `.claude${fileSuffixForOauthConfig()}.json`
-  return join(process.env.CLAUDE_CONFIG_DIR || homedir(), filename)
+  // 2. 存量 legacy 文件存在 → 继续用（保 auth）
+  const legacyFile = join(
+    process.env.CLAUDE_CONFIG_DIR || homedir(),
+    `.claude${fileSuffixForOauthConfig()}.json`,
+  )
+  if (fs.existsSync(legacyFile)) {
+    return legacyFile
+  }
+  // 3. 纯新装 → 新默认落 .config.json（去标识）
+  return newConfig
 })
 
 const hasInternetAccess = memoize(async (): Promise<boolean> => {
