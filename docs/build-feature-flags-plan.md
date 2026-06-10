@@ -391,3 +391,45 @@ ls -lh dist/cli.mjs
 | 在 B 组表格中增加"启用状态"列 | 区分"本次启用"与"本次暂不启用" |
 | 更新 Step 2 代码块（13 → 8 个） | 仅保留确认启用的 flag |
 | 更新 Flag 数量汇总表 | 增加"B 组：安全增量（本次暂不启用） | 5"分类 |
+
+---
+
+## 附录 B：勘误 / Addendum（2026-06-10）
+
+> **⚠️ 重要：本文第 1 节的机制假设是错的，导致本计划的"启用"在 commit `7e27f51` 之前从未真正生效。**
+
+### B.1 机制误判
+
+第 1 节假设构建时 `bun:bundle` 的 shim 会把 `feature(name)` 替换为 `featureFlags[name] ?? false`。
+**实测（Bun 1.3.11）该假设不成立**：`feature()` / `bun:bundle` 是 **Bun 原生编译期 intrinsic**（报错串在
+`bun` 二进制内、类型见 `node_modules/bun-types/bundle.d.ts`），Bun 在 AST 阶段就处理 `feature()`，
+**完全绕过 `scripts/build.ts` 里 onResolve/onLoad 的 shim**。其真值只来自 `Bun.build({ features: [...] })`
+（或 CLI `--feature`）。本仓库本地与 GitHub Actions 发布构建均为 Bun 1.3.11 + `bun run build`，
+**从未注入 features**，故 **所有 `feature()` 一律折叠为 `false`** —— 本计划设为 `true` 的 9 个 flag 实际全是关的。
+
+### B.2 因此本计划的实际效果
+
+- **"修改"（把 9 个 flag 设 true）等于没生效**：A 组 `BUILTIN_EXPLORE_PLAN_AGENTS` 也没生效，故本文要修的
+  原始 bug（`Agent type 'explore' not found`）**直到 `7e27f51` 才真正修复**。
+- **第 8 节"验证"是假绿**：`bun run build` 成功恰恰因为 flag 没生效——若真生效，`AUTO_THEME` 会立刻让构建
+  失败（见 B.3）。第 5 节的手工冒烟（让模型用 explore agent）若真跑过，会发现 explore 仍坏。
+  **教训：验证 feature flag 不能只看 build 成功，须确认 dist 里 `feature()` 折叠成目标分支，或跑真实功能。**
+
+### B.3 一处事实错误：`AUTO_THEME` 源缺失
+
+本文 B 组把 `AUTO_THEME` 判为"实现完整、安全启用"，但其启用分支
+`ThemeProvider.tsx` 里 `import('../../utils/systemThemeWatcher.js')` 的目标 **在 git 全历史中从不存在**。
+机制修复后真启用它会构建失败（`Could not resolve: "../../utils/systemThemeWatcher.js"`）。
+当时"实现完整性"只核了 `ThemeProvider.tsx` 本身，漏了动态 import 的目标。
+
+### B.4 修复与当前状态（commit `7e27f51`）
+
+- `scripts/build.ts` 改用 **`Bun.build({ features: enabledFeatures })`**（从 featureFlags 收集为 true 的键），
+  feature() 才真正按配置折叠（已用最小复现验证 `features:['X']` → `feature('X')===true`）。
+- **现真正生效的 8 个**：`BUILTIN_EXPLORE_PLAN_AGENTS` + B 组 7 个（`NATIVE_CLIPBOARD_IMAGE` / `QUICK_SEARCH`
+  / `HISTORY_PICKER` / `MCP_RICH_OUTPUT` / `COMPACTION_REMINDERS` / `POWERSHELL_AUTO_MODE` / `HOOK_PROMPTS`）。
+  dist 中这 8 个的 `feature()` 运行时调用残留均为 0（已折叠）；`areExplorePlanAgentsEnabled()` 折叠为 `if(true)`。
+- **`AUTO_THEME` 暂置 `false`**（源缺失，见 B.3）。补齐 `systemThemeWatcher.js` 后方可开。
+- `BUDDY` 走运行时 `isBuddyEnabled()`，不受此机制影响（一直正常）。
+- ⏳ 这 8 个此前从未真正运行过，已决定（用户 2026-06-10）**保持开启 + 逐个补运行时冒烟**（第 5 节清单），
+  发现问题再单独关。`AUTO_THEME` 源缺失为独立跟进项。
