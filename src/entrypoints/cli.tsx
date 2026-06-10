@@ -116,6 +116,27 @@ async function main(): Promise<void> {
   }
 
   {
+    // D7 Stage 2：项目级配置目录迁移（.claude/ → .ywcoder/），受编译期 flag
+    // MIGRATE_PROJECT_CONFIG 门控——外层 if 在 OFF 构建下把整段（含动态 import）DCE，
+    // 零运行时表面、与官方 Claude Code 共用 .claude/ 完全无干扰。
+    // 必须跑在首次读项目 settings（下方 applySafeConfigEnvironmentVariables）之前，
+    // 以 getOriginalCwd() 为项目根（state.ts 模块加载即初始化为真实 cwd）。
+    // 策略 copy-keep：复制不删原 .claude/、跳 worktrees、同步 .gitignore、幂等、优雅降级、安静。
+    if (feature('MIGRATE_PROJECT_CONFIG')) {
+      const { getOriginalCwd } = await import('../bootstrap/state.js')
+      const { migrateProjectConfig } = await import(
+        '../utils/projectConfigMigration.js'
+      )
+      const migration = await migrateProjectConfig(getOriginalCwd())
+      // 仅在确实迁移后清 settings 缓存，保证随后读到 .ywcoder/（防早期 import 副作用已读旧目录）。
+      if (migration.status === 'migrated') {
+        const { resetSettingsCache } = await import(
+          '../utils/settings/settingsCache.js'
+        )
+        resetSettingsCache()
+      }
+    }
+
     const { enableConfigs } = await import('../utils/config.js')
     enableConfigs()
     const { applySafeConfigEnvironmentVariables } = await import('../utils/managedEnv.js')

@@ -9,6 +9,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { resolveProjectConfigDir } from './projectConfigDir.js'
 import {
   migrateProjectConfig,
   runProjectConfigMigration,
@@ -124,6 +125,33 @@ describe('projectConfigMigration · 核心 runProjectConfigMigration（覆盖迁
       // .ywcoder 作为文件存在 → existsSync 为真 → 走幂等 already-migrated 分支（不抛）
       const r = await runProjectConfigMigration(root)
       expect(['already-migrated', 'failed']).toContain(r.status)
+    })
+  })
+})
+
+// 集成式：迁移后，活跃目录解析器（模拟 flag ON，migrate=true）应指向 .ywcoder/ 且能读到迁来的 settings。
+// 这是 OFF 的 bun test 下能达到的「迁移→生效目录一致」端到端断言（启动接入点正是迁移后让 settings
+// 从该活跃目录读取）。完整的"接进 cli.tsx 启动流程"因 feature() 恒 OFF 无法在单测里走真值，
+// 已在 cli.tsx 用 if(feature('MIGRATE_PROJECT_CONFIG')) 门控并经 dist DCE 验证。
+describe('projectConfigMigration · 集成：迁移后活跃目录解析到 .ywcoder/ 的迁移内容', () => {
+  test('migrate → resolveProjectConfigDir(root, true) 指向 .ywcoder/ 且 settings 可读', async () => {
+    await withTempRoot(async root => {
+      mkdirSync(join(root, '.claude'))
+      writeFileSync(
+        join(root, '.claude', 'settings.json'),
+        '{"permissions":{"allow":["Read"]}}',
+      )
+
+      const r = await runProjectConfigMigration(root)
+      expect(r.status).toBe('migrated')
+
+      // 模拟 flag ON 的运行时择优：迁移后 .ywcoder/ 存在 → 解析到新目录
+      const active = resolveProjectConfigDir(root, true)
+      expect(active).toBe(join(root, '.ywcoder'))
+      // 启动接入后 settings 即从该活跃目录读取，内容应是迁来的副本
+      expect(readFileSync(join(active, 'settings.json'), 'utf8')).toBe(
+        '{"permissions":{"allow":["Read"]}}',
+      )
     })
   })
 })
