@@ -16,6 +16,8 @@ import {
   saveGithubModelsToken,
 } from '../../utils/githubModelsCredentials.js'
 import { updateSettingsForSource } from '../../utils/settings/settings.js'
+import { getConfigHomeDisplayPath } from '../../utils/envUtils.js'
+const _configHome = getConfigHomeDisplayPath()
 
 const DEFAULT_MODEL = 'github:copilot'
 const FORCE_RELOGIN_ARGS = new Set([
@@ -160,7 +162,7 @@ function OnboardGithub(props: {
       if (!activated.ok) {
         setErrorMsg(
           `Token saved, but settings were not updated: ${activated.detail ?? 'unknown error'}. ` +
-            `Add env CLAUDE_CODE_USE_GITHUB=1 and OPENAI_MODEL to ~/.claude/settings.json manually.`,
+            `Add env CLAUDE_CODE_USE_GITHUB=1 and OPENAI_MODEL to ${_configHome}/settings.json manually.`,
         )
         setStep('error')
         return

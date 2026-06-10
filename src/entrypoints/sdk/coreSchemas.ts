@@ -10,6 +10,8 @@
 import { z } from 'zod/v4'
 import { lazySchema } from '../../utils/lazySchema.js'
 import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../../utils/projectConfigDir.js'
+import { getConfigHomeDisplayPath } from '../../utils/envUtils.js'
+const _configHome = getConfigHomeDisplayPath()
 
 // ============================================================================
 // Usage & Model Types
@@ -1164,7 +1166,7 @@ export const AgentDefinitionSchema = lazySchema(() =>
         .enum(['user', 'project', 'local'])
         .optional()
         .describe(
-          "Scope for auto-loading agent memory files. 'user' - ~/.claude/agent-memory/<agentType>/, 'project' - .claude/agent-memory/<agentType>/, 'local' - .claude/agent-memory-local/<agentType>/",
+          `Scope for auto-loading agent memory files. 'user' - ${_configHome}/agent-memory/<agentType>/, 'project' - .claude/agent-memory/<agentType>/, 'local' - .claude/agent-memory-local/<agentType>/`,
         ),
       effort: z
         .union([z.enum(['low', 'medium', 'high', 'max']), z.number().int()])
@@ -1192,7 +1194,7 @@ export const SettingSourceSchema = lazySchema(() =>
     .enum(['user', 'project', 'local'])
     .describe(
       'Source for loading filesystem-based settings. ' +
-        "'user' - Global user settings (~/.claude/settings.json). " +
+        `'user' - Global user settings (${_configHome}/settings.json). ` +
         `'project' - Project settings (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.json). ` +
         `'local' - Local settings (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.local.json).`,
     ),

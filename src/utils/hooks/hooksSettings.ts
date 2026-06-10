@@ -10,6 +10,8 @@ import {
 } from '../settings/settings.js'
 import type { HookCommand, HookMatcher } from '../settings/types.js'
 import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../projectConfigDir.js'
+import { getConfigHomeDisplayPath } from '../envUtils.js'
+const _configHome = getConfigHomeDisplayPath()
 import { DEFAULT_HOOK_SHELL } from '../shell/shellProvider.js'
 import { getSessionHooks } from './sessionHooks.js'
 
@@ -171,7 +173,7 @@ export function getHooksForEvent(
 export function hookSourceDescriptionDisplayString(source: HookSource): string {
   switch (source) {
     case 'userSettings':
-      return 'User settings (~/.claude/settings.json)'
+      return `User settings (${_configHome}/settings.json)`
     case 'projectSettings':
       return `Project settings (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.json)`
     case 'localSettings':
