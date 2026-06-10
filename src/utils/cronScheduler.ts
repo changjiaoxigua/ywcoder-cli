@@ -87,7 +87,8 @@ type CronSchedulerOptions = {
    */
   onMissed?: (tasks: CronTask[]) => void
   /**
-   * Directory containing .claude/scheduled_tasks.json. When provided, the
+   * Project root containing the active config dir's scheduled_tasks.json
+   * (.ywcoder/ 或旧 .claude/，见 getCronFilePath)。When provided, the
    * scheduler never touches bootstrap state: getProjectRoot/getSessionId are
    * not read, and the getScheduledTasksEnabled() poll is skipped (enable()
    * runs immediately on start). Required for Agent SDK daemon callers.
