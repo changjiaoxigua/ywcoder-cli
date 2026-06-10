@@ -58,7 +58,9 @@ const featureFlags: Record<string, boolean> = {
   COWORKER_TYPE_TELEMETRY: false,
   // A+B 组安全增量功能（修复 explore/plan agent + 纯 UI/交互增量）
   BUILTIN_EXPLORE_PLAN_AGENTS: true,
-  AUTO_THEME: true,
+  // AUTO_THEME 暂关：其启用分支 import('../../utils/systemThemeWatcher.js')，该模块未在本
+  // mirror 中（feature 机制修复后实测构建失败 Could not resolve）。补齐源文件后方可置 true。
+  AUTO_THEME: false,
   NATIVE_CLIPBOARD_IMAGE: true,
   QUICK_SEARCH: true,
   HISTORY_PICKER: true,
@@ -72,12 +74,22 @@ const featureFlags: Record<string, boolean> = {
   MIGRATE_PROJECT_CONFIG: false,
 }
 
+// Bun 1.3.11 起 `feature()` / `bun:bundle` 是 Bun **原生**编译期 intrinsic（报错串就在 bun
+// 二进制里、类型见 bun-types/bundle.d.ts）。它的真值只来自 `Bun.build({ features })`（或 CLI
+// `--feature`），**不读**下方 onLoad shim 注入的 featureFlags 函数——故历史上 shim 实际从未生效，
+// 所有 feature() 一律烤成 false。这里把 featureFlags 中为 true 的键收集成数组传给 Bun.build，
+// 让 feature() 真正按上面的配置折叠（已用最小复现验证 features:['X'] → feature('X')===true）。
+const enabledFeatures = Object.entries(featureFlags)
+  .filter(([, enabled]) => enabled)
+  .map(([name]) => name)
+
 const result = await Bun.build({
   entrypoints: ['./src/entrypoints/cli.tsx'],
   outdir: './dist',
   target: 'node',
   format: 'esm',
   splitting: false,
+  features: enabledFeatures,
   sourcemap: process.env.CI ? 'none' : 'external',
   minify: !!process.env.CI,
   naming: 'cli.mjs',
