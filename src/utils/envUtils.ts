@@ -78,6 +78,21 @@ export function getTeamsDir(): string {
 }
 
 /**
+ * 显示 / prompt 用：活跃 HOME 配置目录的 `~/...` 形式（getYwCoderConfigHomeDir 优先
+ * `~/.ywcoder`、回退 `~/.claude` 或 CLAUDE_CONFIG_DIR）。用于把发往 LLM 的 prompt 与用户
+ * 可见文案里硬编码的 `~/.claude/...` 对齐到真实活跃目录——路径-of-record 本就由
+ * getYwCoderConfigHomeDir 决定（如 teams/tasks/keybindings/userSettings 均落此），文案此前
+ * 仍写 `~/.claude` 会与真实落盘不一致（甚至误导 agent 写错目录）。
+ */
+export function getConfigHomeDisplayPath(): string {
+  const dir = getYwCoderConfigHomeDir()
+  const home = homedir()
+  if (dir === home) return '~'
+  if (dir.startsWith(home)) return `~${dir.slice(home.length)}`
+  return dir
+}
+
+/**
  * Check if NODE_OPTIONS contains a specific flag.
  * Splits on whitespace and checks for exact match to avoid false positives.
  */

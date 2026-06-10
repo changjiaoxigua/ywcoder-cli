@@ -1,4 +1,6 @@
 import { feature } from 'bun:bundle'
+import { homedir } from 'os'
+import { getGlobalClaudeFile } from '../../utils/env.js'
 import { getModelOptions } from '../../utils/model/modelOptions.js'
 import { isVoiceGrowthBookEnabled } from '../../voice/voiceModeEnabled.js'
 import {
@@ -47,6 +49,13 @@ export function generatePrompt(): string {
 
   const modelSection = generateModelSection()
 
+  // 全局配置文件实际路径（Stage 3a：新装 .ywcoder/.config.json、存量 ~/.claude.json）的 ~ 显示
+  const globalFile = getGlobalClaudeFile()
+  const home = homedir()
+  const globalFileDisplay = globalFile.startsWith(home)
+    ? `~${globalFile.slice(home.length)}`
+    : globalFile
+
   return `Get or set YwCoder configuration settings.
 
   View or change YwCoder settings. Use when the user requests configuration changes, asks about current settings, or when adjusting a setting would benefit them.
@@ -59,7 +68,7 @@ export function generatePrompt(): string {
 ## Configurable settings list
 The following settings are available for you to change:
 
-### Global Settings (stored in ~/.claude.json)
+### Global Settings (stored in ${globalFileDisplay})
 ${globalSettings.join('\n')}
 
 ### Project Settings (stored in settings.json)

@@ -1,6 +1,9 @@
+import { getConfigHomeDisplayPath } from '../../utils/envUtils.js'
 import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../../utils/projectConfigDir.js'
 
 export function getPrompt(): string {
+  // 活跃 HOME 配置目录显示（teams/tasks 实际落 getYwCoderConfigHomeDir()/...）
+  const home = getConfigHomeDisplayPath()
   return `
 # TeamCreate
 
@@ -33,8 +36,8 @@ Create a new team to coordinate multiple agents working on a project. Teams have
 \`\`\`
 
 This creates:
-- A team file at \`~/.claude/teams/{team-name}/config.json\`
-- A corresponding task list directory at \`~/.claude/tasks/{team-name}/\`
+- A team file at \`${home}/teams/{team-name}/config.json\`
+- A corresponding task list directory at \`${home}/tasks/{team-name}/\`
 
 ## Team Workflow
 
@@ -76,7 +79,7 @@ Teammates go idle after every turn—this is completely normal and expected. A t
 ## Discovering Team Members
 
 Teammates can read the team config file to discover other team members:
-- **Team config location**: \`~/.claude/teams/{team-name}/config.json\`
+- **Team config location**: \`${home}/teams/{team-name}/config.json\`
 
 The config file contains a \`members\` array with each teammate's:
 - \`name\`: Human-readable name (**always use this** for messaging and task assignment)
@@ -89,12 +92,12 @@ The config file contains a \`members\` array with each teammate's:
 
 Example of reading team config:
 \`\`\`
-Use the Read tool to read ~/.claude/teams/{team-name}/config.json
+Use the Read tool to read ${home}/teams/{team-name}/config.json
 \`\`\`
 
 ## Task List Coordination
 
-Teams share a task list that all teammates can access at \`~/.claude/tasks/{team-name}/\`.
+Teams share a task list that all teammates can access at \`${home}/tasks/{team-name}/\`.
 
 Teammates should:
 1. Check TaskList periodically, **especially after completing each task**, to find available work or see newly unblocked tasks
