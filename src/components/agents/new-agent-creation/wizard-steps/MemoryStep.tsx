@@ -1,5 +1,8 @@
 import { c as _c } from "react-compiler-runtime";
 import React, { type ReactNode } from 'react';
+import { getConfigHomeDisplayPath } from '../../../../utils/envUtils.js'
+
+const _configHome = getConfigHomeDisplayPath()
 import { Box } from '../../../../ink.js';
 import { useKeybinding } from '../../../../keybindings/useKeybinding.js';
 import { isAutoMemoryEnabled } from '../../../../memdir/paths.js';
@@ -38,7 +41,7 @@ export function MemoryStep() {
   let t1;
   if ($[1] !== isUserScope) {
     t1 = isUserScope ? [{
-      label: "User scope (~/.claude/agent-memory/) (Recommended)",
+      label: `User scope (${_configHome}/agent-memory/) (Recommended)`,
       value: "user"
     }, {
       label: "None (no persistent memory)",
@@ -56,7 +59,7 @@ export function MemoryStep() {
       label: "None (no persistent memory)",
       value: "none"
     }, {
-      label: "User scope (~/.claude/agent-memory/)",
+      label: `User scope (${_configHome}/agent-memory/)`,
       value: "user"
     }, {
       label: `Local scope (${ACTIVE_PROJECT_CONFIG_DIR_NAME}/agent-memory-local/)`,

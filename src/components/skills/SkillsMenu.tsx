@@ -1,6 +1,10 @@
 import { c as _c } from "react-compiler-runtime";
 import capitalize from 'lodash-es/capitalize.js';
 import * as React from 'react';
+import { getConfigHomeDisplayPath } from '../../utils/envUtils.js'
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../../utils/projectConfigDir.js'
+
+const _configHome = getConfigHomeDisplayPath()
 import { useMemo } from 'react';
 import { type Command, type CommandBase, type CommandResultDisplay, getCommandName, type PromptCommand } from '../../commands.js';
 import { Box, Text } from '../../ink.js';
@@ -106,7 +110,7 @@ export function SkillsMenu(t0) {
   if (skills.length === 0) {
     let t3;
     if ($[6] === Symbol.for("react.memo_cache_sentinel")) {
-      t3 = <FullWidthRow><Text dimColor={true}>Create skills in .claude/skills/ or ~/.claude/skills/</Text></FullWidthRow>;
+      t3 = <FullWidthRow><Text dimColor={true}>{`Create skills in ${ACTIVE_PROJECT_CONFIG_DIR_NAME}/skills/ or ${_configHome}/skills/`}</Text></FullWidthRow>;
       $[6] = t3;
     } else {
       t3 = $[6];
