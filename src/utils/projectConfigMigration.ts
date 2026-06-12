@@ -18,7 +18,6 @@
  *   helper 的读回退继续用 `.claude/`，启动不被打断。
  * - **安静执行**：全程 debug 日志，无 console 噪音、无用户可见输出（零运行时表面）。
  *
- * ⚠️ Stage 2 仅落本模块 + 单测，**尚未接进启动流程**（待 review）。
  */
 
 import { existsSync } from 'node:fs'

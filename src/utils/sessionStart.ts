@@ -3,7 +3,7 @@ import type { HookResultMessage } from '../types/message.js'
 import { createAttachmentMessage } from './attachments.js'
 import { logForDebugging } from './debug.js'
 import { withDiagnosticsTiming } from './diagLogs.js'
-import { isBareMode } from './envUtils.js'
+import { getConfigHomeDisplayPath, isBareMode } from './envUtils.js'
 import { updateWatchPaths } from './hooks/fileChangedWatcher.js'
 import { shouldAllowManagedHooksOnly } from './hooks/hooksConfigSnapshot.js'
 import { executeSessionStartHooks, executeSetupHooks } from './hooks.js'
@@ -102,7 +102,7 @@ export async function processSessionStartHooks(
         errorMessage.includes('EPERM')
       ) {
         userGuidance =
-          'This appears to be a permissions issue. Check file permissions on ~/.claude/plugins/'
+          `This appears to be a permissions issue. Check file permissions on ${getConfigHomeDisplayPath()}/plugins/`
       } else if (
         errorMessage.includes('Invalid') ||
         errorMessage.includes('parse') ||
