@@ -143,10 +143,10 @@ export function printStartupScreen(): void {
 
   out.push('')
 
-  // YW logo — single color, no per-character gradient (avoids color issues)
-  for (const line of LOGO_LINES) {
-    out.push(`  ${COL_LOGO}${line}${RESET}`)
-  }
+  // YW logo — single color, no per-character gradient (avoids color issues)放开for循环显示YWCODER logo
+//   for (const line of LOGO_LINES) {
+//     out.push(`  ${COL_LOGO}${line}${RESET}`)
+//   }
 
   out.push('')
 
