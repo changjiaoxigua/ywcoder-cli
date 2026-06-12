@@ -35,6 +35,11 @@ const LEGACY_PROJECT_CONFIG_DIR = '.claude'
  * ON→`.ywcoder`、OFF→`.claude`。用于把"在 X 目录下建技能/读规则/写 settings"等指引
  * 与发往 LLM 的 prompt 文案对齐到真实落盘目录（区别于 getProjectConfigDir 的运行时存在性择优）。
  * 取写目标名即可——Stage 2 迁移在启动期已把 .claude/ 搬到 .ywcoder/，故 prompt 指向 .ywcoder 正确。
+ *
+ * ⚠️ 已知边缘（知情取舍）：flag ON 但迁移**失败**（只读仓库 / cp 失败，status=failed）时
+ * `.ywcoder/` 不存在、getProjectConfigDir 回退 `.claude/`，而本常量仍为 `.ywcoder`，
+ * 用到它的文案目录名会滞后于真实落盘。不为这条极罕见降级路径把 30+ 处指引文案改成运行时
+ * 解析（会失去 DCE、并需到处引入 baseDir）；功能不受影响，仅提示文案的目录名可能不符。
  */
 export const ACTIVE_PROJECT_CONFIG_DIR_NAME = feature('MIGRATE_PROJECT_CONFIG')
   ? PROJECT_CONFIG_DIR

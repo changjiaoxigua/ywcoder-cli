@@ -1,7 +1,7 @@
 import { existsSync } from 'fs'
 import memoize from 'lodash-es/memoize.js'
 import { homedir } from 'os'
-import { join } from 'path'
+import { join, sep } from 'path'
 
 /**
  * Get environment variable with fallback from new YWCODER_* name to old CLAUDE_CODE_* name.
@@ -88,7 +88,8 @@ export function getConfigHomeDisplayPath(): string {
   const dir = getYwCoderConfigHomeDir()
   const home = homedir()
   if (dir === home) return '~'
-  if (dir.startsWith(home)) return `~${dir.slice(home.length)}`
+  // 必须带分隔符，否则 home=/home/user 会误匹配 /home/user2/... 产出 ~/2/...。
+  if (dir.startsWith(home + sep)) return `~${dir.slice(home.length)}`
   return dir
 }
 

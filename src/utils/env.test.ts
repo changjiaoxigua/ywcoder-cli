@@ -59,3 +59,49 @@ describe('getGlobalClaudeFile · 全局 auth 文件路径（Stage 3 三分支）
     expect(getGlobalClaudeFile()).toBe(newConfig())
   })
 })
+
+// F2：legacy 文件前缀必须跟随 YWCODER_CONFIG_DIR（与 getYwCoderConfigHomeDir 对齐），
+// 否则只设 YWCODER_CONFIG_DIR 时，机器存量 ~/.claude.json（或 CLAUDE_CONFIG_DIR 下的）会被
+// 误命中，抢走自定义目录的新装默认。
+describe('getGlobalClaudeFile · legacy 前缀跟随 YWCODER_CONFIG_DIR（F2）', () => {
+  let tmpY: string
+  let tmpC: string
+  let prevClaude: string | undefined
+  let prevYwcoder: string | undefined
+
+  function clearCache(): void {
+    ;(getGlobalClaudeFile as unknown as { cache: { clear(): void } }).cache.clear()
+  }
+
+  beforeEach(() => {
+    tmpY = mkdtempSync(join(tmpdir(), 'ywcoder-f2-y-'))
+    tmpC = mkdtempSync(join(tmpdir(), 'ywcoder-f2-c-'))
+    prevClaude = process.env.CLAUDE_CONFIG_DIR
+    prevYwcoder = process.env.YWCODER_CONFIG_DIR
+    process.env.YWCODER_CONFIG_DIR = tmpY
+    process.env.CLAUDE_CONFIG_DIR = tmpC
+    clearCache()
+  })
+
+  afterEach(() => {
+    if (prevClaude === undefined) delete process.env.CLAUDE_CONFIG_DIR
+    else process.env.CLAUDE_CONFIG_DIR = prevClaude
+    if (prevYwcoder === undefined) delete process.env.YWCODER_CONFIG_DIR
+    else process.env.YWCODER_CONFIG_DIR = prevYwcoder
+    clearCache()
+    rmSync(tmpY, { recursive: true, force: true })
+    rmSync(tmpC, { recursive: true, force: true })
+  })
+
+  test('legacy 仅在 CLAUDE_CONFIG_DIR 下存在 → 不抢走，落 YWCODER_CONFIG_DIR 新装默认', () => {
+    // 旧逻辑 legacyFile 用 CLAUDE_CONFIG_DIR=tmpC，会命中此文件；修复后用 YWCODER_CONFIG_DIR=tmpY。
+    writeFileSync(join(tmpC, `.claude${fileSuffixForOauthConfig()}.json`), '{}')
+    expect(getGlobalClaudeFile()).toBe(join(tmpY, '.config.json'))
+  })
+
+  test('legacy 在 YWCODER_CONFIG_DIR 下存在 → 仍正确命中（保 auth）', () => {
+    const legacy = join(tmpY, `.claude${fileSuffixForOauthConfig()}.json`)
+    writeFileSync(legacy, '{}')
+    expect(getGlobalClaudeFile()).toBe(legacy)
+  })
+})

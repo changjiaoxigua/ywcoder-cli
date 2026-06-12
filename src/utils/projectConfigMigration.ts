@@ -157,9 +157,11 @@ async function syncGitignore(projectRoot: string): Promise<void> {
     if (trimmed.includes('.claude-plugin')) continue
     if (trimmed.includes(WORKTREES_SKYLIGHT)) continue
 
-    const ywVariant = trimmed.replaceAll(
-      LEGACY_PROJECT_CONFIG_DIR,
-      PROJECT_CONFIG_DIR,
+    // 仅把作为**路径段**的 .claude 换成 .ywcoder（前为行首/分隔符/glob 通配，后为分隔符或行尾）。
+    // 纯 replaceAll 会误伤 .claude.json（→ .ywcoder.json）、.clauderc 等子串场景。
+    const ywVariant = trimmed.replace(
+      /(^|[/*!])\.claude(?=\/|$)/g,
+      `$1${PROJECT_CONFIG_DIR}`,
     )
     if (ywVariant === trimmed) continue
     if (existing.has(ywVariant) || additions.includes(ywVariant)) continue
@@ -172,7 +174,8 @@ async function syncGitignore(projectRoot: string): Promise<void> {
     '\n# D7 迁移自动追加：.ywcoder/ 配置目录忽略规则（与上方 .claude/ 规则并行）\n' +
     additions.join('\n') +
     '\n'
-  await writeFile(gitignorePath, content.replace(/\n*$/, '\n') + block)
+  // 用 [\r\n]+ 而非 \n*：CRLF 文件末尾的 \r 也要一并规范化，否则残留 \r 产生混合行尾。
+  await writeFile(gitignorePath, content.replace(/[\r\n]+$/, '\n') + block)
   logForDebugging(
     `[projectConfigMigration] appended ${additions.length} .ywcoder/ rule(s) to .gitignore`,
   )

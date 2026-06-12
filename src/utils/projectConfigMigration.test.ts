@@ -116,6 +116,50 @@ describe('projectConfigMigration · 核心 runProjectConfigMigration（覆盖迁
     })
   })
 
+  test('gitignore 词边界（F8）：.claude.json / .clauderc 子串不被误造 .ywcoder 规则', async () => {
+    await withTempRoot(async root => {
+      mkdirSync(join(root, '.claude'))
+      writeFileSync(join(root, '.claude', 'settings.json'), '{}')
+      writeFileSync(
+        join(root, '.gitignore'),
+        [
+          '.claude.json', // 全局 auth 文件子串，非路径段 → 不应变换
+          '.clauderc', // 无关工具配置 → 不应变换
+          '.claude/settings.local.json', // 真正路径段 → 应追加并行规则
+        ].join('\n'),
+      )
+
+      await runProjectConfigMigration(root)
+      const gi = readFileSync(join(root, '.gitignore'), 'utf8')
+      // 子串场景不被误变换
+      expect(gi).not.toContain('.ywcoder.json')
+      expect(gi).not.toContain('.ywcoderrc')
+      // 路径段规则仍追加（且只一份）
+      expect(
+        gi.split('\n').filter(l => l.trim() === '.ywcoder/settings.local.json')
+          .length,
+      ).toBe(1)
+    })
+  })
+
+  test('gitignore CRLF（F9）：处理后不产生 \\r\\n\\n 混合行尾', async () => {
+    await withTempRoot(async root => {
+      mkdirSync(join(root, '.claude'))
+      writeFileSync(join(root, '.claude', 'settings.json'), '{}')
+      // CRLF 行尾且以 \r\n 收尾
+      writeFileSync(
+        join(root, '.gitignore'),
+        'node_modules/\r\n.claude/settings.local.json\r\n',
+      )
+
+      await runProjectConfigMigration(root)
+      const gi = readFileSync(join(root, '.gitignore'), 'utf8')
+      // 旧 /\n*$/ 会残留 \r 形成 \r\n\n；修复后应无此混合行尾
+      expect(gi).not.toContain('\r\n\n')
+      expect(gi).toContain('.ywcoder/settings.local.json')
+    })
+  })
+
   test('优雅降级：目标父不可写时不抛出（返回 failed/skip，不打断启动）', async () => {
     // .ywcoder 已作为「文件」占位 → cp 到同名目录会失败；验证不抛出。
     await withTempRoot(async root => {

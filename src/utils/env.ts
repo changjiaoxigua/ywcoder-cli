@@ -30,8 +30,13 @@ export const getGlobalClaudeFile = memoize((): string => {
     return newConfig
   }
   // 2. 存量 legacy 文件存在 → 继续用（保 auth）
+  // 前缀与 getYwCoderConfigHomeDir 对齐：YWCODER_CONFIG_DIR 优先于 CLAUDE_CONFIG_DIR。
+  // 否则用户只设 YWCODER_CONFIG_DIR 时 newConfig 落自定义目录，但 legacy 仍看 ~/.claude.json，
+  // 若机器存量 ~/.claude.json（官方 CC）存在会被误命中，抢走自定义目录的新装默认。
   const legacyFile = join(
-    process.env.CLAUDE_CONFIG_DIR || homedir(),
+    process.env.YWCODER_CONFIG_DIR ??
+      process.env.CLAUDE_CONFIG_DIR ??
+      homedir(),
     `.claude${fileSuffixForOauthConfig()}.json`,
   )
   if (fs.existsSync(legacyFile)) {
