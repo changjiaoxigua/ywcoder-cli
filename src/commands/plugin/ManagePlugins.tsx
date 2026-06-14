@@ -28,6 +28,7 @@ import type { LoadedPlugin, PluginError } from '../../types/plugin.js';
 import { count } from '../../utils/array.js';
 import { openBrowser } from '../../utils/browser.js';
 import { logForDebugging } from '../../utils/debug.js';
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../../utils/projectConfigDir.js';
 import { errorMessage, toError } from '../../utils/errors.js';
 import { logError } from '../../utils/log.js';
 import { clearAllCaches } from '../../utils/plugins/cacheUtils.js';
@@ -1523,7 +1524,7 @@ export function ManagePlugins({
         return;
       }
       clearAllCaches();
-      setResult(`✓ Disabled ${selectedPlugin.plugin.name} in .claude/settings.local.json. Run /reload-plugins to apply.`);
+      setResult(`✓ Disabled ${selectedPlugin.plugin.name} in ${ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.local.json. Run /reload-plugins to apply.`);
       if (onManageComplete) void onManageComplete();
       setParentViewState({
         type: 'menu'
@@ -1762,11 +1763,11 @@ export function ManagePlugins({
   if (viewState === 'confirm-project-uninstall' && selectedPlugin) {
     return <Box flexDirection="column">
         <Text bold color="warning">
-          {selectedPlugin.plugin.name} is enabled in .claude/settings.json
+          {selectedPlugin.plugin.name} is enabled in {ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.json
           (shared with your team)
         </Text>
         <Box marginTop={1} flexDirection="column">
-          <Text>Disable it just for you in .claude/settings.local.json?</Text>
+          <Text>Disable it just for you in {ACTIVE_PROJECT_CONFIG_DIR_NAME}/settings.local.json?</Text>
           <Text dimColor>
             This has the same effect as uninstalling, without affecting other
             contributors.

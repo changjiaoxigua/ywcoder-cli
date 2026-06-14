@@ -1166,7 +1166,7 @@ export const AgentDefinitionSchema = lazySchema(() =>
         .enum(['user', 'project', 'local'])
         .optional()
         .describe(
-          `Scope for auto-loading agent memory files. 'user' - ${_configHome}/agent-memory/<agentType>/, 'project' - .claude/agent-memory/<agentType>/, 'local' - .claude/agent-memory-local/<agentType>/`,
+          `Scope for auto-loading agent memory files. 'user' - ${_configHome}/agent-memory/<agentType>/, 'project' - ${ACTIVE_PROJECT_CONFIG_DIR_NAME}/agent-memory/<agentType>/, 'local' - ${ACTIVE_PROJECT_CONFIG_DIR_NAME}/agent-memory-local/<agentType>/`,
         ),
       effort: z
         .union([z.enum(['low', 'medium', 'high', 'max']), z.number().int()])

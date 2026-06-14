@@ -1,9 +1,20 @@
+import { homedir } from 'os';
+import { sep } from 'path';
 import * as React from 'react';
 import type { Notification } from '../context/notifications.js';
 import { Text } from '../ink.js';
 import { logForDebugging } from '../utils/debug.js';
+import { getGlobalClaudeFile } from '../utils/env.js';
 import { checkAndInstallOfficialMarketplace } from '../utils/plugins/officialMarketplaceStartupCheck.js';
 import { useStartupNotification } from './notifs/useStartupNotification.js';
+
+function displayGlobalConfigFile(): string {
+  const file = getGlobalClaudeFile()
+  const home = homedir()
+  if (file === home) return '~'
+  if (file.startsWith(home + sep)) return '~' + file.slice(home.length)
+  return file
+}
 
 /**
  * Hook that handles official marketplace auto-installation and shows
@@ -19,7 +30,7 @@ async function _temp() {
     logForDebugging("Showing marketplace config save failure notification");
     notifs.push({
       key: "marketplace-config-save-failed",
-      jsx: <Text color="error">Failed to save marketplace retry info · Check ~/.claude.json permissions</Text>,
+      jsx: <Text color="error">{`Failed to save marketplace retry info · Check ${displayGlobalConfigFile()} permissions`}</Text>,
       priority: "immediate",
       timeoutMs: 10000
     });
@@ -28,7 +39,7 @@ async function _temp() {
     logForDebugging("Showing marketplace installation success notification");
     notifs.push({
       key: "marketplace-installed",
-      jsx: <Text color="success">✓ Anthropic marketplace installed · /plugin to see available plugins</Text>,
+      jsx: <Text color="success">✓ Official marketplace installed · /plugin to see available plugins</Text>,
       priority: "immediate",
       timeoutMs: 7000
     });
@@ -37,7 +48,7 @@ async function _temp() {
       logForDebugging("Showing marketplace installation failure notification");
       notifs.push({
         key: "marketplace-install-failed",
-        jsx: <Text color="warning">Failed to install Anthropic marketplace · Will retry on next startup</Text>,
+        jsx: <Text color="warning">Failed to install official marketplace · Will retry on next startup</Text>,
         priority: "immediate",
         timeoutMs: 8000
       });

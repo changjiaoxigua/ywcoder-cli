@@ -146,6 +146,11 @@ export type OfficialMarketplaceCheckResult = {
  * @returns Result indicating whether installation succeeded or was skipped
  */
 export async function checkAndInstallOfficialMarketplace(): Promise<OfficialMarketplaceCheckResult> {
+  // 永久禁用时直接返回，不读配置、不写配置、不触发任何通知
+  if (isOfficialMarketplaceAutoInstallDisabled()) {
+    return { installed: false, skipped: true, reason: 'policy_blocked' }
+  }
+
   const config = getGlobalConfig()
 
   // Check if we should retry installation
@@ -161,25 +166,6 @@ export async function checkAndInstallOfficialMarketplace(): Promise<OfficialMark
   }
 
   try {
-    // Check if auto-install is disabled via env var
-    if (isOfficialMarketplaceAutoInstallDisabled()) {
-      logForDebugging(
-        'Official marketplace auto-install disabled via env var, skipping',
-      )
-      saveGlobalConfig(current => ({
-        ...current,
-        officialMarketplaceAutoInstallAttempted: true,
-        officialMarketplaceAutoInstalled: false,
-        officialMarketplaceAutoInstallFailReason: 'policy_blocked',
-      }))
-      logEvent('tengu_official_marketplace_auto_install', {
-        installed: false,
-        skipped: true,
-        policy_blocked: true,
-      })
-      return { installed: false, skipped: true, reason: 'policy_blocked' }
-    }
-
     // Check if marketplace is already installed
     const knownMarketplaces = await loadKnownMarketplacesConfig()
     if (knownMarketplaces[OFFICIAL_MARKETPLACE_NAME]) {

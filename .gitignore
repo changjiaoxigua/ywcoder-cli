@@ -18,3 +18,6 @@ note/
 # 本地备份文档（从 backup-before-sync 分支提取，不推送）
 openclaude-course/
 docs/backup/
+
+# D7 迁移自动追加：.ywcoder/ 配置目录忽略规则（与上方 .claude/ 规则并行）
+/.ywcoder

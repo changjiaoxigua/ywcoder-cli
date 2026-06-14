@@ -55,6 +55,9 @@ import {
 } from '../api/referral.js'
 import { getSessionsSinceLastShown } from './tipHistory.js'
 import type { Tip, TipContext } from './types.js'
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../../utils/projectConfigDir.js'
+import { getConfigHomeDisplayPath } from '../../utils/envUtils.js'
+const _configHome = getConfigHomeDisplayPath()
 
 let _isOfficialMarketplaceInstalledCache: boolean | undefined
 async function isOfficialMarketplaceInstalled(): Promise<boolean> {
@@ -425,7 +428,7 @@ const externalTips: Tip[] = [
     id: 'custom-commands',
     content: async () =>
       // 'Create skills by adding .md files to .claude/skills/ in your project or ~/.claude/skills/ for skills that work in any project'
-      '在项目的 .claude/skills/ 或 ~/.claude/skills/ 中添加 .md 文件，创建可复用的 skill',
+      `在项目的 ${ACTIVE_PROJECT_CONFIG_DIR_NAME}/skills/ 或 ${_configHome}/skills/ 中添加 .md 文件，创建可复用的 skill`,
     cooldownSessions: 15,
     async isRelevant() {
       const config = getGlobalConfig()

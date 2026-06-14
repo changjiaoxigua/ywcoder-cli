@@ -59,9 +59,9 @@ export type SettingsSyncUploadResult = {
  * Keys used for sync entries
  */
 export const SYNC_KEYS = {
-  USER_SETTINGS: '~/.claude/settings.json',
-  USER_MEMORY: '~/.claude/CLAUDE.md',
+  USER_SETTINGS: '~/.ywcoder/settings.json',
+  USER_MEMORY: '~/.ywcoder/YWCODER.md',
   projectSettings: (projectId: string) =>
-    `projects/${projectId}/.claude/settings.local.json`,
-  projectMemory: (projectId: string) => `projects/${projectId}/CLAUDE.local.md`,
+    `projects/${projectId}/.ywcoder/settings.local.json`,
+  projectMemory: (projectId: string) => `projects/${projectId}/YWCODER.local.md`,
 } as const
