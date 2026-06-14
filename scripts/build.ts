@@ -68,12 +68,13 @@ const featureFlags: Record<string, boolean> = {
   COMPACTION_REMINDERS: true,
   POWERSHELL_AUTO_MODE: true,
   HOOK_PROMPTS: true,
-  // D7 项目级配置目录迁移（.claude/ → .ywcoder/）总开关。默认 OFF：读/写恒用旧 .claude/，
-  // 行为=原版，与官方 Claude Code 完全共用（开发者同一项目并用 CC + ywcoder 不受干扰）。
-  // 仅内网发布构建经**构建期 env** `MIGRATE_PROJECT_CONFIG=true`（或 1）才启用 .ywcoder
-  // active-dir + 启动期整目录迁移。注意：这是**构建时** env（在此读、烤进 bundle 的 features），
-  // 运行时代码不读任何 env（零运行时表面）。dev / GitHub Actions 默认不设 → 恒 OFF。
-  MIGRATE_PROJECT_CONFIG: ['true', '1'].includes(
+  // D7 项目级配置目录迁移（.claude/ → .ywcoder/）总开关。**默认 ON**：启动期把存量
+  // .claude/ 整目录 copy-keep 迁到 .ywcoder/（原 .claude/ 保留作备份），之后读写走 .ywcoder/。
+  // 简化发布（默认构建即含迁移，避免漏带 flag 打出 OFF 包）并方便测试 .ywcoder 生效。
+  // 退路：如需与官方 Claude Code **纯共用 .claude/**（不生成 .ywcoder/、不动 .gitignore），
+  // 显式 `MIGRATE_PROJECT_CONFIG=false`（或 0）构建即回到旧行为，迁移分支经 DCE 删除。
+  // 注意：这是**构建时** env（在此读、烤进 bundle 的 features），运行时代码不读任何 env。
+  MIGRATE_PROJECT_CONFIG: !['false', '0'].includes(
     process.env.MIGRATE_PROJECT_CONFIG ?? '',
   ),
 }
