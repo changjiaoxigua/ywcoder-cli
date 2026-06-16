@@ -18,6 +18,7 @@ import {
   parseFrontmatter,
   parsePositiveIntFromFrontmatter,
 } from '../frontmatterParser.js'
+import { ACTIVE_PROJECT_CONFIG_DIR_NAME } from '../projectConfigDir.js'
 import { getFsImplementation, isDuplicatePath } from '../fsOperations.js'
 import {
   parseAgentToolsFromFrontmatter,
@@ -161,7 +162,7 @@ async function loadAgentFromFile(
     for (const field of ['permissionMode', 'hooks', 'mcpServers'] as const) {
       if (frontmatter[field] !== undefined) {
         logForDebugging(
-          `Plugin agent file ${filePath} sets ${field}, which is ignored for plugin agents. Use .claude/agents/ for this level of control.`,
+          `Plugin agent file ${filePath} sets ${field}, which is ignored for plugin agents. Use ${ACTIVE_PROJECT_CONFIG_DIR_NAME}/agents/ for this level of control.`,
           { level: 'warn' },
         )
       }
