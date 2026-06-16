@@ -96,7 +96,7 @@ test('findingsFromValidationErrors maps Windows npx warnings into doctor finding
       path: 'mcpServers.node-tools',
       message: "Windows requires 'cmd /c' wrapper to execute npx",
       suggestion:
-        'Change command to "cmd" with args ["/c", "npx", ...]. See: https://code.claude.com/docs/en/mcp#configure-mcp-servers',
+        '将命令修改为 "cmd"，参数为 ["/c", "npx", ...]。',
       mcpErrorMetadata: {
         scope: 'project',
         serverName: 'node-tools',
