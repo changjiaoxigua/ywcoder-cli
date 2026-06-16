@@ -43,7 +43,7 @@ import pMap from 'p-map'
 import { getOriginalCwd, getSessionId } from '../../bootstrap/state.js'
 import type { Command } from '../../commands.js'
 import { getOauthConfig } from '../../constants/oauth.js'
-import { PRODUCT_URL } from '../../constants/product.js'
+// import { PRODUCT_URL } from '../../constants/product.js'
 import type { AppState } from '../../state/AppState.js'
 import {
   type Tool,
@@ -1002,7 +1002,7 @@ export const connectToServer = memoize(
           title: 'ywcoder',
           version: MACRO.VERSION ?? 'unknown',
           description: "YwCoder's agentic coding tool",
-          websiteUrl: PRODUCT_URL,
+          // websiteUrl: PRODUCT_URL,
         },
         {
           capabilities: {
@@ -3298,7 +3298,7 @@ export async function setupSdkMcpClients(
           title: 'ywcoder',
           version: MACRO.VERSION ?? 'unknown',
           description: "YwCoder's agentic coding tool",
-          websiteUrl: PRODUCT_URL,
+          // websiteUrl: PRODUCT_URL,
         },
         {
           capabilities: {},
