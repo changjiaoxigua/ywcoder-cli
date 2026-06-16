@@ -8,6 +8,7 @@ import { existsSync } from 'fs'
 import { copyFile, cp, mkdir, rename } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
+import { hasLegacyShellCompletion } from './completionCache.js'
 
 interface MigrationResult {
   success: boolean
@@ -140,6 +141,13 @@ export async function migrateConfig(): Promise<MigrationResult> {
     console.log(`    Linux:        rm -rf ${sourceDir}`)
     console.log(`    PowerShell:   cmd /c rd /s /q "${sourceDir}"`)
     console.log(`    Windows cmd:  rmdir /s /q "${sourceDir}"`)
+
+    // 仅在用户此前确实配置过 shell 补全时提示：补全路径已迁移，rc 里的 source 行仍指向旧目录，
+    // 需重跑 /terminal-setup 才会刷新。未配置过补全的用户不会看到此条，避免无谓打扰。
+    if (hasLegacyShellCompletion(sourceDir)) {
+      console.log('')
+      console.log('  Shell 补全路径已迁移，如需刷新请在 ywcoder 中运行 /terminal-setup')
+    }
 
     return {
       success: true,

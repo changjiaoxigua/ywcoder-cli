@@ -44,7 +44,7 @@ import { envDynamic } from '../envDynamic.js'
 import { isEnvTruthy } from '../envUtils.js'
 import { errorMessage, getErrnoCode, isENOENT, toError } from '../errors.js'
 import { execFileNoThrowWithCwd } from '../execFileNoThrow.js'
-import { getShellType } from '../localInstaller.js'
+import { getLocalInstallDir, getShellType } from '../localInstaller.js'
 import * as lockfile from '../lockfile.js'
 import { logError } from '../log.js'
 import { gt, gte } from '../semver.js'
@@ -1688,19 +1688,21 @@ export async function cleanupNpmInstallations(): Promise<{
     }
   }
 
-  // Check for local installation at ~/.claude/local
-  const localInstallDir = join(homedir(), '.claude', 'local')
-
-  try {
-    await rm(localInstallDir, { recursive: true })
-    removed++
-    logForDebugging(`Removed local installation at ${localInstallDir}`)
-  } catch (error) {
-    if (!isENOENT(error)) {
-      errors.push(`Failed to remove ${localInstallDir}: ${error}`)
-      logForDebugging(`Failed to remove local installation: ${error}`, {
-        level: 'error',
-      })
+  // 清理本地安装目录：同时覆盖新默认路径（getLocalInstallDir()，~/.ywcoder/local）
+  // 与历史 ~/.claude/local。未迁移用户两者解析为同一路径时，第二次 rm 得 ENOENT 被忽略。
+  const localInstallDirs = [getLocalInstallDir(), join(homedir(), '.claude', 'local')]
+  for (const dir of localInstallDirs) {
+    try {
+      await rm(dir, { recursive: true })
+      removed++
+      logForDebugging(`Removed local installation at ${dir}`)
+    } catch (error) {
+      if (!isENOENT(error)) {
+        errors.push(`Failed to remove ${dir}: ${error}`)
+        logForDebugging(`Failed to remove local installation: ${error}`, {
+          level: 'error',
+        })
+      }
     }
   }
 

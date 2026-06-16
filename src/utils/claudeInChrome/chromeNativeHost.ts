@@ -16,9 +16,10 @@ import {
   unlink,
 } from 'fs/promises'
 import { createServer, type Server, type Socket } from 'net'
-import { homedir, platform } from 'os'
+import { platform } from 'os'
 import { join } from 'path'
 import { z } from 'zod'
+import { getYwCoderConfigHomeDir } from '../envUtils.js'
 import { lazySchema } from '../lazySchema.js'
 import { jsonParse, jsonStringify } from '../slowOperations.js'
 import { getSecureSocketPath, getSocketDir } from './common.js'
@@ -26,9 +27,11 @@ import { getSecureSocketPath, getSocketDir } from './common.js'
 const VERSION = '1.0.0'
 const MAX_MESSAGE_SIZE = 1024 * 1024 // 1MB - Max message size that can be sent to Chrome
 
+// USER_TYPE=ant 仅作为「写不写」的开关；落点统一交给 getYwCoderConfigHomeDir()
+// 解析（已迁移→~/.ywcoder/debug，未迁移→~/.claude/debug），不再硬编码 ~/.claude。
 const LOG_FILE =
   process.env.USER_TYPE === 'ant'
-    ? join(homedir(), '.claude', 'debug', 'chrome-native-host.txt')
+    ? join(getYwCoderConfigHomeDir(), 'debug', 'chrome-native-host.txt')
     : undefined
 
 function log(message: string, ...args: unknown[]): void {

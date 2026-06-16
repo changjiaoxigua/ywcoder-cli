@@ -1,11 +1,13 @@
 import chalk from 'chalk'
+import { existsSync } from 'fs'
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { homedir } from 'os'
-import { dirname, join } from 'path'
+import { basename, dirname, join } from 'path'
 import { pathToFileURL } from 'url'
 import { color } from '../components/design-system/color.js'
 import { supportsHyperlinks } from '../ink/supports-hyperlinks.js'
 import { logForDebugging } from './debug.js'
+import { getYwCoderConfigHomeDir } from './envUtils.js'
 import { isENOENT } from './errors.js'
 import { execFileNoThrow } from './execFileNoThrow.js'
 import { logError } from './log.js'
@@ -24,7 +26,9 @@ type ShellInfo = {
 function detectShell(): ShellInfo | null {
   const shell = process.env.SHELL || ''
   const home = homedir()
-  const claudeDir = join(home, '.claude')
+  // 补全缓存落统一配置目录（已迁移→~/.ywcoder，未迁移→~/.claude），不再硬编码 ~/.claude。
+  // home 仍保留：用于 rcFile（.zshrc/.bashrc）与 fish 的 XDG 回退。
+  const claudeDir = getYwCoderConfigHomeDir()
 
   if (shell.endsWith('/zsh') || shell.endsWith('/zsh.exe')) {
     const cacheFile = join(claudeDir, 'completion.zsh')
@@ -58,6 +62,21 @@ function detectShell(): ShellInfo | null {
     }
   }
   return null
+}
+
+/**
+ * 迁移辅助：判断用户此前是否在 legacy 目录（如 ~/.claude）配置过当前 shell 的补全脚本
+ * （即 <legacyDir>/completion.<shell> 是否存在）。
+ *
+ * 用途：补全缓存目录已随品牌迁移挪到新配置目录，但用户 rc 文件里的 `source` 行仍指向
+ * legacy 路径，需重跑 /terminal-setup 才会刷新。migrate-config 据此决定是否提示用户。
+ */
+export function hasLegacyShellCompletion(legacyDir: string): boolean {
+  const shell = detectShell()
+  if (!shell) return false
+  // cacheFile 现已解析到新目录，但其文件名（completion.<shell>）与目录无关，
+  // 故用 basename 拼回 legacy 目录即得旧补全文件路径。
+  return existsSync(join(legacyDir, basename(shell.cacheFile)))
 }
 
 function formatPathLink(filePath: string): string {
@@ -135,8 +154,9 @@ export async function setupShellCompletion(theme: ThemeName): Promise<string> {
 }
 
 /**
- * Regenerate cached shell completion scripts in ~/.claude/.
- * Called after `claude update` so completions stay in sync with the new binary.
+ * Regenerate cached shell completion scripts in the active config dir
+ * (getYwCoderConfigHomeDir()). Called after `ywcoder update` so completions
+ * stay in sync with the new binary.
  */
 export async function regenerateCompletionCache(): Promise<void> {
   const shell = detectShell()
