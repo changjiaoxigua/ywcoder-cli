@@ -23,7 +23,7 @@ type TipMatcher = {
   tip: ValidationTip
 }
 
-const DOCUMENTATION_BASE = 'https://code.claude.com/docs/en'
+// const DOCUMENTATION_BASE = 'https://code.claude.com/docs/en'
 
 const TIP_MATCHERS: TipMatcher[] = [
   {
@@ -31,8 +31,8 @@ const TIP_MATCHERS: TipMatcher[] = [
       ctx.path === 'permissions.defaultMode' && ctx.code === 'invalid_value',
     tip: {
       suggestion:
-        'Valid modes: "acceptEdits" (ask before file changes), "plan" (analysis only), "bypassPermissions" (auto-accept all), or "default" (standard behavior)',
-      docLink: `${DOCUMENTATION_BASE}/iam#permission-modes`,
+        '有效模式："acceptEdits"（文件修改前询问）、"plan"（仅分析）、"bypassPermissions"（自动接受全部）或 "default"（标准行为）',
+      // docLink: `${DOCUMENTATION_BASE}/iam#permission-modes`,
     },
   },
   {
@@ -58,8 +58,8 @@ const TIP_MATCHERS: TipMatcher[] = [
       ctx.path.startsWith('env.') && ctx.code === 'invalid_type',
     tip: {
       suggestion:
-        'Environment variables must be strings. Wrap numbers and booleans in quotes. Example: "DEBUG": "true", "PORT": "3000"',
-      docLink: `${DOCUMENTATION_BASE}/settings#environment-variables`,
+        '环境变量必须为字符串类型。数字和布尔值请加引号。示例："DEBUG": "true", "PORT": "3000"',
+      // docLink: `${DOCUMENTATION_BASE}/settings#environment-variables`,
     },
   },
   {
@@ -96,9 +96,8 @@ const TIP_MATCHERS: TipMatcher[] = [
   {
     matches: (ctx): boolean => ctx.code === 'unrecognized_keys',
     tip: {
-      suggestion:
-        'Check for typos or refer to the documentation for valid fields',
-      docLink: `${DOCUMENTATION_BASE}/settings`,
+      suggestion: '请检查是否存在拼写错误，或联系管理员查看有效配置项',
+      // docLink: `${DOCUMENTATION_BASE}/settings`,
     },
   },
   {
@@ -125,17 +124,17 @@ const TIP_MATCHERS: TipMatcher[] = [
       ctx.code === 'invalid_type',
     tip: {
       suggestion:
-        'Must be an array of directory paths. Example: ["~/projects", "/tmp/workspace"]. You can also use --add-dir flag or /add-dir command',
-      docLink: `${DOCUMENTATION_BASE}/iam#working-directories`,
+        '必须为目录路径组成的数组。示例：["~/projects", "/tmp/workspace"]。也可以使用 --add-dir 参数或 /add-dir 命令',
+      // docLink: `${DOCUMENTATION_BASE}/iam#working-directories`,
     },
   },
 ]
 
-const PATH_DOC_LINKS: Record<string, string> = {
-  permissions: `${DOCUMENTATION_BASE}/iam#configuring-permissions`,
-  env: `${DOCUMENTATION_BASE}/settings#environment-variables`,
-  hooks: `${DOCUMENTATION_BASE}/hooks`,
-}
+// const PATH_DOC_LINKS: Record<string, string> = {
+//   permissions: `${DOCUMENTATION_BASE}/iam#configuring-permissions`,
+//   env: `${DOCUMENTATION_BASE}/settings#environment-variables`,
+//   hooks: `${DOCUMENTATION_BASE}/hooks`,
+// }
 
 export function getValidationTip(context: TipContext): ValidationTip | null {
   const matcher = TIP_MATCHERS.find(m => m.matches(context))
@@ -149,16 +148,16 @@ export function getValidationTip(context: TipContext): ValidationTip | null {
     context.enumValues &&
     !tip.suggestion
   ) {
-    tip.suggestion = `Valid values: ${context.enumValues.map(v => `"${v}"`).join(', ')}`
+    tip.suggestion = `可选值：${context.enumValues.map(v => `"${v}"`).join(', ')}`
   }
 
-  // Add documentation link based on path prefix
-  if (!tip.docLink && context.path) {
-    const pathPrefix = context.path.split('.')[0]
-    if (pathPrefix) {
-      tip.docLink = PATH_DOC_LINKS[pathPrefix]
-    }
-  }
+  // 品牌去标识：已注释 PATH_DOC_LINKS，不再根据路径前缀自动附加文档链接
+  // if (!tip.docLink && context.path) {
+  //   const pathPrefix = context.path.split('.')[0]
+  //   if (pathPrefix) {
+  //     tip.docLink = PATH_DOC_LINKS[pathPrefix]
+  //   }
+  // }
 
   return tip
 }
