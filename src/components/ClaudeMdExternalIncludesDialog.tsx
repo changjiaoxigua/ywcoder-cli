@@ -1,7 +1,7 @@
 import { c as _c } from "react-compiler-runtime";
 import React from 'react';
 import { logEvent } from 'src/services/analytics/index.js';
-import { Box, Link, Text } from '../ink.js';
+import { Box, Text } from '../ink.js';
 import type { ExternalClaudeMdInclude } from '../utils/claudemd.js';
 import { saveCurrentProjectConfig } from '../utils/config.js';
 import { Select } from './CustomSelect/index.js';
@@ -74,7 +74,7 @@ export function ClaudeMdExternalIncludesDialog(t0: Props) {
   }
   let t8;
   if ($[8] === Symbol.for("react.memo_cache_sentinel")) {
-    t8 = <Text dimColor={true}>Important: Only use YwCoder with files you trust. Accessing untrusted files may pose security risks{" "}<Link url="https://code.claude.com/docs/en/security" />{" "}</Text>;
+    t8 = <Text dimColor={true}>重要提示：仅在处理你信任的文件时使用 YwCoder。访问不受信任的文件可能会带来安全风险。</Text>;
     $[8] = t8;
   } else {
     t8 = $[8];

@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS, logEvent } from 'src/services/analytics/index.js';
 import { setupTerminal, shouldOfferTerminalSetup } from '../commands/terminalSetup/terminalSetup.js';
 import { useExitOnCtrlCDWithKeybindings } from '../hooks/useExitOnCtrlCDWithKeybindings.js';
-import { Box, Link, Newline, Text, useTheme } from '../ink.js';
+import { Box, Newline, Text, useTheme } from '../ink.js';
 import { useKeybindings } from '../keybindings/useKeybinding.js';
 import { isAnthropicAuthEnabled } from '../utils/auth.js';
 import { normalizeApiKeyForConfig } from '../utils/authPortable.js';
@@ -84,9 +84,7 @@ export function Onboarding({
               Due to prompt injection risks, only use it with code you trust
             </Text>
             <Text dimColor wrap="wrap">
-              For more details see:
-              <Newline />
-              <Link url="https://code.claude.com/docs/en/security" />
+              安全说明：YwCoder 可能会出错。由于存在提示词注入风险，仅在处理你信任的代码时使用。
             </Text>
           </OrderedList.Item>
         </OrderedList>

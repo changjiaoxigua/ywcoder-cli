@@ -1,7 +1,7 @@
 import { c as _c } from "react-compiler-runtime";
 import React from 'react';
 import { logEvent } from 'src/services/analytics/index.js';
-import { Box, Link, Text } from '../ink.js';
+import { Box, Text } from '../ink.js';
 import { updateSettingsForSource } from '../utils/settings/settings.js';
 import { Select } from './CustomSelect/index.js';
 import { Dialog } from './design-system/Dialog.js';
@@ -70,7 +70,7 @@ export function AutoModeOptInDialog(t0: Props) {
   const onChange = t2;
   let t3;
   if ($[4] === Symbol.for("react.memo_cache_sentinel")) {
-    t3 = <Box flexDirection="column" gap={1}><Text>{AUTO_MODE_DESCRIPTION}</Text><Link url="https://code.claude.com/docs/en/security" /></Box>;
+    t3 = <Box flexDirection="column" gap={1}><Text>{AUTO_MODE_DESCRIPTION}</Text><Text dimColor={true}>使用 Auto mode（自动模式）可让 YwCoder 自动处理权限提示。</Text></Box>;
     $[4] = t3;
   } else {
     t3 = $[4];

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Link, Text } from '../ink.js'
+import { Box, Text } from '../ink.js'
 import { Select } from './CustomSelect/index.js'
 import { Dialog } from './design-system/Dialog.js'
 import { getAPIProvider } from '../utils/model/providers.js'
@@ -36,8 +36,7 @@ export function CostThresholdDialog({ onDone }: Props): React.ReactNode {
       onCancel={onDone}
     >
       <Box flexDirection="column">
-        <Text>Learn more about how to monitor your spending:</Text>
-        <Link url="https://code.claude.com/docs/en/costs" />
+        <Text>本次会话中，你已在 {providerLabel} 上花费了 $5。</Text>
       </Box>
       <Select
         options={[

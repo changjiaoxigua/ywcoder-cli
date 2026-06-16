@@ -2,7 +2,7 @@ import { c as _c } from "react-compiler-runtime";
 import React from 'react';
 import { logEvent } from 'src/services/analytics/index.js';
 // eslint-disable-next-line custom-rules/prefer-use-keybindings -- enter to continue
-import { Box, Link, Newline, Text, useInput } from '../ink.js';
+import { Box, Newline, Text, useInput } from '../ink.js';
 import { isChromeExtensionInstalled } from '../utils/claudeInChrome/setup.js';
 import { saveGlobalConfig } from '../utils/config.js';
 import { Dialog } from './design-system/Dialog.js';
@@ -87,7 +87,7 @@ export function ClaudeInChromeOnboarding(t0) {
   }
   let t9;
   if ($[13] === Symbol.for("react.memo_cache_sentinel")) {
-    t9 = <Text dimColor={true}>For more info, use{" "}{t8}{" "}or visit <Link url="https://code.claude.com/docs/en/chrome" /></Text>;
+    t9 = <Text dimColor={true}>YwCoder in Chrome 与 Chrome 扩展程序配合使用。更多信息，请使用 {t8} 命令。</Text>;
     $[13] = t9;
   } else {
     t9 = $[13];

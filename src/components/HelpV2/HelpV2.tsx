@@ -5,7 +5,7 @@ import { useShortcutDisplay } from 'src/keybindings/useShortcutDisplay.js';
 import { builtInCommandNames, type Command, type CommandResultDisplay, INTERNAL_ONLY_COMMANDS } from '../../commands.js';
 import { useIsInsideModal } from '../../context/modalContext.js';
 import { useTerminalSize } from '../../hooks/useTerminalSize.js';
-import { Box, Link, Text } from '../../ink.js';
+import { Box, Text } from '../../ink.js';
 import { useKeybinding } from '../../keybindings/useKeybinding.js';
 import { Pane } from '../design-system/Pane.js';
 import { Tab, Tabs } from '../design-system/Tabs.js';
@@ -146,7 +146,7 @@ export function HelpV2(t0) {
   }
   let t7;
   if ($[33] === Symbol.for("react.memo_cache_sentinel")) {
-    t7 = <Box marginTop={1}><Text>For more help:{" "}<Link url="https://code.claude.com/docs/en/overview" /></Text></Box>;
+    t7 = <Box marginTop={1}><Text>寻求更多帮助：请联系管理员</Text></Box>;
     $[33] = t7;
   } else {
     t7 = $[33];
