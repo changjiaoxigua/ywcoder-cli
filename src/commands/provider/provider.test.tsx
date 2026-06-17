@@ -279,10 +279,25 @@ test('buildCurrentProviderSummary does not relabel local gpt-5.4 providers as Co
   expect(summary.endpointLabel).toBe('http://127.0.0.1:8080/v1')
 })
 
-test('buildCurrentProviderSummary recognizes GitHub Models mode', () => {
+test('buildCurrentProviderSummary recognizes GitHub Models mode (legacy flag)', () => {
   const summary = buildCurrentProviderSummary({
     processEnv: {
       CLAUDE_CODE_USE_GITHUB: '1',
+      OPENAI_MODEL: 'github:copilot',
+      OPENAI_BASE_URL: 'https://models.github.ai/inference',
+    },
+    persisted: null,
+  })
+
+  expect(summary.providerLabel).toBe('GitHub Models')
+  expect(summary.modelLabel).toBe('github:copilot')
+  expect(summary.endpointLabel).toBe('https://models.github.ai/inference')
+})
+
+test('buildCurrentProviderSummary recognizes GitHub Models mode (YWCODER flag only)', () => {
+  const summary = buildCurrentProviderSummary({
+    processEnv: {
+      YWCODER_USE_GITHUB: '1',
       OPENAI_MODEL: 'github:copilot',
       OPENAI_BASE_URL: 'https://models.github.ai/inference',
     },

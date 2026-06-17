@@ -70,6 +70,6 @@ test('still errors when no Gemini credential source is available', async () => {
   delete process.env.GOOGLE_APPLICATION_CREDENTIALS
 
   await expect(getProviderValidationError(process.env)).resolves.toBe(
-    'GEMINI_API_KEY, GOOGLE_API_KEY, GEMINI_ACCESS_TOKEN, or Google ADC credentials are required when CLAUDE_CODE_USE_GEMINI=1.',
+    'GEMINI_API_KEY, GOOGLE_API_KEY, GEMINI_ACCESS_TOKEN, or Google ADC credentials are required when YWCODER_USE_GEMINI=1.',
   )
 })

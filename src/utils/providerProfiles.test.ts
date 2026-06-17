@@ -251,6 +251,37 @@ describe('applyActiveProviderProfileFromConfig', () => {
     expect(process.env.OPENAI_MODEL).toBe('github:copilot')
   })
 
+  test('does not re-apply active profile when only the new YWCODER_USE_GITHUB flag is set', async () => {
+    // 仅设新名（不设旧名 CLAUDE_CODE_USE_GITHUB），冲突检测应与设旧名行为一致
+    const { applyActiveProviderProfileFromConfig, applyProviderProfileToProcessEnv } =
+      await importFreshProviderProfileModules()
+    applyProviderProfileToProcessEnv(
+      buildProfile({
+        id: 'saved_openai',
+        baseUrl: 'http://192.168.33.108:11434/v1',
+        model: 'kimi-k2.5:cloud',
+      }),
+    )
+
+    delete process.env.CLAUDE_CODE_USE_GITHUB
+    process.env.YWCODER_USE_GITHUB = '1'
+    process.env.OPENAI_MODEL = 'github:copilot'
+
+    const applied = applyActiveProviderProfileFromConfig({
+      providerProfiles: [
+        buildProfile({
+          id: 'saved_openai',
+          baseUrl: 'http://192.168.33.108:11434/v1',
+          model: 'kimi-k2.5:cloud',
+        }),
+      ],
+      activeProviderProfileId: 'saved_openai',
+    } as any)
+
+    expect(applied).toBeUndefined()
+    expect(process.env.OPENAI_MODEL).toBe('github:copilot')
+  })
+
   test('applies active profile when no explicit provider is selected', async () => {
     const { applyActiveProviderProfileFromConfig } =
       await importFreshProviderProfileModules()

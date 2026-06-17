@@ -413,21 +413,33 @@ export function deleteProfileFile(options?: ProfileFileLocation): string {
   return filePath
 }
 
+// 读取 provider 选择标志：优先新名 YWCODER_USE_*，回退旧名 CLAUDE_CODE_USE_*。
+// 必须保持显式 env 注入，勿用 getYwCoderEnv（它直读全局 process.env，会破坏可注入性）。
+function readProviderFlag(
+  env: NodeJS.ProcessEnv,
+  suffix: string,
+): string | undefined {
+  return env[`YWCODER_USE_${suffix}`] ?? env[`CLAUDE_CODE_USE_${suffix}`]
+}
+
 export function hasExplicitProviderSelection(
   processEnv: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  // If env was already applied from a provider profile, preserve it.
-  if (processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED === '1') {
+  // 若 env 已由 provider profile 应用过，则保留（新旧名都认）。
+  if (
+    processEnv.YWCODER_PROVIDER_PROFILE_ENV_APPLIED === '1' ||
+    processEnv.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED === '1'
+  ) {
     return true
   }
 
   return (
-    processEnv.CLAUDE_CODE_USE_OPENAI !== undefined ||
-    processEnv.CLAUDE_CODE_USE_GITHUB !== undefined ||
-    processEnv.CLAUDE_CODE_USE_GEMINI !== undefined ||
-    processEnv.CLAUDE_CODE_USE_BEDROCK !== undefined ||
-    processEnv.CLAUDE_CODE_USE_VERTEX !== undefined ||
-    processEnv.CLAUDE_CODE_USE_FOUNDRY !== undefined
+    readProviderFlag(processEnv, 'OPENAI') !== undefined ||
+    readProviderFlag(processEnv, 'GITHUB') !== undefined ||
+    readProviderFlag(processEnv, 'GEMINI') !== undefined ||
+    readProviderFlag(processEnv, 'BEDROCK') !== undefined ||
+    readProviderFlag(processEnv, 'VERTEX') !== undefined ||
+    readProviderFlag(processEnv, 'FOUNDRY') !== undefined
   )
 }
 
@@ -502,7 +514,9 @@ export async function buildLaunchEnv(options: {
       CLAUDE_CODE_USE_GEMINI: '1',
     }
 
+    delete env.YWCODER_USE_OPENAI
     delete env.CLAUDE_CODE_USE_OPENAI
+    delete env.YWCODER_USE_GITHUB
     delete env.CLAUDE_CODE_USE_GITHUB
 
     env.GEMINI_MODEL =
@@ -554,7 +568,9 @@ export async function buildLaunchEnv(options: {
     CLAUDE_CODE_USE_OPENAI: '1',
   }
 
+  delete env.YWCODER_USE_GEMINI
   delete env.CLAUDE_CODE_USE_GEMINI
+  delete env.YWCODER_USE_GITHUB
   delete env.CLAUDE_CODE_USE_GITHUB
   delete env.GEMINI_API_KEY
   delete env.GEMINI_AUTH_MODE

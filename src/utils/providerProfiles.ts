@@ -252,16 +252,25 @@ export function hasProviderProfiles(config = getGlobalConfig()): boolean {
   return getProviderProfiles(config).length > 0
 }
 
+// 读取 provider 选择标志：优先新名 YWCODER_USE_*，回退旧名 CLAUDE_CODE_USE_*。
+// 必须保持显式 env 注入，勿用 getYwCoderEnv（它直读全局 process.env，会破坏可注入性）。
+function readProviderFlag(
+  env: NodeJS.ProcessEnv,
+  suffix: string,
+): string | undefined {
+  return env[`YWCODER_USE_${suffix}`] ?? env[`CLAUDE_CODE_USE_${suffix}`]
+}
+
 function hasProviderSelectionFlags(
   processEnv: NodeJS.ProcessEnv = process.env,
 ): boolean {
   return (
-    processEnv.CLAUDE_CODE_USE_OPENAI !== undefined ||
-    processEnv.CLAUDE_CODE_USE_GEMINI !== undefined ||
-    processEnv.CLAUDE_CODE_USE_GITHUB !== undefined ||
-    processEnv.CLAUDE_CODE_USE_BEDROCK !== undefined ||
-    processEnv.CLAUDE_CODE_USE_VERTEX !== undefined ||
-    processEnv.CLAUDE_CODE_USE_FOUNDRY !== undefined
+    readProviderFlag(processEnv, 'OPENAI') !== undefined ||
+    readProviderFlag(processEnv, 'GEMINI') !== undefined ||
+    readProviderFlag(processEnv, 'GITHUB') !== undefined ||
+    readProviderFlag(processEnv, 'BEDROCK') !== undefined ||
+    readProviderFlag(processEnv, 'VERTEX') !== undefined ||
+    readProviderFlag(processEnv, 'FOUNDRY') !== undefined
   )
 }
 
@@ -274,11 +283,11 @@ function hasConflictingProviderFlagsForProfile(
   }
 
   return (
-    processEnv.CLAUDE_CODE_USE_GEMINI !== undefined ||
-    processEnv.CLAUDE_CODE_USE_GITHUB !== undefined ||
-    processEnv.CLAUDE_CODE_USE_BEDROCK !== undefined ||
-    processEnv.CLAUDE_CODE_USE_VERTEX !== undefined ||
-    processEnv.CLAUDE_CODE_USE_FOUNDRY !== undefined
+    readProviderFlag(processEnv, 'GEMINI') !== undefined ||
+    readProviderFlag(processEnv, 'GITHUB') !== undefined ||
+    readProviderFlag(processEnv, 'BEDROCK') !== undefined ||
+    readProviderFlag(processEnv, 'VERTEX') !== undefined ||
+    readProviderFlag(processEnv, 'FOUNDRY') !== undefined
   )
 }
 
@@ -323,12 +332,12 @@ function isProcessEnvAlignedWithProfile(
   }
 
   return (
-    processEnv.CLAUDE_CODE_USE_OPENAI !== undefined &&
-    processEnv.CLAUDE_CODE_USE_GEMINI === undefined &&
-    processEnv.CLAUDE_CODE_USE_GITHUB === undefined &&
-    processEnv.CLAUDE_CODE_USE_BEDROCK === undefined &&
-    processEnv.CLAUDE_CODE_USE_VERTEX === undefined &&
-    processEnv.CLAUDE_CODE_USE_FOUNDRY === undefined &&
+    readProviderFlag(processEnv, 'OPENAI') !== undefined &&
+    readProviderFlag(processEnv, 'GEMINI') === undefined &&
+    readProviderFlag(processEnv, 'GITHUB') === undefined &&
+    readProviderFlag(processEnv, 'BEDROCK') === undefined &&
+    readProviderFlag(processEnv, 'VERTEX') === undefined &&
+    readProviderFlag(processEnv, 'FOUNDRY') === undefined &&
     sameOptionalEnvValue(processEnv.OPENAI_BASE_URL, profile.baseUrl) &&
     sameOptionalEnvValue(processEnv.OPENAI_MODEL, profile.model) &&
     (!includeApiKey ||
