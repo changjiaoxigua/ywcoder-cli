@@ -234,7 +234,7 @@ const MarketplaceNameSchema = lazySchema(() =>
     )
     .refine(name => !isBlockedOfficialName(name), {
       message:
-        'Marketplace name impersonates an official Anthropic/Claude marketplace',
+        'Marketplace name impersonates an official YwCoder marketplace',
     })
     .refine(name => name.toLowerCase() !== 'inline', {
       message:
