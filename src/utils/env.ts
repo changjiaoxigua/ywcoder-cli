@@ -44,7 +44,7 @@ export const getGlobalClaudeFile = memoize((): string => {
   }
   // 3. 纯新装 → 新默认落 .config.json（去标识）
   return newConfig
-})
+}, () => process.env.YWCODER_CONFIG_DIR ?? process.env.CLAUDE_CONFIG_DIR)
 
 const hasInternetAccess = memoize(async (): Promise<boolean> => {
   try {
