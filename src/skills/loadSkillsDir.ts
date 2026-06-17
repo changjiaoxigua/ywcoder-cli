@@ -23,6 +23,7 @@ import {
   parseArgumentNames,
   substituteArguments,
 } from '../utils/argumentSubstitution.js'
+import { getCwd } from '../utils/cwd.js'
 import { logForDebugging } from '../utils/debug.js'
 import {
   EFFORT_LEVELS,
@@ -79,6 +80,7 @@ export type LoadedFrom =
 export function getSkillsPath(
   source: SettingSource | 'plugin',
   dir: 'skills' | 'commands',
+  cwd: string = getCwd(),
 ): string {
   switch (source) {
     case 'policySettings':
@@ -86,7 +88,7 @@ export function getSkillsPath(
     case 'userSettings':
       return join(getYwCoderConfigHomeDir(), dir)
     case 'projectSettings':
-      return `.claude/${dir}`
+      return join(getProjectConfigDir(cwd), dir)
     case 'plugin':
       return 'plugin'
     default:
