@@ -1,7 +1,7 @@
 // biome-ignore-all assist/source/organizeImports: internal-only import markers must not be reordered
 import { getInitialMainLoopModel } from '../../bootstrap/state.js'
 // 2026-05-10 方案A：内网环境下判断 provider 是否为本地地址，用于过滤硬编码预设模型
-import { getAdditionalModelOptionsCacheScope, isLocalProviderUrl } from '../../services/api/providerConfig.js'
+import { getAdditionalModelOptionsCacheScope, isLocalProviderUrl, resolveProviderRequest } from '../../services/api/providerConfig.js'
 import {
   isYwCoderSubscriber,
   isMaxSubscriber,
@@ -474,8 +474,11 @@ function getModelOptionsBase(fastMode = false): ModelOption[] {
   // PAYG 3P: Default (Sonnet 4.5) + Sonnet (3P custom) or Sonnet 4.6/1M + Opus (3P custom) or Opus 4.1/Opus 4.6/Opus1M + Haiku + Opus 4.1
   const payg3pOptions = [getDefaultOptionForUser(fastMode)]
 
-  // Add Codex models for openai and codex providers
-  if (getAPIProvider() === 'openai' || getAPIProvider() === 'codex') {
+  // Add Codex models for openai and codex providers, but skip local/intranet gateways
+  if (
+    (getAPIProvider() === 'openai' || getAPIProvider() === 'codex') &&
+    !isLocalProviderUrl(resolveProviderRequest().baseUrl)
+  ) {
     payg3pOptions.push(...getCodexModelOptions())
   }
 
