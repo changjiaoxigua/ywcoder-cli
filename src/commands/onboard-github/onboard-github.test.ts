@@ -68,6 +68,8 @@ describe('onboarding auth precedence cleanup', () => {
 
     applyGithubOnboardingProcessEnv('github:copilot', env)
 
+    // process.env 双写新+旧名
+    expect(env.YWCODER_USE_GITHUB).toBe('1')
     expect(env.CLAUDE_CODE_USE_GITHUB).toBe('1')
     expect(env.OPENAI_MODEL).toBe('github:copilot')
 
@@ -82,8 +84,10 @@ describe('onboarding auth precedence cleanup', () => {
     expect(env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED).toBeUndefined()
     expect(env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID).toBeUndefined()
 
+    // settings.json 只写新名（文件保持干净，不暴露旧品牌名）
     const settingsEnv = buildGithubOnboardingSettingsEnv('github:copilot')
-    expect(settingsEnv.CLAUDE_CODE_USE_GITHUB).toBe('1')
+    expect(settingsEnv.YWCODER_USE_GITHUB).toBe('1')
+    expect(settingsEnv.CLAUDE_CODE_USE_GITHUB).toBeUndefined()
     expect(settingsEnv.OPENAI_MODEL).toBe('github:copilot')
     expect(settingsEnv.OPENAI_API_KEY).toBeUndefined()
     expect(settingsEnv.OPENAI_ORG).toBeUndefined()

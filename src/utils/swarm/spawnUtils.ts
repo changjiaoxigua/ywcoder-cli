@@ -95,12 +95,19 @@ export function buildInheritedCliFlags(options?: {
  */
 const TEAMMATE_ENV_VARS = [
   // API provider selection — without these, teammates default to firstParty
-  // and send requests to the wrong endpoint (GitHub issue #23561)
+  // and send requests to the wrong endpoint (GitHub issue #23561)。
+  // 新名 YWCODER_USE_* 与旧名 CLAUDE_CODE_USE_* 并列透传，避免仅设新名时丢失。
+  'YWCODER_USE_BEDROCK',
   'CLAUDE_CODE_USE_BEDROCK',
+  'YWCODER_USE_VERTEX',
   'CLAUDE_CODE_USE_VERTEX',
+  'YWCODER_USE_FOUNDRY',
   'CLAUDE_CODE_USE_FOUNDRY',
+  'YWCODER_USE_GITHUB',
   'CLAUDE_CODE_USE_GITHUB',
+  'YWCODER_USE_GEMINI',
   'CLAUDE_CODE_USE_GEMINI',
+  'YWCODER_USE_OPENAI',
   'CLAUDE_CODE_USE_OPENAI',
   'GITHUB_TOKEN',
   'GH_TOKEN',

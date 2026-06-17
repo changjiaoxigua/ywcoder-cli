@@ -147,7 +147,7 @@ function isGithubProviderAvailable(
   credentialSource: GithubCredentialSource,
   processEnv: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  if (isEnvTruthy(processEnv.CLAUDE_CODE_USE_GITHUB)) {
+  if (isEnvTruthy(processEnv.YWCODER_USE_GITHUB ?? processEnv.CLAUDE_CODE_USE_GITHUB)) {
     return true
   }
   return credentialSource !== 'none'
@@ -156,7 +156,7 @@ function isGithubProviderAvailable(
 function getGithubProviderModel(
   processEnv: NodeJS.ProcessEnv = process.env,
 ): string {
-  if (isEnvTruthy(processEnv.CLAUDE_CODE_USE_GITHUB)) {
+  if (isEnvTruthy(processEnv.YWCODER_USE_GITHUB ?? processEnv.CLAUDE_CODE_USE_GITHUB)) {
     return processEnv.OPENAI_MODEL?.trim() || GITHUB_PROVIDER_DEFAULT_MODEL
   }
   return GITHUB_PROVIDER_DEFAULT_MODEL
@@ -179,7 +179,7 @@ function getGithubProviderSummary(
 
 export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
   const initialGithubCredentialSource = getGithubCredentialSourceFromEnv()
-  const initialIsGithubActive = isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB)
+  const initialIsGithubActive = isEnvTruthy(process.env.YWCODER_USE_GITHUB ?? process.env.CLAUDE_CODE_USE_GITHUB)
   const initialHasGithubCredential = initialGithubCredentialSource !== 'none'
 
   const [profiles, setProfiles] = React.useState(() => getProviderProfiles())
@@ -217,7 +217,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
 
   const refreshGithubProviderState = React.useCallback((): void => {
     const envCredentialSource = getGithubCredentialSourceFromEnv()
-    const githubActive = isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB)
+    const githubActive = isEnvTruthy(process.env.YWCODER_USE_GITHUB ?? process.env.CLAUDE_CODE_USE_GITHUB)
     const canResolveFromEnv = githubActive || envCredentialSource !== 'none'
 
     if (canResolveFromEnv) {
@@ -239,7 +239,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
 
       setGithubCredentialSource(credentialSource)
       setGithubProviderAvailable(isGithubProviderAvailable(credentialSource))
-      setIsGithubActive(isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB))
+      setIsGithubActive(isEnvTruthy(process.env.YWCODER_USE_GITHUB ?? process.env.CLAUDE_CODE_USE_GITHUB))
       setIsGithubCredentialSourceResolved(true)
     })()
   }, [])
@@ -262,11 +262,17 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
   function clearStartupProviderOverrideFromUserSettings(): string | null {
     const { error } = updateSettingsForSource('userSettings', {
       env: {
+        YWCODER_USE_OPENAI: undefined as any,
         CLAUDE_CODE_USE_OPENAI: undefined as any,
+        YWCODER_USE_GEMINI: undefined as any,
         CLAUDE_CODE_USE_GEMINI: undefined as any,
+        YWCODER_USE_GITHUB: undefined as any,
         CLAUDE_CODE_USE_GITHUB: undefined as any,
+        YWCODER_USE_BEDROCK: undefined as any,
         CLAUDE_CODE_USE_BEDROCK: undefined as any,
+        YWCODER_USE_VERTEX: undefined as any,
         CLAUDE_CODE_USE_VERTEX: undefined as any,
+        YWCODER_USE_FOUNDRY: undefined as any,
         CLAUDE_CODE_USE_FOUNDRY: undefined as any,
       },
     })
@@ -280,7 +286,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
   function activateGithubProvider(): string | null {
     const { error } = updateSettingsForSource('userSettings', {
       env: {
-        CLAUDE_CODE_USE_GITHUB: '1',
+        YWCODER_USE_GITHUB: '1',
         OPENAI_MODEL: GITHUB_PROVIDER_DEFAULT_MODEL,
         OPENAI_API_KEY: undefined as any,
         OPENAI_ORG: undefined as any,
@@ -288,10 +294,15 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
         OPENAI_ORGANIZATION: undefined as any,
         OPENAI_BASE_URL: undefined as any,
         OPENAI_API_BASE: undefined as any,
+        YWCODER_USE_OPENAI: undefined as any,
         CLAUDE_CODE_USE_OPENAI: undefined as any,
+        YWCODER_USE_GEMINI: undefined as any,
         CLAUDE_CODE_USE_GEMINI: undefined as any,
+        YWCODER_USE_BEDROCK: undefined as any,
         CLAUDE_CODE_USE_BEDROCK: undefined as any,
+        YWCODER_USE_VERTEX: undefined as any,
         CLAUDE_CODE_USE_VERTEX: undefined as any,
+        YWCODER_USE_FOUNDRY: undefined as any,
         CLAUDE_CODE_USE_FOUNDRY: undefined as any,
       },
     })
@@ -336,6 +347,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
 
     const { error } = updateSettingsForSource('userSettings', {
       env: {
+        YWCODER_USE_GITHUB: undefined as any,
         CLAUDE_CODE_USE_GITHUB: undefined as any,
         OPENAI_MODEL: undefined as any,
         OPENAI_BASE_URL: undefined as any,
