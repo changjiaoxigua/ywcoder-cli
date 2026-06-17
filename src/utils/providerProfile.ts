@@ -706,7 +706,9 @@ export async function buildStartupEnvFromProfile(options?: {
     persisted,
     goal:
       options?.goal ??
-      normalizeRecommendationGoal(processEnv.OPENCLAUDE_PROFILE_GOAL),
+      normalizeRecommendationGoal(
+        processEnv.YWCODER_PROFILE_GOAL ?? processEnv.OPENCLAUDE_PROFILE_GOAL,
+      ),
     processEnv,
     getOllamaChatBaseUrl:
       options?.getOllamaChatBaseUrl ?? getOllamaChatBaseUrl,
