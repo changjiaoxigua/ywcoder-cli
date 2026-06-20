@@ -15,7 +15,7 @@ import type { ThemeSetting } from '../utils/theme.js';
 import { ApproveApiKey } from './ApproveApiKey.js';
 import { ConsoleOAuthFlow } from './ConsoleOAuthFlow.js';
 import { Select } from './CustomSelect/select.js';
-import { WelcomeV2 } from './LogoV2/WelcomeV2.js';
+// import { WelcomeV2 } from './LogoV2/WelcomeV2.js';
 import { PressEnterToContinue } from './PressEnterToContinue.js';
 import { ThemePicker } from './ThemePicker.js';
 import { OrderedList } from './ui/OrderedList.js';
@@ -200,7 +200,7 @@ export function Onboarding({
     isActive: currentStep?.id === 'terminal-setup'
   });
   return <Box flexDirection="column">
-      <WelcomeV2 />
+      {/* <WelcomeV2 /> */}
       <Box flexDirection="column" marginTop={1}>
         {currentStep?.component}
         {exitState.pending && <Box padding={1}>

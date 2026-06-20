@@ -7,7 +7,7 @@ import { c as _c } from "react-compiler-runtime";
 
 import { cwd } from 'process';
 import React from 'react';
-import { WelcomeV2 } from '../../components/LogoV2/WelcomeV2.js';
+// import { WelcomeV2 } from '../../components/LogoV2/WelcomeV2.js';
 import { useManagePlugins } from '../../hooks/useManagePlugins.js';
 import type { Root } from '../../ink.js';
 import { Box, Text } from '../../ink.js';
@@ -27,7 +27,7 @@ export async function setupTokenHandler(root: Root): Promise<void> {
     root.render(<AppStateProvider onChangeAppState={onChangeAppState}>
         <KeybindingSetup>
           <Box flexDirection="column" gap={1}>
-            <WelcomeV2 />
+            {/* <WelcomeV2 /> */}
             {showAuthWarning && <Box flexDirection="column">
                 <Text color="warning">
                   Warning: You already have authentication configured via
