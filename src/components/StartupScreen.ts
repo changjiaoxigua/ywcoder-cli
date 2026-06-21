@@ -19,7 +19,8 @@ const c = (n: number) => `${ESC}38;5;${n}m`
 
 // Palette (256-color, works on macOS Terminal.app + all modern terminals)
 const COL_LOGO    = c(167)  // Indian Red  — warm rose
-const COL_ACCENT  = c(173)  // LightSalmon — tagline / bullet / version
+// const COL_ACCENT  = c(173)  // LightSalmon — tagline / bullet / version
+const COL_ACCENT  = c(114)  // 改为鲜绿色，覆盖 tagline / bullet / version 等橙色元素
 const COL_LABEL   = c(244)  // medium gray — Provider / Model / Endpoint keys
 const COL_VALUE   = c(252)  // light gray  — values
 const COL_BORDER  = c(238)  // dark gray   — box lines
