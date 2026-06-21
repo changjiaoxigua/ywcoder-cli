@@ -914,7 +914,7 @@ async function run(): Promise<CommanderCommand> {
     // terminal shell integration may mirror the process name to the tab.
     // After init() so settings.json env can also gate this (gh-4765).
     if (!isEnvTruthy(getYwCoderEnv('DISABLE_TERMINAL_TITLE'))) {
-      process.title = 'claude';
+      process.title = 'ywcoder';
     }
 
     // Attach logging sinks so subcommand handlers can use logEvent/logError.
