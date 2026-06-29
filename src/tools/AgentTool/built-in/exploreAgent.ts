@@ -73,9 +73,9 @@ export const EXPLORE_AGENT: BuiltInAgentDefinition = {
   ],
   source: 'built-in',
   baseDir: 'built-in',
-  // Ants get inherit to use the main agent's model; external users get haiku for speed
-  // Note: For ants, getAgentModel() checks tengu_explore_agent GrowthBook flag at runtime
-  model: process.env.USER_TYPE === 'ant' ? 'inherit' : 'haiku',
+  // 统一继承主 agent 的模型：内网无 Anthropic 系列模型，硬编码 haiku 会在缺省时
+  // 回退到内网不存在的 gpt-4o-mini，导致子代理调用失败。inherit 让其跟随主对话模型。
+  model: 'inherit',
   // Explore is a fast read-only search agent — it doesn't need commit/PR/lint
   // rules from YWCODER.md. The main agent has full context and interprets results.
   omitClaudeMd: true,

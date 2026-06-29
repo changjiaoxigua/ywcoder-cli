@@ -117,7 +117,8 @@ export const CLAUDE_CODE_GUIDE_AGENT: BuiltInAgentDefinition = {
       ],
   source: 'built-in',
   baseDir: 'built-in',
-  model: 'haiku',
+  // 继承主 agent 的模型，避免内网下硬编码 haiku 回退到不存在的 gpt-4o-mini
+  model: 'inherit',
   permissionMode: 'dontAsk',
   getSystemPrompt({ toolUseContext }) {
     const commands = toolUseContext.options.commands

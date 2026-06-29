@@ -129,9 +129,22 @@ export function getAgentModelDisplay(model: string | undefined): string {
 }
 
 /**
- * Get available model options for agents
+ * Get available model options for agents.
+ *
+ * openai provider 对应内网单模型场景（无 Anthropic 系列），子 agent 只需继承主
+ * 对话模型，不暴露 Sonnet/Opus/Haiku 别名（这些别名在内网无对应实体模型）。
+ * 其他 provider（firstParty/Bedrock/Vertex/Gemini 等）保留完整选项列表。
  */
 export function getAgentModelOptions(): AgentModelOption[] {
+  if (getAPIProvider() === 'openai') {
+    return [
+      {
+        value: 'inherit',
+        label: 'Inherit from parent',
+        description: 'Use the same model as the main conversation',
+      },
+    ]
+  }
   return [
     {
       value: 'sonnet',

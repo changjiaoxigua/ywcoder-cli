@@ -145,7 +145,8 @@ export const STATUSLINE_SETUP_AGENT: BuiltInAgentDefinition = {
   tools: ['Read', 'Edit'],
   source: 'built-in',
   baseDir: 'built-in',
-  model: 'sonnet',
+  // 继承主 agent 的模型，避免内网下硬编码 sonnet 解析到不存在的 Anthropic 模型
+  model: 'inherit',
   color: 'orange',
   getSystemPrompt: () => buildStatuslineSystemPrompt(),
 }
