@@ -25,6 +25,7 @@ import type { CacheSafeParams } from '../../utils/forkedAgent.js';
 import { lazySchema } from '../../utils/lazySchema.js';
 import { createUserMessage, extractTextContent, isSyntheticMessage, normalizeMessages } from '../../utils/messages.js';
 import { getAgentModel } from '../../utils/model/agent.js';
+import { getAPIProvider } from '../../utils/model/providers.js';
 import { permissionModeSchema } from '../../utils/permissions/PermissionMode.js';
 import type { PermissionResult } from '../../utils/permissions/PermissionResult.js';
 import { filterDeniedAgents, getDenyRuleForAgent } from '../../utils/permissions/permissions.js';
@@ -119,9 +120,14 @@ export const inputSchema = lazySchema(() => {
   // by forceAsync) or "schema hides a param that would've worked" (gate
   // flips off mid-session: everything still runs async via memoized
   // forceAsync). No Zod rejection, no crash — unlike required→optional.
-  return isBackgroundTasksDisabled || isForkSubagentEnabled() ? schema.omit({
+  const schemaWithBg = isBackgroundTasksDisabled || isForkSubagentEnabled() ? schema.omit({
     run_in_background: true
   }) : schema;
+
+  // openai provider 为内网单模型场景：向 LLM 隐藏 model 参数，避免其主动传入
+  // Anthropic 别名（sonnet/haiku/opus），导致工具调用显示混乱或别名解析到
+  // 内网不存在的模型。
+  return getAPIProvider() === 'openai' ? schemaWithBg.omit({ model: true }) : schemaWithBg;
 });
 type InputSchema = ReturnType<typeof inputSchema>;
 
