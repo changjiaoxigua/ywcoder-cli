@@ -100,6 +100,22 @@ execSync('npm install --omit=dev --no-package-lock', {
   stdio: 'inherit',
 })
 
+// 额外安装 Linux arm64 的 sharp 原生包，使同一个 tgz 同时支持 x64 和 arm64。
+// --ignore-scripts 跳过 sharp 的 postinstall 平台检查（在 x64 runner 上安装
+// arm64 二进制时该检查会误报），包含的 .node 文件本身是正确的 arm64 二进制。
+if (process.platform === 'linux') {
+  const sharpPkg = JSON.parse(
+    readFileSync(join(PACK_TEMP_DIR, 'node_modules', 'sharp', 'package.json'), 'utf8'),
+  )
+  const arm64LinuxPkg = `@img/sharp-linux-arm64@${sharpPkg.optionalDependencies['@img/sharp-linux-arm64']}`
+  const arm64VipsPkg = `@img/sharp-libvips-linux-arm64@${sharpPkg.optionalDependencies['@img/sharp-libvips-linux-arm64']}`
+  log(`安装 Linux arm64 sharp 原生包: ${arm64LinuxPkg}, ${arm64VipsPkg}`)
+  execSync(`npm install --ignore-scripts --no-package-lock ${arm64LinuxPkg} ${arm64VipsPkg}`, {
+    cwd: PACK_TEMP_DIR,
+    stdio: 'inherit',
+  })
+}
+
 // Step 3: move the minimal node_modules into the project root
 log('Moving minimal node_modules into project root...')
 renameSync(join(PACK_TEMP_DIR, 'node_modules'), NODE_MODULES)

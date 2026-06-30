@@ -53,33 +53,39 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Download ripgrep for Linux only
+      - name: Download ripgrep for Linux (x64 + arm64)
         run: |
-          # 创建 Linux x64 目录结构
-          mkdir -p vendor/ripgrep/x64-linux
-
-          # 下载 Linux x64 ripgrep
           RG_VERSION="14.1.0"
-          RG_URL="https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz"
-          echo "正在下载 ripgrep ${RG_VERSION} for Linux x64..."
-          curl -fsSL -o rg-linux.tar.gz "${RG_URL}"
+          mkdir -p vendor/ripgrep/x64-linux vendor/ripgrep/arm64-linux
 
-          # 解压并提取 rg 二进制文件
-          mkdir -p rg-temp
-          tar -xzf rg-linux.tar.gz -C rg-temp
-          RG_BIN=$(find rg-temp -name "rg" -type f | head -n 1)
-          if [ -n "${RG_BIN}" ]; then
-            cp "${RG_BIN}" vendor/ripgrep/x64-linux/rg
-            chmod +x vendor/ripgrep/x64-linux/rg
-            echo "已找到并复制 rg: ${RG_BIN}"
-          else
-            echo "错误：未在解压目录中找到 rg 二进制文件"
-            exit 1
-          fi
-          rm -f rg-linux.tar.gz
-          rm -rf rg-temp
+          # 下载并解压指定架构的 ripgrep musl 静态二进制
+          download_rg() {
+            local ARCH_LABEL="$1"   # 日志显示名
+            local URL="$2"
+            local DEST="$3"
+            echo "正在下载 ripgrep ${RG_VERSION} for ${ARCH_LABEL}..."
+            curl -fsSL -o rg-tmp.tar.gz "${URL}"
+            mkdir -p rg-tmp
+            tar -xzf rg-tmp.tar.gz -C rg-tmp
+            RG_BIN=$(find rg-tmp -name "rg" -type f | head -n 1)
+            if [ -z "${RG_BIN}" ]; then
+              echo "错误：未在解压目录中找到 rg 二进制文件（${ARCH_LABEL}）"
+              exit 1
+            fi
+            cp "${RG_BIN}" "${DEST}"
+            chmod +x "${DEST}"
+            rm -f rg-tmp.tar.gz
+            rm -rf rg-tmp
+            echo "已安装 ${ARCH_LABEL} rg → ${DEST}"
+          }
 
-          echo "已下载 ripgrep for Linux x64"
+          download_rg "Linux x64" \
+            "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+            "vendor/ripgrep/x64-linux/rg"
+
+          download_rg "Linux arm64" \
+            "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-aarch64-unknown-linux-musl.tar.gz" \
+            "vendor/ripgrep/arm64-linux/rg"
 
           # 显示 vendor 目录结构
           echo "Vendor 目录结构："
@@ -101,7 +107,7 @@ jobs:
 
       - name: Rename package with version and platform
         run: |
-          ARTIFACT_NAME="ywcoder-${DISPLAY_VERSION}-linux-x64.tgz"
+          ARTIFACT_NAME="ywcoder-${DISPLAY_VERSION}-linux-universal.tgz"
           mv dcywzc-ywcoder-*.tgz "$ARTIFACT_NAME"
           echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
           echo "产物文件: $ARTIFACT_NAME"
@@ -110,7 +116,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ywcoder-${{ env.DISPLAY_VERSION }}-linux-x64
+          name: ywcoder-${{ env.DISPLAY_VERSION }}-linux-universal
           path: ${{ env.ARTIFACT_NAME }}
           retention-days: 30
 

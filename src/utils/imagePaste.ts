@@ -95,9 +95,11 @@ function getClipboardCommands() {
       deleteFile: `rm -f "${screenshotPath}"`,
     },
     win32: {
+      // 用 if/exit 让剪贴板无图时返回非零退出码，使 checkResult.exitCode 判断正确生效
       checkImage:
-        'powershell -NoProfile -Command "(Get-Clipboard -Format Image) -ne $null"',
-      saveImage: `powershell -NoProfile -Command "$img = Get-Clipboard -Format Image; if ($img) { $img.Save('${screenshotPath.replace(/\\/g, '\\\\')}', [System.Drawing.Imaging.ImageFormat]::Png) }"`,
+        'powershell -NoProfile -Command "if ((Get-Clipboard -Format Image) -ne $null) { exit 0 } else { exit 1 }"',
+      // 显式加载 System.Drawing，避免 PowerShell 7+ 环境中该程序集未自动导入导致静默失败
+      saveImage: `powershell -NoProfile -Command "Add-Type -AssemblyName System.Drawing; $img = Get-Clipboard -Format Image; if ($img) { $img.Save('${screenshotPath.replace(/\\/g, '\\\\')}', [System.Drawing.Imaging.ImageFormat]::Png) }"`,
       getPath: 'powershell -NoProfile -Command "Get-Clipboard"',
       deleteFile: `del /f "${screenshotPath}"`,
     },
@@ -119,6 +121,16 @@ export type ImageWithDimensions = {
  * Check if clipboard contains an image without retrieving it.
  */
 export async function hasImageInClipboard(): Promise<boolean> {
+  // Windows：用 PowerShell 检查剪贴板是否含有图片
+  if (process.platform === 'win32') {
+    const result = await execFileNoThrowWithCwd('powershell', [
+      '-NoProfile',
+      '-Command',
+      'if ((Get-Clipboard -Format Image) -ne $null) { exit 0 } else { exit 1 }',
+    ])
+    return result.code === 0
+  }
+
   if (process.platform !== 'darwin') {
     return false
   }
