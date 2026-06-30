@@ -84,7 +84,7 @@ jobs:
             "vendor/ripgrep/x64-linux/rg"
 
           download_rg "Linux arm64" \
-            "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-aarch64-unknown-linux-musl.tar.gz" \
+            "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-aarch64-unknown-linux-gnu.tar.gz" \
             "vendor/ripgrep/arm64-linux/rg"
 
           # 显示 vendor 目录结构
