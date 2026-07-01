@@ -18,6 +18,7 @@
 
 import { execSync } from 'node:child_process'
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -101,19 +102,42 @@ execSync('npm install --omit=dev --no-package-lock', {
 })
 
 // 额外安装 Linux arm64 的 sharp 原生包，使同一个 tgz 同时支持 x64 和 arm64。
-// --ignore-scripts 跳过 sharp 的 postinstall 平台检查（在 x64 runner 上安装
-// arm64 二进制时该检查会误报），包含的 .node 文件本身是正确的 arm64 二进制。
+// 使用独立临时目录安装，避免在已有 node_modules 的 PACK_TEMP_DIR 中再次 npm install
+// 触发依赖重解析或 postinstall 平台检查冲突。安装完成后仅把两个 @img 包复制过去。
 if (process.platform === 'linux') {
   const sharpPkg = JSON.parse(
     readFileSync(join(PACK_TEMP_DIR, 'node_modules', 'sharp', 'package.json'), 'utf8'),
   )
-  const arm64LinuxPkg = `@img/sharp-linux-arm64@${sharpPkg.optionalDependencies['@img/sharp-linux-arm64']}`
-  const arm64VipsPkg = `@img/sharp-libvips-linux-arm64@${sharpPkg.optionalDependencies['@img/sharp-libvips-linux-arm64']}`
-  log(`安装 Linux arm64 sharp 原生包: ${arm64LinuxPkg}, ${arm64VipsPkg}`)
-  execSync(`npm install --ignore-scripts --no-package-lock ${arm64LinuxPkg} ${arm64VipsPkg}`, {
-    cwd: PACK_TEMP_DIR,
+  const arm64Pkgs = {
+    '@img/sharp-linux-arm64': sharpPkg.optionalDependencies['@img/sharp-linux-arm64'],
+    '@img/sharp-libvips-linux-arm64': sharpPkg.optionalDependencies['@img/sharp-libvips-linux-arm64'],
+  }
+  log(`安装 Linux arm64 sharp 原生包: ${JSON.stringify(arm64Pkgs)}`)
+
+  const ARM64_TEMP_DIR = join(PROJECT_ROOT, '.arm64-deps-temp')
+  rmrf(ARM64_TEMP_DIR)
+  mkdirSync(ARM64_TEMP_DIR, { recursive: true })
+  writeFileSync(
+    join(ARM64_TEMP_DIR, 'package.json'),
+    JSON.stringify({ name: 'arm64-deps-temp', version: '1.0.0', private: true, dependencies: arm64Pkgs }, null, 2),
+  )
+  execSync('npm install --ignore-scripts --no-package-lock', {
+    cwd: ARM64_TEMP_DIR,
     stdio: 'inherit',
   })
+
+  // 仅把 arm64 的两个包目录复制到主 node_modules，不动其余依赖
+  for (const pkg of Object.keys(arm64Pkgs)) {
+    const [scope, name] = pkg.split('/')
+    const src = join(ARM64_TEMP_DIR, 'node_modules', scope, name)
+    const dest = join(PACK_TEMP_DIR, 'node_modules', scope, name)
+    if (existsSync(src)) {
+      mkdirSync(join(PACK_TEMP_DIR, 'node_modules', scope), { recursive: true })
+      cpSync(src, dest, { recursive: true })
+      log(`已复制 ${pkg} → node_modules`)
+    }
+  }
+  rmrf(ARM64_TEMP_DIR)
 }
 
 // Step 3: move the minimal node_modules into the project root
