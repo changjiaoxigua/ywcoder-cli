@@ -18,7 +18,6 @@
 
 import { execSync } from 'node:child_process'
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -101,43 +100,29 @@ execSync('npm install --omit=dev --no-package-lock', {
   stdio: 'inherit',
 })
 
-// 额外安装 Linux arm64 的 sharp 原生包，使同一个 tgz 同时支持 x64 和 arm64。
-// 使用独立临时目录安装，避免在已有 node_modules 的 PACK_TEMP_DIR 中再次 npm install
-// 触发依赖重解析或 postinstall 平台检查冲突。安装完成后仅把两个 @img 包复制过去。
+// 额外补充 Linux arm64 的 sharp 原生包，使同一个 tgz 同时支持 x64 和 arm64。
+// 不走 npm install：@img/sharp-linux-arm64 的 package.json 带有 "cpu":["arm64"]，
+// npm 在 x64 runner 上会拒绝安装（CPU 不匹配）。
+// 改为直接从 npm registry 下载 tarball 解压，完全绕过平台校验。
 if (process.platform === 'linux') {
   const sharpPkg = JSON.parse(
     readFileSync(join(PACK_TEMP_DIR, 'node_modules', 'sharp', 'package.json'), 'utf8'),
   )
-  const arm64Pkgs = {
-    '@img/sharp-linux-arm64': sharpPkg.optionalDependencies['@img/sharp-linux-arm64'],
-    '@img/sharp-libvips-linux-arm64': sharpPkg.optionalDependencies['@img/sharp-libvips-linux-arm64'],
-  }
-  log(`安装 Linux arm64 sharp 原生包: ${JSON.stringify(arm64Pkgs)}`)
+  const arm64Pkgs = [
+    { name: '@img/sharp-linux-arm64',        version: sharpPkg.optionalDependencies['@img/sharp-linux-arm64'] },
+    { name: '@img/sharp-libvips-linux-arm64', version: sharpPkg.optionalDependencies['@img/sharp-libvips-linux-arm64'] },
+  ]
 
-  const ARM64_TEMP_DIR = join(PROJECT_ROOT, '.arm64-deps-temp')
-  rmrf(ARM64_TEMP_DIR)
-  mkdirSync(ARM64_TEMP_DIR, { recursive: true })
-  writeFileSync(
-    join(ARM64_TEMP_DIR, 'package.json'),
-    JSON.stringify({ name: 'arm64-deps-temp', version: '1.0.0', private: true, dependencies: arm64Pkgs }, null, 2),
-  )
-  execSync('npm install --ignore-scripts --no-package-lock', {
-    cwd: ARM64_TEMP_DIR,
-    stdio: 'inherit',
-  })
-
-  // 仅把 arm64 的两个包目录复制到主 node_modules，不动其余依赖
-  for (const pkg of Object.keys(arm64Pkgs)) {
-    const [scope, name] = pkg.split('/')
-    const src = join(ARM64_TEMP_DIR, 'node_modules', scope, name)
-    const dest = join(PACK_TEMP_DIR, 'node_modules', scope, name)
-    if (existsSync(src)) {
-      mkdirSync(join(PACK_TEMP_DIR, 'node_modules', scope), { recursive: true })
-      cpSync(src, dest, { recursive: true })
-      log(`已复制 ${pkg} → node_modules`)
-    }
+  for (const { name, version } of arm64Pkgs) {
+    const [scope, pkgName] = name.split('/')
+    // npm registry tarball 格式：https://registry.npmjs.org/@scope/pkg/-/pkg-version.tgz
+    const tarballUrl = `https://registry.npmjs.org/${scope}/${pkgName}/-/${pkgName}-${version}.tgz`
+    const destDir = join(PACK_TEMP_DIR, 'node_modules', scope, pkgName)
+    log(`下载 ${name}@${version} ...`)
+    mkdirSync(destDir, { recursive: true })
+    execSync(`curl -fsSL "${tarballUrl}" | tar -xz --strip-components=1 -C "${destDir}"`, { stdio: 'inherit' })
+    log(`已解压 ${name} → node_modules`)
   }
-  rmrf(ARM64_TEMP_DIR)
 }
 
 // Step 3: move the minimal node_modules into the project root
