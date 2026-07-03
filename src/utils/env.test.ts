@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileSuffixForOauthConfig } from '../constants/oauth.js'
@@ -44,9 +44,14 @@ describe('getGlobalClaudeFile · 全局 auth 文件路径（Stage 3 三分支）
     expect(getGlobalClaudeFile()).toBe(newConfig())
   })
 
-  test('分支2：仅 legacy .claude.json 存在（未迁移）→ 回退用 legacy，保 auth', () => {
-    writeFileSync(legacyFile(), '{}')
-    expect(getGlobalClaudeFile()).toBe(legacyFile())
+  test('分支2：仅 legacy .claude.json 存在（未迁移）→ 静默迁移到 .config.json，保 auth', () => {
+    const testContent = '{"test": "auth-data"}'
+    writeFileSync(legacyFile(), testContent)
+    // 期望返回新路径（已自动迁移）
+    expect(getGlobalClaudeFile()).toBe(newConfig())
+    // 验证新文件存在且内容正确
+    expect(existsSync(newConfig())).toBe(true)
+    expect(readFileSync(newConfig(), 'utf-8')).toBe(testContent)
   })
 
   test('分支3：两者都无（纯新装）→ 落新目录 .config.json（不再生成 .claude.json）', () => {
@@ -99,9 +104,14 @@ describe('getGlobalClaudeFile · legacy 前缀跟随 YWCODER_CONFIG_DIR（F2）'
     expect(getGlobalClaudeFile()).toBe(join(tmpY, '.config.json'))
   })
 
-  test('legacy 在 YWCODER_CONFIG_DIR 下存在 → 仍正确命中（保 auth）', () => {
+  test('legacy 在 YWCODER_CONFIG_DIR 下存在 → 静默迁移到 .config.json（保 auth）', () => {
     const legacy = join(tmpY, `.claude${fileSuffixForOauthConfig()}.json`)
-    writeFileSync(legacy, '{}')
-    expect(getGlobalClaudeFile()).toBe(legacy)
+    const testContent = '{"test": "auth-data"}'
+    writeFileSync(legacy, testContent)
+    // 期望返回新路径（已自动迁移）
+    expect(getGlobalClaudeFile()).toBe(join(tmpY, '.config.json'))
+    // 验证新文件存在且内容正确
+    expect(existsSync(join(tmpY, '.config.json'))).toBe(true)
+    expect(readFileSync(join(tmpY, '.config.json'), 'utf-8')).toBe(testContent)
   })
 })

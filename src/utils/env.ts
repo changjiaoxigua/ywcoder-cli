@@ -12,16 +12,11 @@ type Platform = 'win32' | 'darwin' | 'linux'
 
 // Config and data paths
 //
-// 全局配置文件（含登录 auth/token）的路径解析。D7 Stage 3：纯新装默认落
-// `<configHome>/.config.json`（去标识，不再新生成 `~/.claude.json`），但**存量
-// `~/.claude.json` 用户完全保留**（读回退，不丢登录态）。三分支：
+// 全局配置文件（含登录 auth/token）的路径解析。三分支：
 //   1. 新目录 `.config.json` 已存在（已迁移 / 已在新目录）→ 用它。
-//   2. 存量 legacy `~/.claude{oauth后缀}.json` 存在（未迁移用户，或与官方 CC 共用同一文件）→
-//      继续用它，保 auth、读回退；不被新默认抢走。
-//   3. 纯新装（两者都无）→ 落新目录 `.config.json`（此前会落 `~/.claude.json`，是去标识缺口）。
-// 注意：HOME 配置不受 MIGRATE_PROJECT_CONFIG（项目级）门控；ywcoder 与官方 CC 的全局文件
-// 本就分离（CC 用 .claude.json、ywcoder 用 .config.json），故无项目级那种双场景冲突。
-// ⚠️ auth 敏感：改动后需连真实登录/认证流程验证（存量登录态保留 + 新装登录落 .config.json）。
+//   2. 存量 legacy `~/.claude{oauth后缀}.json` 存在 → 静默 copyFileSync 到
+//      `.config.json` 后走新路径（保 auth、去标识）。迁移失败则降级返回 legacy。
+//   3. 纯新装（两者都无）→ 落新目录 `.config.json`。
 export const getGlobalClaudeFile = memoize((): string => {
   const fs = getFsImplementation()
   const newConfig = join(getYwCoderConfigHomeDir(), '.config.json')
@@ -29,10 +24,8 @@ export const getGlobalClaudeFile = memoize((): string => {
   if (fs.existsSync(newConfig)) {
     return newConfig
   }
-  // 2. 存量 legacy 文件存在 → 继续用（保 auth）
+  // 2. 存量 legacy 文件存在（如 ~/.claude.json）→ 静默迁移到 .config.json（保 auth）
   // 前缀与 getYwCoderConfigHomeDir 对齐：YWCODER_CONFIG_DIR 优先于 CLAUDE_CONFIG_DIR。
-  // 否则用户只设 YWCODER_CONFIG_DIR 时 newConfig 落自定义目录，但 legacy 仍看 ~/.claude.json，
-  // 若机器存量 ~/.claude.json（官方 CC）存在会被误命中，抢走自定义目录的新装默认。
   const legacyFile = join(
     process.env.YWCODER_CONFIG_DIR ??
       process.env.CLAUDE_CONFIG_DIR ??
@@ -40,7 +33,16 @@ export const getGlobalClaudeFile = memoize((): string => {
     `.claude${fileSuffixForOauthConfig()}.json`,
   )
   if (fs.existsSync(legacyFile)) {
-    return legacyFile
+    // 新文件不存在时才迁移，避免覆盖已有配置
+    if (!fs.existsSync(newConfig)) {
+      try {
+        fs.copyFileSync(legacyFile, newConfig)
+      } catch {
+        // 迁移失败（权限等）→ 降级继续用 legacy（保 auth）
+        return legacyFile
+      }
+    }
+    return newConfig
   }
   // 3. 纯新装 → 新默认落 .config.json（去标识）
   return newConfig

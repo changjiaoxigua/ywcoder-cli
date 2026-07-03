@@ -1,4 +1,3 @@
-import { existsSync } from 'fs'
 import memoize from 'lodash-es/memoize.js'
 import { homedir } from 'os'
 import { join, sep } from 'path'
@@ -26,49 +25,18 @@ export function getYwCoderEnv(suffix: string): string | undefined {
   return process.env[`YWCODER_${suffix}`] ?? process.env[`CLAUDE_CODE_${suffix}`]
 }
 
-// Track if we've shown the migration hint to avoid duplicate messages
-let migrationHintShown = false
-
 // Memoized: 150+ callers, many on hot paths. Keyed off CLAUDE_CONFIG_DIR/YWCODER_CONFIG_DIR so
 // tests that change the env var get a fresh value without explicit cache.clear.
 export const getYwCoderConfigHomeDir = memoize(
   (): string => {
-    // Check YWCODER_CONFIG_DIR first, then fall back to CLAUDE_CONFIG_DIR
+    // 检查环境变量优先
     const configDir = process.env.YWCODER_CONFIG_DIR ?? process.env.CLAUDE_CONFIG_DIR
     if (configDir) {
       return configDir.normalize('NFC')
     }
 
-    const newDefault = join(homedir(), '.ywcoder')
-    const legacyClaudePath = join(homedir(), '.claude')
-
-    // Multi-level fallback for backward compatibility:
-    // 1. ~/.ywcoder (new default)
-    // 2. ~/.claude (legacy)
-    //
-    // Migration logic:
-    // - New installs (none exist): use ~/.ywcoder
-    // - If ~/.ywcoder exists: use it (already migrated)
-    // - If only ~/.claude exists: use ~/.claude and show migration hint
-
-    if (existsSync(newDefault)) {
-      return newDefault.normalize('NFC')
-    }
-
-    if (existsSync(legacyClaudePath)) {
-      // 仅提示一次，避免重复打扰
-      if (!migrationHintShown && process.stderr.isTTY) {
-        migrationHintShown = true
-        process.stderr.write(
-          '\n\x1b[33m[YwCoder] 提示：当前正在使用历史配置目录 ~/.claude\x1b[0m\n' +
-          '\x1b[33m         请在 shell 中运行 `ywcoder --migrate-config` 迁移至 ~/.ywcoder\x1b[0m\n\n'
-        )
-      }
-      return legacyClaudePath.normalize('NFC')
-    }
-
-    // New install - use the new default
-    return newDefault.normalize('NFC')
+    // 统一使用 ~/.ywcoder，不再回退到 ~/.claude
+    return join(homedir(), '.ywcoder').normalize('NFC')
   },
   () => process.env.YWCODER_CONFIG_DIR ?? process.env.CLAUDE_CONFIG_DIR,
 )
@@ -78,11 +46,8 @@ export function getTeamsDir(): string {
 }
 
 /**
- * 显示 / prompt 用：活跃 HOME 配置目录的 `~/...` 形式（getYwCoderConfigHomeDir 优先
- * `~/.ywcoder`、回退 `~/.claude` 或 CLAUDE_CONFIG_DIR）。用于把发往 LLM 的 prompt 与用户
- * 可见文案里硬编码的 `~/.claude/...` 对齐到真实活跃目录——路径-of-record 本就由
- * getYwCoderConfigHomeDir 决定（如 teams/tasks/keybindings/userSettings 均落此），文案此前
- * 仍写 `~/.claude` 会与真实落盘不一致（甚至误导 agent 写错目录）。
+ * 显示 / prompt 用：活跃 HOME 配置目录的 `~/...` 形式。
+ * 统一使用 ~/.ywcoder（或环境变量指定的目录），不再回退到 ~/.claude。
  */
 export function getConfigHomeDisplayPath(): string {
   const dir = getYwCoderConfigHomeDir()
