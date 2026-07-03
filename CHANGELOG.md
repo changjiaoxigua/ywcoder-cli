@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.2.2] (2026-06-29 ~ 2026-07-03)
+
+### 多平台兼容
+
+- 修复 Linux ARM64（麒麟桌面等）下 ripgrep 报错导致文件搜索不可用的问题
+- 新增剪贴板图片粘贴功能：截图后可直接 Ctrl+V 粘贴到命令行发给多模态模型分析。Linux 平台需安装 xclip（可从源码自行编译，仅约 50KB）
+- 修复 Windows 下 PowerShell 7+ 无法从剪贴板粘贴图片的问题
+
+### 品牌去标识
+
+- 取消旧 ~/.claude 全局配置目录的回退机制，统一使用 ~/.ywcoder
+- 清理 Plan 模式、tips、欢迎页等界面中的 Claude 残留文案
+
+### Bug 修复
+
+- 修复内网环境子代理偶现显示 "Anthropic" 别名的问题
+
 ## [1.1.0](https://github.com/changjiaoxigua/ywcoder-cli/compare/v1.0.1...v1.1.0) (2026-05-14)
 
 
