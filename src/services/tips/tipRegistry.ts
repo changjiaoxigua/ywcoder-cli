@@ -480,7 +480,7 @@ const externalTips: Tip[] = [
   {
     id: 'desktop-app',
     content: async () =>
-      'Run YwCoder locally or remotely using the Claude desktop app: clau.de/desktop',
+      'Run YwCoder locally or remotely using the YwCoder desktop app',
     cooldownSessions: 15,
     // YwCoder: 禁用 — 指向 Anthropic Claude Desktop，YwCoder 不提供此功能
     isRelevant: async () => false,
@@ -489,7 +489,7 @@ const externalTips: Tip[] = [
     id: 'desktop-shortcut',
     content: async ctx => {
       const blue = color('suggestion', ctx.theme)
-      return `Continue your session in Claude Code Desktop with ${blue('/desktop')}`
+      return `使用 ${blue('/desktop')} 在 YwCoder Desktop 中继续当前会话`
     },
     cooldownSessions: 15,
     // YwCoder: 禁用 — /desktop 命令连接 Anthropic Claude Desktop 协议，YwCoder 不提供此功能
@@ -498,7 +498,7 @@ const externalTips: Tip[] = [
   {
     id: 'web-app',
     content: async () =>
-      'Run tasks in the cloud while you keep coding locally · clau.de/web',
+      '云端运行任务，本地持续编码 · YwCoder',
     cooldownSessions: 15,
     // YwCoder: 禁用 — 指向 Anthropic 云运行服务，YwCoder 不提供此功能
     isRelevant: async () => false,
@@ -506,7 +506,7 @@ const externalTips: Tip[] = [
   {
     id: 'mobile-app',
     content: async () =>
-      '/mobile to use YwCoder from the Claude app on your phone',
+      '/mobile 在手机上使用 YwCoder',
     cooldownSessions: 15,
     // YwCoder: 禁用 — /mobile 命令打开 Anthropic Claude 手机 app，YwCoder 不提供此功能
     isRelevant: async () => false,
@@ -515,7 +515,7 @@ const externalTips: Tip[] = [
     id: 'opusplan-mode-reminder',
     content: async () =>
       // `Your default model setting is Opus Plan Mode. Press ${getShortcutDisplay('chat:cycleMode', 'Chat', 'shift+tab')} twice to activate Plan Mode and plan with Claude Opus.`
-      `你的默认模型设置为 Opus 计划模式。按 ${getShortcutDisplay('chat:cycleMode', 'Chat', 'shift+tab')} 两次激活计划模式并使用 Claude Opus 规划`,
+      `你的默认模型设置为 Opus 计划模式。按 ${getShortcutDisplay('chat:cycleMode', 'Chat', 'shift+tab')} 两次激活计划模式并使用 Opus 规划`,
     cooldownSessions: 2,
     async isRelevant() {
       if (process.env.USER_TYPE === 'ant') return false
