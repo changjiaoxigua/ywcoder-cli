@@ -58,7 +58,7 @@ jobs:
           RG_VERSION="14.1.0"
           mkdir -p vendor/ripgrep/x64-linux vendor/ripgrep/arm64-linux
 
-          # 下载并解压指定架构的 ripgrep musl 静态二进制
+          # 下载并解压指定架构的 ripgrep 静态二进制（x64=musl, arm64=gnu）
           download_rg() {
             local ARCH_LABEL="$1"   # 日志显示名
             local URL="$2"
@@ -67,7 +67,7 @@ jobs:
             curl -fsSL -o rg-tmp.tar.gz "${URL}"
             mkdir -p rg-tmp
             tar -xzf rg-tmp.tar.gz -C rg-tmp
-            RG_BIN=$(find rg-tmp -name "rg" -type f | head -n 1)
+            local RG_BIN=$(find rg-tmp -name "rg" -type f | head -n 1)
             if [ -z "${RG_BIN}" ]; then
               echo "错误：未在解压目录中找到 rg 二进制文件（${ARCH_LABEL}）"
               exit 1
