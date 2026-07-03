@@ -131,6 +131,13 @@ export async function hasImageInClipboard(): Promise<boolean> {
     return result.code === 0
   }
 
+  if (process.platform === 'linux') {
+    // Linux：用 xclip / wl-paste 检查剪贴板图片类型
+    const { commands } = getClipboardCommands()
+    const result = await execFileNoThrowWithCwd('sh', ['-c', commands.checkImage])
+    return result.code === 0
+  }
+
   if (process.platform !== 'darwin') {
     return false
   }

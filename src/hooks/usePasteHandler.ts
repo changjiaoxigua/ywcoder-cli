@@ -15,6 +15,25 @@ import { getPlatform } from '../utils/platform.js'
 const CLIPBOARD_CHECK_DEBOUNCE_MS = 50
 const PASTE_COMPLETION_TIMEOUT_MS = 100
 
+/**
+ * 检测文本是否看起来像二进制数据（剪贴板图片被终端当文本粘贴的情况）。
+ * 统计前 200 个字符中 C0/C1 控制字符的占比，超过 30% 判为二进制。
+ * 不统计 0xA0+（扩展 ASCII / CJK / emoji），避免误判正常中文文本。
+ */
+function looksLikeBinaryData(text: string): boolean {
+  if (text.length === 0) return false
+  const sampleLen = Math.min(text.length, 200)
+  let nonPrintable = 0
+  for (let i = 0; i < sampleLen; i++) {
+    const c = text.charCodeAt(i)
+    // C0 控制字符 0x00-0x1F（排除 \t \n \r） + DEL 0x7F + C1 控制字符 0x80-0x9F
+    if ((c < 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0d) || (c >= 0x7f && c <= 0x9f)) {
+      nonPrintable++
+    }
+  }
+  return nonPrintable / sampleLen > 0.3
+}
+
 export function supportsClipboardImageFallback(
   platform: ReturnType<typeof getPlatform>,
 ): boolean {
@@ -186,12 +205,13 @@ export function usePasteHandler({
               return { chunks: [], timeoutId: null }
             }
 
-            // If paste is empty (common when trying to paste images with Cmd+V),
-            // check if clipboard has an image (macOS only)
+            // 以下两种情况尝试从剪贴板读取图片：
+            //   1. 粘贴文本为空（macOS 终端行为）
+            //   2. 粘贴文本看起来像二进制数据（Linux 终端将图片字节流当文本输出）
             if (
               canFallbackToClipboardImage &&
               onImagePaste &&
-              pastedText.length === 0
+              (pastedText.length === 0 || looksLikeBinaryData(pastedText))
             ) {
               checkClipboardForImage()
               return { chunks: [], timeoutId: null }
