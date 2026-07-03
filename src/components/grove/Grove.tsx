@@ -13,7 +13,8 @@ type Props = {
   location: 'settings' | 'policy_update_modal' | 'onboarding';
   onDone(decision: GroveDecision): void;
 };
-const NEW_TERMS_ASCII = ` _____________
+/*
+const NEW_TERMS_ASCII = \` _____________
  |          \\  \\
  | NEW TERMS \\__\\
  |              |
@@ -23,7 +24,8 @@ const NEW_TERMS_ASCII = ` _____________
  |  ----------  |
  |  ----------  |
  |              |
- |______________|`;
+ |______________|\`;
+*/
 function GracePeriodContentBody() {
   const $ = _c(9);
   let t0;
@@ -276,7 +278,7 @@ export function GroveDialog(t0) {
   }
   let t7;
   if ($[15] === Symbol.for("react.memo_cache_sentinel")) {
-    t7 = <Box flexShrink={0}><Text color="professionalBlue">{NEW_TERMS_ASCII}</Text></Box>;
+    t7 = null; // <Box flexShrink={0}><Text color="professionalBlue">{NEW_TERMS_ASCII}</Text></Box>;
     $[15] = t7;
   } else {
     t7 = $[15];

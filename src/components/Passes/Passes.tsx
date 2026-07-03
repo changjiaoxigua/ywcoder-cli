@@ -132,6 +132,7 @@ export function Passes({
   const sortedPasses = [...passStatuses].sort((a, b) => +b.isAvailable - +a.isAvailable);
 
   // ASCII art for tickets
+  /*
   const renderTicket = (pass: PassStatus) => {
     const isRedeemed = !pass.isAvailable;
     if (isRedeemed) {
@@ -152,12 +153,13 @@ export function Passes({
         <Text>{'└──────────┘'}</Text>
       </Box>;
   };
+  */
   return <Pane>
       <Box flexDirection="column" gap={1}>
         <Text color="permission">Guest passes · {availableCount} left</Text>
 
         <Box flexDirection="row" marginLeft={2}>
-          {sortedPasses.slice(0, 3).map(pass_0 => renderTicket(pass_0))}
+          {/* sortedPasses.slice(0, 3).map(pass_0 => renderTicket(pass_0)) */}
         </Box>
 
         {referralLink && <Box marginLeft={2}>
