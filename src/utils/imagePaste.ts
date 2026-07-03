@@ -121,21 +121,12 @@ export type ImageWithDimensions = {
  * Check if clipboard contains an image without retrieving it.
  */
 export async function hasImageInClipboard(): Promise<boolean> {
-  // Windows：用 PowerShell 检查剪贴板是否含有图片
-  if (process.platform === 'win32') {
-    const result = await execFileNoThrowWithCwd('powershell', [
-      '-NoProfile',
-      '-Command',
-      'if ((Get-Clipboard -Format Image) -ne $null) { exit 0 } else { exit 1 }',
-    ])
-    return result.code === 0
-  }
-
-  if (process.platform === 'linux') {
-    // Linux：用 xclip / wl-paste 检查剪贴板图片类型
+  // Windows / Linux：复用 getClipboardCommands 中已构建的平台剪贴板检测命令，
+  // 通过 execa({shell:true}) 执行，与 getImageFromClipboard 走同一命令来源，避免重复。
+  if (process.platform === 'win32' || process.platform === 'linux') {
     const { commands } = getClipboardCommands()
-    const result = await execFileNoThrowWithCwd('sh', ['-c', commands.checkImage])
-    return result.code === 0
+    const result = await execa(commands.checkImage, { shell: true, reject: false })
+    return result.exitCode === 0
   }
 
   if (process.platform !== 'darwin') {
