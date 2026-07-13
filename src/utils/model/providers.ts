@@ -1,6 +1,6 @@
 import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from '../../services/analytics/index.js'
 import { shouldUseCodexTransport } from '../../services/api/providerConfig.js'
-import { isEnvTruthy, getYwCoderEnv } from '../envUtils.js'
+import { isEnvTruthy } from '../envUtils.js'
 
 export type APIProvider =
   | 'firstParty'
@@ -12,31 +12,43 @@ export type APIProvider =
   | 'github'
   | 'codex'
 
-export function getAPIProvider(): APIProvider {
-  return isEnvTruthy(getYwCoderEnv('USE_GEMINI'))
+export function getAPIProvider(env: NodeJS.ProcessEnv = process.env): APIProvider {
+  // 最高优先级：显式要求走 Anthropic（YWCODER_USE_ANTHROPIC 是 ywcoder 自创，无旧名回退）
+  if (isEnvTruthy(env.YWCODER_USE_ANTHROPIC)) {
+    return 'firstParty'
+  }
+  // 其余各 provider 标志：优先新名 YWCODER_USE_*，回退旧名 CLAUDE_CODE_USE_*
+  return isEnvTruthy(env.YWCODER_USE_GEMINI ?? env.CLAUDE_CODE_USE_GEMINI)
     ? 'gemini'
-    : isEnvTruthy(getYwCoderEnv('USE_GITHUB'))
+    : isEnvTruthy(env.YWCODER_USE_GITHUB ?? env.CLAUDE_CODE_USE_GITHUB)
       ? 'github'
-      : isEnvTruthy(getYwCoderEnv('USE_OPENAI'))
-        ? isCodexModel()
+      : isEnvTruthy(env.YWCODER_USE_OPENAI ?? env.CLAUDE_CODE_USE_OPENAI)
+        ? isCodexModel(env)
           ? 'codex'
           : 'openai'
-        : isEnvTruthy(getYwCoderEnv('USE_BEDROCK'))
+        : isEnvTruthy(env.YWCODER_USE_BEDROCK ?? env.CLAUDE_CODE_USE_BEDROCK)
           ? 'bedrock'
-          : isEnvTruthy(getYwCoderEnv('USE_VERTEX'))
+          : isEnvTruthy(env.YWCODER_USE_VERTEX ?? env.CLAUDE_CODE_USE_VERTEX)
             ? 'vertex'
-            : isEnvTruthy(getYwCoderEnv('USE_FOUNDRY'))
+            : isEnvTruthy(env.YWCODER_USE_FOUNDRY ?? env.CLAUDE_CODE_USE_FOUNDRY)
               ? 'foundry'
-              : 'firstParty'
+              // 兜底：codex-aware，与显式设 USE_OPENAI 时行为一致
+              : isCodexModel(env) ? 'codex' : 'openai'
 }
 
 export function usesAnthropicAccountFlow(): boolean {
   return getAPIProvider() === 'firstParty'
 }
-function isCodexModel(): boolean {
+
+/** 是否使用 OpenAI 兼容协议（非 Anthropic 直连）。供各模块统一复用，避免散落正向 USE_OPENAI 检查 */
+export function isOpenAICompatibleProvider(): boolean {
+  return getAPIProvider() !== 'firstParty'
+}
+
+function isCodexModel(env: NodeJS.ProcessEnv = process.env): boolean {
   return shouldUseCodexTransport(
-    process.env.OPENAI_MODEL || '',
-    process.env.OPENAI_BASE_URL ?? process.env.OPENAI_API_BASE,
+    env.OPENAI_MODEL || '',
+    env.OPENAI_BASE_URL ?? env.OPENAI_API_BASE,
   )
 }
 

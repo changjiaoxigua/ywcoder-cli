@@ -10,6 +10,7 @@ import { getYwCoderEnv } from '../utils/envUtils.js'
 const originalEnv = { ...process.env }
 
 const RESET_KEYS = [
+  'YWCODER_USE_ANTHROPIC',
   'YWCODER_USE_OPENAI',
   'YWCODER_USE_GEMINI',
   'YWCODER_USE_GITHUB',
@@ -70,9 +71,10 @@ describe('parseProviderFlag', () => {
 // --- applyProviderFlag ---
 
 describe('applyProviderFlag - anthropic', () => {
-  test('sets no env vars for anthropic (default)', () => {
+  test('sets YWCODER_USE_ANTHROPIC=1 for anthropic provider', () => {
     const result = applyProviderFlag('anthropic', [])
     expect(result.error).toBeUndefined()
+    expect(process.env.YWCODER_USE_ANTHROPIC).toBe('1')
     expect(getYwCoderEnv('USE_OPENAI')).toBeUndefined()
     expect(getYwCoderEnv('USE_GEMINI')).toBeUndefined()
   })

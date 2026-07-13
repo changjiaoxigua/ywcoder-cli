@@ -434,6 +434,7 @@ export function hasExplicitProviderSelection(
   }
 
   return (
+    processEnv.YWCODER_USE_ANTHROPIC !== undefined ||
     readProviderFlag(processEnv, 'OPENAI') !== undefined ||
     readProviderFlag(processEnv, 'GITHUB') !== undefined ||
     readProviderFlag(processEnv, 'GEMINI') !== undefined ||

@@ -20,7 +20,7 @@ import { getActiveOpenAIModelOptionsCache, setActiveOpenAIModelOptionsCache } fr
 import { getDefaultMainLoopModelSetting, isOpus1mMergeEnabled, renderDefaultModelSetting } from '../../utils/model/model.js';
 import { isModelAllowed } from '../../utils/model/modelAllowlist.js';
 import { validateModel } from '../../utils/model/validateModel.js';
-import { getAdditionalModelOptionsCacheScope } from '../../services/api/providerConfig.js';
+import { getAdditionalModelOptionsCacheScope } from '../../utils/model/modelOptions.js';
 function ModelPickerWrapper(t0) {
   const $ = _c(17);
   const {

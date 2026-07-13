@@ -7,13 +7,8 @@ import {
   type GeminiResolvedCredential,
   resolveGeminiCredential,
 } from './geminiAuth.js'
+import { getAPIProvider } from './model/providers.js'
 import { redactSecretValueForDisplay } from './providerProfile.js'
-
-function isEnvTruthy(value: string | undefined): boolean {
-  if (!value) return false
-  const normalized = value.trim().toLowerCase()
-  return normalized !== '' && normalized !== '0' && normalized !== 'false' && normalized !== 'no'
-}
 
 export async function getProviderValidationError(
   env: NodeJS.ProcessEnv = process.env,
@@ -23,11 +18,12 @@ export async function getProviderValidationError(
     ) => Promise<GeminiResolvedCredential>
   },
 ): Promise<string | null> {
-  // 读取 provider 选择标志：优先新名 YWCODER_USE_*，回退旧名 CLAUDE_CODE_USE_*。
-  const useOpenAI = isEnvTruthy(env.YWCODER_USE_OPENAI ?? env.CLAUDE_CODE_USE_OPENAI)
-  const useGithub = isEnvTruthy(env.YWCODER_USE_GITHUB ?? env.CLAUDE_CODE_USE_GITHUB)
+  // provider 由 getAPIProvider(env) 统一推导，默认值翻转后 useOpenAI 仍能正确命中
+  const provider = getAPIProvider(env)
+  const useOpenAI = provider === 'openai' || provider === 'codex'
+  const useGithub = provider === 'github'
 
-  if (isEnvTruthy(env.YWCODER_USE_GEMINI ?? env.CLAUDE_CODE_USE_GEMINI)) {
+  if (provider === 'gemini') {
     const geminiCredential = await (
       options?.resolveGeminiCredential ?? resolveGeminiCredential
     )(env)
@@ -37,7 +33,7 @@ export async function getProviderValidationError(
     return null
   }
 
-  if (useGithub && !useOpenAI) {
+  if (useGithub) {
     const token = (env.GITHUB_TOKEN?.trim() || env.GH_TOKEN?.trim()) ?? ''
     if (!token) {
       return 'GITHUB_TOKEN or GH_TOKEN is required when YWCODER_USE_GITHUB=1.'
@@ -80,7 +76,7 @@ export async function getProviderValidationError(
     if (useGithub && hasGithubToken) {
       return null
     }
-    return 'OPENAI_API_KEY is required when YWCODER_USE_OPENAI=1 and OPENAI_BASE_URL is not local.'
+    return 'OPENAI_API_KEY is required for OpenAI-compatible providers when OPENAI_BASE_URL is not a local address.'
   }
 
   return null

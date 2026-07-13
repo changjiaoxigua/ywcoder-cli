@@ -86,6 +86,8 @@ describe('preconnectAnthropicApi', () => {
     delete process.env.CLAUDE_CODE_USE_VERTEX
     delete process.env.YWCODER_USE_FOUNDRY
     delete process.env.CLAUDE_CODE_USE_FOUNDRY
+    // 默认已是 openai，需显式设 ANTHROPIC 才走 firstParty
+    process.env.YWCODER_USE_ANTHROPIC = '1'
     // Clear proxy env vars that would cause preconnect to skip
     delete process.env.HTTPS_PROXY
     delete process.env.https_proxy

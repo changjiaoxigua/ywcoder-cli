@@ -175,11 +175,8 @@ export async function getAnthropicClient({
       providerOverride,
     }) as unknown as Anthropic
   }
-  if (
-    isEnvTruthy(getYwCoderEnv('USE_OPENAI')) ||
-    isEnvTruthy(getYwCoderEnv('USE_GITHUB')) ||
-    isEnvTruthy(getYwCoderEnv('USE_GEMINI'))
-  ) {
+  const provider = getAPIProvider()
+  if (provider === 'openai' || provider === 'codex' || provider === 'github' || provider === 'gemini') {
     const { createOpenAIShimClient } = await import('./openaiShim.js')
     return createOpenAIShimClient({
       defaultHeaders,

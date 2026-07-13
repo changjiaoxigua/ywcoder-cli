@@ -20,10 +20,8 @@ import {
   listOpenAICompatibleModels,
 } from '../../utils/providerDiscovery.js'
 import { getYwCoderUserAgent } from '../../utils/userAgent.js'
-import {
-  getAdditionalModelOptionsCacheScope,
-  resolveProviderRequest,
-} from './providerConfig.js'
+import { resolveProviderRequest } from './providerConfig.js'
+import { getAdditionalModelOptionsCacheScope } from '../../utils/model/modelOptions.js'
 
 const bootstrapResponseSchema = lazySchema(() =>
   z.object({

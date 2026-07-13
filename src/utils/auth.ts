@@ -114,13 +114,7 @@ export function isAnthropicAuthEnabled(): boolean {
     return !!getYwCoderEnv('OAUTH_TOKEN')
   }
 
-  const is3P =
-    isEnvTruthy(getYwCoderEnv('USE_BEDROCK')) ||
-    isEnvTruthy(getYwCoderEnv('USE_VERTEX')) ||
-    isEnvTruthy(getYwCoderEnv('USE_FOUNDRY')) ||
-    isEnvTruthy(getYwCoderEnv('USE_OPENAI')) ||
-    isEnvTruthy(getYwCoderEnv('USE_GEMINI')) ||
-    isEnvTruthy(getYwCoderEnv('USE_GITHUB'))
+  const is3P = getAPIProvider() !== 'firstParty'
 
   // Check if user has configured an external API key source
   // This allows externally-provided API keys to work (without requiring proxy configuration)
@@ -1735,16 +1729,9 @@ export function getSubscriptionName(): string {
   }
 }
 
-/** Check if using third-party services (Bedrock or Vertex or Foundry or OpenAI-compatible or Gemini or GitHub Models) */
+/** Check if using third-party services (非 Anthropic 直连时均为 3P）*/
 export function isUsing3PServices(): boolean {
-  return !!(
-    isEnvTruthy(getYwCoderEnv('USE_BEDROCK')) ||
-    isEnvTruthy(getYwCoderEnv('USE_VERTEX')) ||
-    isEnvTruthy(getYwCoderEnv('USE_FOUNDRY')) ||
-    isEnvTruthy(getYwCoderEnv('USE_OPENAI')) ||
-    isEnvTruthy(getYwCoderEnv('USE_GEMINI')) ||
-    isEnvTruthy(getYwCoderEnv('USE_GITHUB'))
-  )
+  return getAPIProvider() !== 'firstParty'
 }
 
 /**

@@ -1,9 +1,10 @@
 // biome-ignore-all assist/source/organizeImports: internal-only import markers must not be reordered
 import { CONTEXT_1M_BETA_HEADER } from '../constants/betas.js'
 import { getGlobalConfig } from './config.js'
-import { isEnvTruthy, getYwCoderEnv } from './envUtils.js'
+import { isEnvTruthy } from './envUtils.js'
 import { getCanonicalName } from './model/model.js'
 import { getModelCapability } from './model/modelCapabilities.js'
+import { isOpenAICompatibleProvider } from './model/providers.js'
 // 2026-05-10 方案A：内网环境下判断 provider 是否为本地地址，用于过滤硬编码模型
 import { isLocalProviderUrl } from '../services/api/providerConfig.js'
 import { getOpenAIContextWindow, getOpenAIMaxOutputTokens } from './model/openaiContextWindows.js'
@@ -94,11 +95,7 @@ export function getContextWindowForModel(
   }
 
   // OpenAI-compatible provider — use known context windows for the model
-  if (
-    isEnvTruthy(getYwCoderEnv('USE_OPENAI')) ||
-    isEnvTruthy(getYwCoderEnv('USE_GEMINI')) ||
-    isEnvTruthy(getYwCoderEnv('USE_GITHUB'))
-  ) {
+  if (isOpenAICompatibleProvider()) {
     // 2026-04-30 优先从网关自报告缓存读取 contextWindow（内网 context_length 自报告特性）
     const cached = findCachedModelOption(model)
     if (cached?.contextWindow && cached.contextWindow > 0) {
@@ -210,11 +207,7 @@ export function getModelMaxOutputTokens(model: string): {
   }
 
   // OpenAI-compatible provider — use known output limits to avoid 400 errors
-  if (
-    isEnvTruthy(getYwCoderEnv('USE_OPENAI')) ||
-    isEnvTruthy(getYwCoderEnv('USE_GEMINI')) ||
-    isEnvTruthy(getYwCoderEnv('USE_GITHUB'))
-  ) {
+  if (isOpenAICompatibleProvider()) {
     const openaiMax = getOpenAIMaxOutputTokens(model)
     if (openaiMax !== undefined) {
       return { default: openaiMax, upperLimit: openaiMax }

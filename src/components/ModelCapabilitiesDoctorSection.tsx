@@ -1,10 +1,8 @@
 // 2026-04-30 内网网关 context_length 自报告特性——/doctor 诊断段落
 import React from 'react'
 import { Box, Text } from '../ink.js'
-import {
-  getAdditionalModelOptionsCacheScope,
-  isLocalProviderUrl,
-} from '../services/api/providerConfig.js'
+import { isLocalProviderUrl } from '../services/api/providerConfig.js'
+import { getAdditionalModelOptionsCacheScope } from '../utils/model/modelOptions.js'
 import { getGlobalConfig } from '../utils/config.js'
 
 /**

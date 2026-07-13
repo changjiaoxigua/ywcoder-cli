@@ -8,7 +8,7 @@
  *   ywcoder --provider openai --model gpt-4o
  *   ywcoder --provider gemini --model gemini-2.0-flash
  *   ywcoder --provider ollama --model llama3.2
- *   ywcoder --provider anthropic   (default, no-op)
+ *   ywcoder --provider anthropic   (sets YWCODER_USE_ANTHROPIC=1，强制走 Anthropic 直连)
  */
 
 export const VALID_PROVIDERS = [
@@ -81,7 +81,8 @@ export function applyProviderFlag(
 
   switch (provider as ProviderFlagName) {
     case 'anthropic':
-      // Default — no env vars needed
+      // 显式要求走 Anthropic 直连（无旧名回退，因为上游不存在此变量）
+      process.env.YWCODER_USE_ANTHROPIC = '1'
       break
 
     case 'openai':

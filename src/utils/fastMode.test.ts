@@ -89,8 +89,8 @@ function installCommonMocks(options?: {
     parseUserSpecifiedModel: (model: string) => model,
   }))
 
-  // Note: providers.js is not mocked - tests rely on environment variables
-  // being unset so getAPIProvider() returns 'firstParty' by default
+  // Note: providers.js is not mocked - tests that need firstParty must
+  // explicitly set process.env.YWCODER_USE_ANTHROPIC='1' (default is now 'openai')
 
   mock.module('./privacyLevel.js', () => ({
     isEssentialTrafficOnly: () => false,
@@ -121,6 +121,7 @@ afterEach(async () => {
 describe('fastMode ant-only fallback cleanup', () => {
   test('resolveFastModeStatusFromCache does not force-enable from USER_TYPE=ant', async () => {
     process.env.USER_TYPE = 'ant'
+    process.env.YWCODER_USE_ANTHROPIC = '1'
     installCommonMocks({ cachedEnabled: false })
 
     const {
@@ -137,6 +138,7 @@ describe('fastMode ant-only fallback cleanup', () => {
 
   test('prefetchFastModeStatus without auth does not force-enable from USER_TYPE=ant', async () => {
     process.env.USER_TYPE = 'ant'
+    process.env.YWCODER_USE_ANTHROPIC = '1'
     installCommonMocks({ cachedEnabled: false, apiKey: null, oauthToken: null })
 
     const {
@@ -153,6 +155,7 @@ describe('fastMode ant-only fallback cleanup', () => {
 
   test('prefetchFastModeStatus network failure does not force-enable from USER_TYPE=ant', async () => {
     process.env.USER_TYPE = 'ant'
+    process.env.YWCODER_USE_ANTHROPIC = '1'
     installCommonMocks({
       cachedEnabled: false,
       apiKey: 'test-key',

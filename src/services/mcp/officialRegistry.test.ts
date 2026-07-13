@@ -49,6 +49,8 @@ describe('prefetchOfficialMcpUrls', () => {
     delete process.env.CLAUDE_CODE_USE_GEMINI
     delete process.env.YWCODER_USE_GITHUB
     delete process.env.CLAUDE_CODE_USE_GITHUB
+    // 默认已是 openai，需显式设 ANTHROPIC 才走 firstParty
+    process.env.YWCODER_USE_ANTHROPIC = '1'
 
     const getSpy = mock(() =>
       Promise.resolve({

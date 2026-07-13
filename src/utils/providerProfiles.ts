@@ -265,6 +265,7 @@ function hasProviderSelectionFlags(
   processEnv: NodeJS.ProcessEnv = process.env,
 ): boolean {
   return (
+    processEnv.YWCODER_USE_ANTHROPIC !== undefined ||
     readProviderFlag(processEnv, 'OPENAI') !== undefined ||
     readProviderFlag(processEnv, 'GEMINI') !== undefined ||
     readProviderFlag(processEnv, 'GITHUB') !== undefined ||
@@ -279,10 +280,19 @@ function hasConflictingProviderFlagsForProfile(
   profile: ProviderProfile,
 ): boolean {
   if (profile.provider === 'anthropic') {
-    return hasProviderSelectionFlags(processEnv)
+    // YWCODER_USE_ANTHROPIC 本身由 anthropic profile 设置，不算冲突；只检查其他 provider 标志
+    return (
+      readProviderFlag(processEnv, 'OPENAI') !== undefined ||
+      readProviderFlag(processEnv, 'GEMINI') !== undefined ||
+      readProviderFlag(processEnv, 'GITHUB') !== undefined ||
+      readProviderFlag(processEnv, 'BEDROCK') !== undefined ||
+      readProviderFlag(processEnv, 'VERTEX') !== undefined ||
+      readProviderFlag(processEnv, 'FOUNDRY') !== undefined
+    )
   }
 
   return (
+    processEnv.YWCODER_USE_ANTHROPIC !== undefined ||
     readProviderFlag(processEnv, 'GEMINI') !== undefined ||
     readProviderFlag(processEnv, 'GITHUB') !== undefined ||
     readProviderFlag(processEnv, 'BEDROCK') !== undefined ||
@@ -360,6 +370,7 @@ export function getActiveProviderProfile(
 export function clearProviderProfileEnvFromProcessEnv(
   processEnv: NodeJS.ProcessEnv = process.env,
 ): void {
+  delete processEnv.YWCODER_USE_ANTHROPIC
   delete processEnv.YWCODER_USE_OPENAI
   delete processEnv.CLAUDE_CODE_USE_OPENAI
   delete processEnv.YWCODER_USE_GEMINI
@@ -394,6 +405,8 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
 
   process.env.ANTHROPIC_MODEL = profile.model
   if (profile.provider === 'anthropic') {
+    // 显式标记走 Anthropic 直连，避免默认 openai 兜底覆盖 profile 意图
+    process.env.YWCODER_USE_ANTHROPIC = '1'
     process.env.ANTHROPIC_BASE_URL = profile.baseUrl
 
     if (profile.apiKey) {

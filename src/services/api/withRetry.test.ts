@@ -44,6 +44,7 @@ function setupProviderEnv(
     | 'foundry',
 ) {
   // Clear all provider flags first
+  delete process.env.YWCODER_USE_ANTHROPIC
   delete process.env.YWCODER_USE_OPENAI
   delete process.env.CLAUDE_CODE_USE_OPENAI
   delete process.env.YWCODER_USE_GEMINI
@@ -59,6 +60,9 @@ function setupProviderEnv(
 
   // Set the appropriate flag
   switch (provider) {
+    case 'firstParty':
+      process.env.YWCODER_USE_ANTHROPIC = '1'
+      break
     case 'openai':
     case 'codex':
       process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
@@ -78,9 +82,7 @@ function setupProviderEnv(
     case 'foundry':
       process.env.YWCODER_USE_FOUNDRY = process.env.CLAUDE_CODE_USE_FOUNDRY = '1'
       break
-    case 'firstParty':
     default:
-      // No flags set = firstParty
       break
   }
 }

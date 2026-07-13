@@ -1,7 +1,7 @@
 // biome-ignore-all assist/source/organizeImports: internal-only import markers must not be reordered
 import { getInitialMainLoopModel } from '../../bootstrap/state.js'
 // 2026-05-10 方案A：内网环境下判断 provider 是否为本地地址，用于过滤硬编码预设模型
-import { getAdditionalModelOptionsCacheScope, isLocalProviderUrl, resolveProviderRequest } from '../../services/api/providerConfig.js'
+import { isLocalProviderUrl, resolveProviderRequest } from '../../services/api/providerConfig.js'
 import {
   isYwCoderSubscriber,
   isMaxSubscriber,
@@ -706,4 +706,31 @@ function filterModelOptionsByAllowlist(options: ModelOption[]): ModelOption[] {
     seen.add(key)
     return true
   })
+}
+
+
+/**
+ * 从 providerConfig.ts 搬移（选项C），避免 providers.ts ⇄ providerConfig.ts 循环依赖。
+ * 返回当前 provider 对应的模型选项缓存 scope 标识：
+ *   - 'firstParty'        : Anthropic 直连
+ *   - 'openai:{baseUrl}'  : OpenAI 兼容本地地址（内网网关缓存场景）
+ *   - null                : 其余 provider（gemini/github/bedrock/vertex/foundry 及非本地 openai）
+ */
+export function getAdditionalModelOptionsCacheScope(): string | null {
+  const provider = getAPIProvider()
+  if (provider === 'firstParty') {
+    return 'firstParty'
+  }
+  // 非 OpenAI 兼容协议（bedrock/vertex/foundry/gemini/github）不走本地缓存
+  if (provider !== 'openai' && provider !== 'codex') {
+    return null
+  }
+  const request = resolveProviderRequest()
+  if (request.transport !== 'chat_completions') {
+    return null
+  }
+  if (!isLocalProviderUrl(request.baseUrl)) {
+    return null
+  }
+  return `openai:${request.baseUrl.toLowerCase()}`
 }

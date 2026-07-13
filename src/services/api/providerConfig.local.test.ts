@@ -2,10 +2,10 @@ import { afterEach, expect, test } from 'bun:test'
 
 import { getYwCoderEnv } from '../../utils/envUtils.js'
 import {
-  getAdditionalModelOptionsCacheScope,
   isLocalProviderUrl,
   resolveProviderRequest,
 } from './providerConfig.js'
+import { getAdditionalModelOptionsCacheScope } from '../../utils/model/modelOptions.js'
 
 const originalEnv = {
   CLAUDE_CODE_USE_OPENAI: getYwCoderEnv('USE_OPENAI'),

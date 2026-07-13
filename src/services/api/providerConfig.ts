@@ -344,30 +344,6 @@ export function resolveProviderRequest(options?: {
   }
 }
 
-export function getAdditionalModelOptionsCacheScope(): string | null {
-  if (!isEnvTruthy(getYwCoderEnv('USE_OPENAI'))) {
-    if (!isEnvTruthy(getYwCoderEnv('USE_GEMINI')) &&
-        !isEnvTruthy(getYwCoderEnv('USE_GITHUB')) &&
-        !isEnvTruthy(getYwCoderEnv('USE_BEDROCK')) &&
-        !isEnvTruthy(getYwCoderEnv('USE_VERTEX')) &&
-        !isEnvTruthy(getYwCoderEnv('USE_FOUNDRY'))) {
-      return 'firstParty'
-    }
-    return null
-  }
-
-  const request = resolveProviderRequest()
-  if (request.transport !== 'chat_completions') {
-    return null
-  }
-
-  if (!isLocalProviderUrl(request.baseUrl)) {
-    return null
-  }
-
-  return `openai:${request.baseUrl.toLowerCase()}`
-}
-
 export function resolveCodexAuthPath(
   env: NodeJS.ProcessEnv = process.env,
 ): string {

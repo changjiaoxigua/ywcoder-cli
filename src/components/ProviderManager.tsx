@@ -262,6 +262,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
   function clearStartupProviderOverrideFromUserSettings(): string | null {
     const { error } = updateSettingsForSource('userSettings', {
       env: {
+        YWCODER_USE_ANTHROPIC: undefined as any,
         YWCODER_USE_OPENAI: undefined as any,
         CLAUDE_CODE_USE_OPENAI: undefined as any,
         YWCODER_USE_GEMINI: undefined as any,
@@ -294,6 +295,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
         OPENAI_ORGANIZATION: undefined as any,
         OPENAI_BASE_URL: undefined as any,
         OPENAI_API_BASE: undefined as any,
+        YWCODER_USE_ANTHROPIC: undefined as any,
         YWCODER_USE_OPENAI: undefined as any,
         CLAUDE_CODE_USE_OPENAI: undefined as any,
         YWCODER_USE_GEMINI: undefined as any,
@@ -318,6 +320,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
     delete process.env.OPENAI_ORGANIZATION
     delete process.env.OPENAI_BASE_URL
     delete process.env.OPENAI_API_BASE
+    delete process.env.YWCODER_USE_ANTHROPIC
     delete process.env.YWCODER_USE_OPENAI
     delete process.env.CLAUDE_CODE_USE_OPENAI
     delete process.env.YWCODER_USE_GEMINI

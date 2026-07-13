@@ -2,6 +2,7 @@ import { afterEach, expect, test } from 'bun:test'
 import { getYwCoderEnv } from '../../utils/envUtils.js'
 
 const originalEnv = {
+  YWCODER_USE_ANTHROPIC: process.env.YWCODER_USE_ANTHROPIC,
   CLAUDE_CODE_USE_GEMINI: getYwCoderEnv('USE_GEMINI'),
   CLAUDE_CODE_USE_GITHUB: getYwCoderEnv('USE_GITHUB'),
   CLAUDE_CODE_USE_OPENAI: getYwCoderEnv('USE_OPENAI'),
@@ -14,6 +15,8 @@ const originalEnv = {
 }
 
 afterEach(() => {
+  if (originalEnv.YWCODER_USE_ANTHROPIC === undefined) delete process.env.YWCODER_USE_ANTHROPIC
+  else process.env.YWCODER_USE_ANTHROPIC = originalEnv.YWCODER_USE_ANTHROPIC
   process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = originalEnv.CLAUDE_CODE_USE_GEMINI
   process.env.YWCODER_USE_GITHUB = process.env.CLAUDE_CODE_USE_GITHUB = originalEnv.CLAUDE_CODE_USE_GITHUB
   process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = originalEnv.CLAUDE_CODE_USE_OPENAI
@@ -30,6 +33,7 @@ async function importFreshProvidersModule() {
 }
 
 function clearProviderEnv(): void {
+  delete process.env.YWCODER_USE_ANTHROPIC
   delete process.env.YWCODER_USE_GEMINI
   delete process.env.CLAUDE_CODE_USE_GEMINI
   delete process.env.YWCODER_USE_GITHUB
@@ -49,6 +53,7 @@ function clearProviderEnv(): void {
 
 test('first-party provider keeps Anthropic account setup flow enabled', () => {
   clearProviderEnv()
+  process.env.YWCODER_USE_ANTHROPIC = '1'
   return importFreshProvidersModule().then(
     ({ getAPIProvider, usesAnthropicAccountFlow }) => {
       expect(getAPIProvider()).toBe('firstParty')
