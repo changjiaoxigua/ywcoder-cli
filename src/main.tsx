@@ -117,6 +117,7 @@ import { safeParseJSON } from './utils/json.js';
 import { logError } from './utils/log.js';
 import { getModelDeprecationWarning } from './utils/model/deprecation.js';
 import { getDefaultMainLoopModel, getUserSpecifiedModelSetting, normalizeModelStringForAPI, parseUserSpecifiedModel } from './utils/model/model.js';
+import { getAPIProvider } from './utils/model/providers.js';
 import { ensureModelStringsInitialized } from './utils/model/modelStrings.js';
 import { PERMISSION_MODES } from './utils/permissions/PermissionMode.js';
 import { checkAndDisableBypassPermissions, getAutoModeEnabledStateIfCached, initializeToolPermissionContext, initialPermissionModeFromCLI, isDefaultPermissionModeAuto, parseToolListFromCLI, removeDangerousPermissions, stripDangerousPermissionsForAutoMode, verifyAutoModeGateAccess } from './utils/permissions/permissionSetup.js';
@@ -2314,10 +2315,14 @@ async function run(): Promise<CommanderCommand> {
         errors
       } = getSettingsWithErrors();
       const nonMcpErrors = errors.filter(e => !e.mcpErrorMetadata);
+      // 弹窗抑制范围维持历史 parity（openai/github，codex 旧时隐含依赖 USE_OPENAI）。
+      // 默认 provider 翻转为 openai 后不能再用正向 USE_OPENAI 环境变量检查，改由 getAPIProvider() 推导。
+      const settingsDialogProvider = getAPIProvider();
       if (
         nonMcpErrors.length > 0 &&
-        !isEnvTruthy(getYwCoderEnv('USE_OPENAI')) &&
-        !isEnvTruthy(getYwCoderEnv('USE_GITHUB'))
+        settingsDialogProvider !== 'openai' &&
+        settingsDialogProvider !== 'codex' &&
+        settingsDialogProvider !== 'github'
       ) {
         await launchInvalidSettingsDialog(root, {
           settingsErrors: nonMcpErrors,
