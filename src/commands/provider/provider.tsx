@@ -19,6 +19,7 @@ import {
   resolveCodexApiCredentials,
   resolveProviderRequest,
 } from '../../services/api/providerConfig.js'
+import { getAPIProvider } from '../../utils/model/providers.js'
 import {
   buildCodexProfileEnv,
   buildGeminiProfileEnv,
@@ -197,7 +198,8 @@ export function buildCurrentProviderSummary(options?: {
     }
   }
 
-  if (isEnvTruthy(processEnv.YWCODER_USE_OPENAI ?? processEnv.CLAUDE_CODE_USE_OPENAI)) {
+  const provider = getAPIProvider(processEnv)
+  if (provider === 'openai' || provider === 'codex') {
     const request = resolveProviderRequest({
       model: processEnv.OPENAI_MODEL,
       baseUrl: processEnv.OPENAI_BASE_URL,

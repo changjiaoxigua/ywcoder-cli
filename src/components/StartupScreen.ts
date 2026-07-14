@@ -5,6 +5,7 @@
 
 import { isLocalProviderUrl } from '../services/api/providerConfig.js'
 import { getYwCoderEnv } from '../utils/envUtils.js'
+import { getAPIProvider } from '../utils/model/providers.js'
 import { getLocalOpenAICompatibleProviderLabel } from '../utils/providerDiscovery.js'
 
 declare const MACRO: { VERSION: string; DISPLAY_VERSION?: string }
@@ -56,7 +57,8 @@ const LOGO_LINES = [
 function detectProvider(): { name: string; model: string; baseUrl: string; isLocal: boolean } {
   const useGemini = getYwCoderEnv('USE_GEMINI') === '1' || getYwCoderEnv('USE_GEMINI') === 'true'
   const useGithub = getYwCoderEnv('USE_GITHUB') === '1' || getYwCoderEnv('USE_GITHUB') === 'true'
-  const useOpenAI = getYwCoderEnv('USE_OPENAI') === '1' || getYwCoderEnv('USE_OPENAI') === 'true'
+  const provider = getAPIProvider()
+  const useOpenAI = provider === 'openai' || provider === 'codex'
 
   if (useGemini) {
     return {
