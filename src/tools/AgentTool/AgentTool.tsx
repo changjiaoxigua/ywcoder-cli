@@ -25,7 +25,7 @@ import type { CacheSafeParams } from '../../utils/forkedAgent.js';
 import { lazySchema } from '../../utils/lazySchema.js';
 import { createUserMessage, extractTextContent, isSyntheticMessage, normalizeMessages } from '../../utils/messages.js';
 import { getAgentModel } from '../../utils/model/agent.js';
-import { getAPIProvider } from '../../utils/model/providers.js';
+import { isOpenAICompatibleProvider } from '../../utils/model/providers.js';
 import { permissionModeSchema } from '../../utils/permissions/PermissionMode.js';
 import type { PermissionResult } from '../../utils/permissions/PermissionResult.js';
 import { filterDeniedAgents, getDenyRuleForAgent } from '../../utils/permissions/permissions.js';
@@ -97,7 +97,14 @@ const fullInputSchema = lazySchema(() => {
     mode: permissionModeSchema().optional().describe('Permission mode for spawned teammate (e.g., "plan" to require plan approval).')
   });
   return baseInputSchema().merge(multiAgentInputSchema).extend({
-    isolation: ("external" === 'ant' ? z.enum(['worktree', 'remote']) : z.enum(['worktree'])).optional().describe("external" === 'ant' ? 'Isolation mode. "worktree" creates a temporary git worktree so the agent works on an isolated copy of the repo. "remote" launches the agent in a remote CCR environment (always runs in background).' : 'Isolation mode. "worktree" creates a temporary git worktree so the agent works on an isolated copy of the repo.'),
+    isolation: (() => {
+      const isAnt = "external" === 'ant';
+      const allowed = isAnt ? ['worktree', 'remote'] as const : ['worktree'] as const;
+      return z.preprocess(
+        v => (typeof v === 'string' && (allowed as readonly string[]).includes(v) ? v : undefined),
+        (isAnt ? z.enum(['worktree', 'remote']) : z.enum(['worktree'])).optional()
+      ).describe(isAnt ? 'Isolation mode. "worktree" creates a temporary git worktree so the agent works on an isolated copy of the repo. "remote" launches the agent in a remote CCR environment (always runs in background).' : 'Isolation mode. "worktree" creates a temporary git worktree so the agent works on an isolated copy of the repo.');
+    })(),
     cwd: z.string().optional().describe('Absolute path to run the agent in. Overrides the working directory for all filesystem and shell operations within this agent. Mutually exclusive with isolation: "worktree".')
   });
 });
@@ -124,10 +131,12 @@ export const inputSchema = lazySchema(() => {
     run_in_background: true
   }) : schema;
 
-  // openai provider 为内网单模型场景：向 LLM 隐藏 model 参数，避免其主动传入
-  // Anthropic 别名（sonnet/haiku/opus），导致工具调用显示混乱或别名解析到
-  // 内网不存在的模型。
-  return getAPIProvider() === 'openai' ? schemaWithBg.omit({ model: true }) : schemaWithBg;
+  // 所有非 Anthropic 直连 provider（openai/codex/gemini/github）均为内网无
+  // Anthropic 系列模型的场景：向 LLM 隐藏 model 参数，避免其主动传入 Anthropic
+  // 别名（sonnet/haiku/opus）或被 strict 逼填 "none"，导致工具调用显示混乱或
+  // 别名/非法值解析失败。此处用 isOpenAICompatibleProvider() 而非 === 'openai'，
+  // 以覆盖 codex/gemini/github（原窄判会漏掉这几个 provider）。
+  return isOpenAICompatibleProvider() ? schemaWithBg.omit({ model: true }) : schemaWithBg;
 });
 type InputSchema = ReturnType<typeof inputSchema>;
 
