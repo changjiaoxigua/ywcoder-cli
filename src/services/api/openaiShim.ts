@@ -203,7 +203,8 @@ function convertContentBlocks(
 
 function isGeminiMode(): boolean {
   return (
-    isEnvTruthy(process.env.CLAUDE_CODE_USE_GEMINI) ||
+    // 新名 YWCODER_USE_GEMINI 优先，回退旧名 CLAUDE_CODE_USE_GEMINI（品牌迁移兼容）
+    isEnvTruthy(getYwCoderEnv('USE_GEMINI')) ||
     (process.env.OPENAI_BASE_URL?.includes('generativelanguage.googleapis.com') ??
       false)
   )

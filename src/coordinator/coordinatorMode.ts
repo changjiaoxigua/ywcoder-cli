@@ -63,7 +63,7 @@ export function matchSessionMode(
 
   // Flip the env var — isCoordinatorMode() reads it live, no caching
   if (sessionIsCoordinator) {
-    process.env.YWCODER_COORDINATOR_MODE = process.env.CLAUDE_CODE_COORDINATOR_MODE = '1'
+    process.env.YWCODER_COORDINATOR_MODE = '1'
   } else {
     delete process.env.YWCODER_COORDINATOR_MODE
     delete process.env.CLAUDE_CODE_COORDINATOR_MODE

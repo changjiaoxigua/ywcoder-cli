@@ -1,9 +1,9 @@
 // YwCoder: disable experimental API betas by default.
 // Tool search (defer_loading), global cache scope, and context management
 // require internal API support not available to external accounts → 500.
-// Users can opt-in with CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=false.
+// Users can opt-in with YWCODER_DISABLE_EXPERIMENTAL_BETAS=false（旧名 CLAUDE_CODE_ 仍作入站回退读取）。
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
-process.env.YWCODER_DISABLE_EXPERIMENTAL_BETAS ??= process.env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS ??= 'true'
+process.env.YWCODER_DISABLE_EXPERIMENTAL_BETAS ??= process.env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS ?? 'true'
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'

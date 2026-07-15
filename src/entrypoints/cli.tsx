@@ -51,9 +51,9 @@ if (typeof globalThis.crypto === 'undefined') {
 // YwCoder: disable experimental API betas by default.
 // Tool search (defer_loading), global cache scope, and context management
 // require internal API support not available to external accounts → 500.
-// Users can opt-in with CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=false.
+// Users can opt-in with YWCODER_DISABLE_EXPERIMENTAL_BETAS=false（旧名 CLAUDE_CODE_ 仍作入站回退读取）。
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
-process.env.YWCODER_DISABLE_EXPERIMENTAL_BETAS ??= process.env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS ??= 'true'
+process.env.YWCODER_DISABLE_EXPERIMENTAL_BETAS ??= process.env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS ?? 'true'
 
 // Bugfix for corepack auto-pinning, which adds yarnpkg to peoples' package.jsons
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
@@ -407,7 +407,7 @@ async function main(): Promise<void> {
   // --bare: set SIMPLE early so gates fire during module eval / commander
   // option building (not just inside the action handler).
   if (args.includes('--bare')) {
-    process.env.YWCODER_SIMPLE = process.env.CLAUDE_CODE_SIMPLE = '1';
+    process.env.YWCODER_SIMPLE = '1';
   }
 
   // No special flags detected, load and run the full CLI

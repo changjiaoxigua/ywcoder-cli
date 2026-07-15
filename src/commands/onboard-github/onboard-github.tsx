@@ -84,8 +84,8 @@ export function applyGithubOnboardingProcessEnv(
   model: string,
   env: NodeJS.ProcessEnv = process.env,
 ): void {
-  // 运行时 process.env 双写新+旧名（不可见兜底，兼容尚未迁移的读取点）
-  env.YWCODER_USE_GITHUB = env.CLAUDE_CODE_USE_GITHUB = '1'
+  // 运行时只写新名 YWCODER_USE_GITHUB；读取端统一走 getYwCoderEnv 回退
+  env.YWCODER_USE_GITHUB = '1'
   env.OPENAI_MODEL = model
 
   delete env.OPENAI_API_KEY

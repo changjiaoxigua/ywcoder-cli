@@ -137,5 +137,5 @@ export function getSessionIngressAuthHeaders(): Record<string, string> {
  * without restarting the process.
  */
 export function updateSessionIngressAuthToken(token: string): void {
-  process.env.YWCODER_SESSION_ACCESS_TOKEN = process.env.CLAUDE_CODE_SESSION_ACCESS_TOKEN = token
+  process.env.YWCODER_SESSION_ACCESS_TOKEN = token
 }

@@ -312,7 +312,7 @@ export function ProviderManager({ mode, onDone }: Props): React.ReactNode {
       return error.message
     }
 
-    process.env.YWCODER_USE_GITHUB = process.env.CLAUDE_CODE_USE_GITHUB = '1'
+    process.env.YWCODER_USE_GITHUB = '1'
     process.env.OPENAI_MODEL = GITHUB_PROVIDER_DEFAULT_MODEL
     delete process.env.OPENAI_API_KEY
     delete process.env.OPENAI_ORG

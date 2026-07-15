@@ -400,8 +400,8 @@ export function clearProviderProfileEnvFromProcessEnv(
 
 export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void {
   clearProviderProfileEnvFromProcessEnv()
-  process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED = process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED = '1'
-  process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED_ID = process.env.CLAUDE_CODE_PROVIDER_PROFILE_ENV_APPLIED_ID = profile.id
+  process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED = '1'
+  process.env.YWCODER_PROVIDER_PROFILE_ENV_APPLIED_ID = profile.id
 
   process.env.ANTHROPIC_MODEL = profile.model
   if (profile.provider === 'anthropic') {
@@ -422,7 +422,7 @@ export function applyProviderProfileToProcessEnv(profile: ProviderProfile): void
     return
   }
 
-  process.env.YWCODER_USE_OPENAI = process.env.CLAUDE_CODE_USE_OPENAI = '1'
+  process.env.YWCODER_USE_OPENAI = '1'
   process.env.OPENAI_BASE_URL = profile.baseUrl
   process.env.OPENAI_MODEL = profile.model
 

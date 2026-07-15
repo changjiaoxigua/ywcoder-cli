@@ -526,11 +526,11 @@ function initializeEntrypoint(isNonInteractive: boolean): void {
   // Check for MCP serve command (handle flags before mcp serve, e.g., --debug mcp serve)
   const mcpIndex = cliArgs.indexOf('mcp');
   if (mcpIndex !== -1 && cliArgs[mcpIndex + 1] === 'serve') {
-    process.env.YWCODER_ENTRYPOINT = process.env.CLAUDE_CODE_ENTRYPOINT = 'mcp';
+    process.env.YWCODER_ENTRYPOINT = 'mcp';
     return;
   }
   if (isEnvTruthy(getYwCoderEnv('ACTION'))) {
-    process.env.YWCODER_ENTRYPOINT = process.env.CLAUDE_CODE_ENTRYPOINT = 'claude-code-github-action';
+    process.env.YWCODER_ENTRYPOINT = 'claude-code-github-action';
     return;
   }
 
@@ -538,7 +538,7 @@ function initializeEntrypoint(isNonInteractive: boolean): void {
   // via CLAUDE_CODE_ENTRYPOINT env var (handled by early return above)
 
   // Set based on interactive status
-  process.env.YWCODER_ENTRYPOINT = process.env.CLAUDE_CODE_ENTRYPOINT = isNonInteractive ? 'sdk-cli' : 'cli';
+  process.env.YWCODER_ENTRYPOINT = isNonInteractive ? 'sdk-cli' : 'cli';
 }
 
 // Set by early argv processing when `claude open <url>` is detected (interactive mode only)
@@ -1007,7 +1007,7 @@ async function run(): Promise<CommanderCommand> {
     if ((options as {
       bare?: boolean;
     }).bare) {
-      process.env.YWCODER_SIMPLE = process.env.CLAUDE_CODE_SIMPLE = '1';
+      process.env.YWCODER_SIMPLE = '1';
     }
 
     // Ignore "code" as a prompt - treat it the same as no prompt
@@ -1109,7 +1109,7 @@ async function run(): Promise<CommanderCommand> {
     const agentsJson = options.agents;
     const agentCli = options.agent;
     if (feature('BG_SESSIONS') && agentCli) {
-      process.env.YWCODER_AGENT = process.env.CLAUDE_CODE_AGENT = agentCli;
+      process.env.YWCODER_AGENT = agentCli;
     }
 
     // NOTE: LSP manager initialization is intentionally deferred until after
@@ -1134,7 +1134,7 @@ async function run(): Promise<CommanderCommand> {
     }).tasks;
     const taskListId = tasksOption ? typeof tasksOption === 'string' ? tasksOption : DEFAULT_TASKS_MODE_TASK_LIST_ID : undefined;
     if ("external" === 'ant' && taskListId) {
-      process.env.YWCODER_TASK_LIST_ID = process.env.CLAUDE_CODE_TASK_LIST_ID = taskListId;
+      process.env.YWCODER_TASK_LIST_ID = taskListId;
     }
 
     // Extract worktree option
