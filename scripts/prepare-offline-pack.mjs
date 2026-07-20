@@ -104,25 +104,37 @@ execSync('npm install --omit=dev --no-package-lock', {
 // 不走 npm install：@img/sharp-linux-arm64 的 package.json 带有 "cpu":["arm64"]，
 // npm 在 x64 runner 上会拒绝安装（CPU 不匹配）。
 // 改为直接从 npm registry 下载 tarball 解压，完全绕过平台校验。
-if (process.platform === 'linux') {
-  const sharpPkg = JSON.parse(
-    readFileSync(join(PACK_TEMP_DIR, 'node_modules', 'sharp', 'package.json'), 'utf8'),
-  )
-  const arm64Pkgs = [
-    { name: '@img/sharp-linux-arm64',        version: sharpPkg.optionalDependencies['@img/sharp-linux-arm64'] },
-    { name: '@img/sharp-libvips-linux-arm64', version: sharpPkg.optionalDependencies['@img/sharp-libvips-linux-arm64'] },
-  ]
+const sharpPkg = JSON.parse(
+  readFileSync(join(PACK_TEMP_DIR, 'node_modules', 'sharp', 'package.json'), 'utf8'),
+)
 
-  for (const { name, version } of arm64Pkgs) {
-    const [scope, pkgName] = name.split('/')
-    // npm registry tarball 格式：https://registry.npmjs.org/@scope/pkg/-/pkg-version.tgz
-    const tarballUrl = `https://registry.npmjs.org/${scope}/${pkgName}/-/${pkgName}-${version}.tgz`
-    const destDir = join(PACK_TEMP_DIR, 'node_modules', scope, pkgName)
-    log(`下载 ${name}@${version} ...`)
-    mkdirSync(destDir, { recursive: true })
-    execSync(`curl -fsSL "${tarballUrl}" | tar -xz --strip-components=1 -C "${destDir}"`, { stdio: 'inherit' })
-    log(`已解压 ${name} → node_modules`)
-  }
+const extraSharpPkgs = []
+
+if (process.platform === 'linux') {
+  extraSharpPkgs.push(
+    { name: '@img/sharp-linux-arm64',         version: sharpPkg.optionalDependencies['@img/sharp-linux-arm64'] },
+    { name: '@img/sharp-libvips-linux-arm64', version: sharpPkg.optionalDependencies['@img/sharp-libvips-linux-arm64'] },
+  )
+}
+
+// 构建通用包时（通过 PACK_INCLUDE_WINDOWS_SHARP=1 标记），额外补充 Windows x64 的 sharp 原生包，
+// 使同一个 tgz 在 Windows 离线环境也能正常使用图片处理功能。
+// npm install 在 Linux 上不会自动安装 Windows 平台包，同样直接下载 tarball 绕过平台校验。
+if (process.env.PACK_INCLUDE_WINDOWS_SHARP === '1') {
+  extraSharpPkgs.push(
+    { name: '@img/sharp-win32-x64', version: sharpPkg.optionalDependencies['@img/sharp-win32-x64'] },
+  )
+}
+
+for (const { name, version } of extraSharpPkgs) {
+  const [scope, pkgName] = name.split('/')
+  // npm registry tarball 格式：https://registry.npmjs.org/@scope/pkg/-/pkg-version.tgz
+  const tarballUrl = `https://registry.npmjs.org/${scope}/${pkgName}/-/${pkgName}-${version}.tgz`
+  const destDir = join(PACK_TEMP_DIR, 'node_modules', scope, pkgName)
+  log(`下载 ${name}@${version} ...`)
+  mkdirSync(destDir, { recursive: true })
+  execSync(`curl -fsSL "${tarballUrl}" | tar -xz --strip-components=1 -C "${destDir}"`, { stdio: 'inherit' })
+  log(`已解压 ${name} → node_modules`)
 }
 
 // Step 3: move the minimal node_modules into the project root

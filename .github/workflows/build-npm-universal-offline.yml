@@ -1,0 +1,164 @@
+name: Build NPM Universal Offline Package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-npm-universal-offline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Determine build channel
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            BUILD_CHANNEL=release
+            VERSION_SUFFIX=""
+          else
+            BUILD_CHANNEL=dev
+            VERSION_SUFFIX="-dev.${GITHUB_SHA::7}"
+          fi
+          echo "BUILD_CHANNEL=$BUILD_CHANNEL" >> $GITHUB_ENV
+          echo "VERSION_SUFFIX=$VERSION_SUFFIX" >> $GITHUB_ENV
+
+          # 从 package.json 读取基础版本号，拼接完整显示版本
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          DISPLAY_VERSION="${BASE_VERSION}${VERSION_SUFFIX}"
+          echo "DISPLAY_VERSION=$DISPLAY_VERSION" >> $GITHUB_ENV
+          echo "构建通道: $BUILD_CHANNEL, 显示版本: $DISPLAY_VERSION"
+
+      - name: Set up Node.js 18.20.0
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '18.20.0'
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@4bc047ad259df6fc24a6c9b0f9a0cb08cf17fbe5 # v2.0.1
+        with:
+          bun-version: 1.3.11
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: bun run build
+
+      - name: Download ripgrep for Windows and Linux
+        run: |
+          RG_VERSION="14.1.0"
+          mkdir -p vendor/ripgrep/x64-win32 vendor/ripgrep/x64-linux vendor/ripgrep/arm64-linux
+
+          # 下载 Linux x64 ripgrep（musl 静态链接，兼容绝大多数 Linux 发行版）
+          echo "正在下载 ripgrep ${RG_VERSION} for Linux x64..."
+          curl -fsSL -o rg-linux-x64.tar.gz \
+            "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          mkdir -p rg-tmp-linux-x64
+          tar -xzf rg-linux-x64.tar.gz -C rg-tmp-linux-x64
+          RG_BIN=$(find rg-tmp-linux-x64 -name "rg" -type f | head -n 1)
+          if [ -z "${RG_BIN}" ]; then
+            echo "错误：未在 Linux x64 解压目录中找到 rg 二进制文件"
+            exit 1
+          fi
+          cp "${RG_BIN}" vendor/ripgrep/x64-linux/rg
+          chmod +x vendor/ripgrep/x64-linux/rg
+          rm -f rg-linux-x64.tar.gz
+          rm -rf rg-tmp-linux-x64
+          echo "已安装 Linux x64 rg"
+
+          # 下载 Linux arm64 ripgrep
+          echo "正在下载 ripgrep ${RG_VERSION} for Linux arm64..."
+          curl -fsSL -o rg-linux-arm64.tar.gz \
+            "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-aarch64-unknown-linux-gnu.tar.gz"
+          mkdir -p rg-tmp-linux-arm64
+          tar -xzf rg-linux-arm64.tar.gz -C rg-tmp-linux-arm64
+          RG_BIN=$(find rg-tmp-linux-arm64 -name "rg" -type f | head -n 1)
+          if [ -z "${RG_BIN}" ]; then
+            echo "错误：未在 Linux arm64 解压目录中找到 rg 二进制文件"
+            exit 1
+          fi
+          cp "${RG_BIN}" vendor/ripgrep/arm64-linux/rg
+          chmod +x vendor/ripgrep/arm64-linux/rg
+          rm -f rg-linux-arm64.tar.gz
+          rm -rf rg-tmp-linux-arm64
+          echo "已安装 Linux arm64 rg"
+
+          # 下载 Windows x64 ripgrep
+          echo "正在下载 ripgrep ${RG_VERSION} for Windows x64..."
+          curl -fsSL -o rg-windows.zip \
+            "https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/ripgrep-${RG_VERSION}-x86_64-pc-windows-msvc.zip"
+          mkdir -p rg-tmp-windows
+          unzip -q rg-windows.zip -d rg-tmp-windows
+          RG_EXE=$(find rg-tmp-windows -name "rg.exe" -type f | head -n 1)
+          if [ -z "${RG_EXE}" ]; then
+            echo "错误：未在 Windows 解压目录中找到 rg.exe 二进制文件"
+            exit 1
+          fi
+          cp "${RG_EXE}" vendor/ripgrep/x64-win32/rg.exe
+          rm -f rg-windows.zip
+          rm -rf rg-tmp-windows
+          echo "已安装 Windows x64 rg.exe"
+
+          # 显示 vendor 目录结构
+          echo "Vendor 目录结构："
+          find vendor/ -type f
+
+      - name: Copy vendor to dist for ripgrep path resolution
+        run: |
+          # ripgrep.ts 期望 vendor 位于 dist/vendor/ripgrep
+          # 将 vendor 目录复制到 dist/ 使路径解析正常工作
+          cp -r vendor dist/vendor
+          echo "已将 vendor 复制到 dist/ 目录"
+          find dist/vendor/ -type f
+
+      - name: Prepare minimal node_modules for offline packing
+        env:
+          PACK_INCLUDE_WINDOWS_SHARP: '1'
+        run: node scripts/prepare-offline-pack.mjs
+
+      - name: Pack npm package
+        run: npm pack --ignore-scripts
+
+      - name: Rename package with version and platform
+        run: |
+          ARTIFACT_NAME="ywcoder-${DISPLAY_VERSION}-win-linux-universal.tgz"
+          mv dcywzc-ywcoder-*.tgz "$ARTIFACT_NAME"
+          echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
+          echo "产物文件: $ARTIFACT_NAME"
+          ls -lh "$ARTIFACT_NAME" | awk '{printf "%s  %.2f MB\n", $NF, $5/1024/1024}'
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ywcoder-${{ env.DISPLAY_VERSION }}-win-linux-universal
+          path: ${{ env.ARTIFACT_NAME }}
+          retention-days: 30
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        with:
+          files: ${{ env.ARTIFACT_NAME }}
+
+      - name: Show install instructions
+        run: |
+          echo ""
+          echo "========================================"
+          echo "通用离线安装包构建成功！"
+          echo "========================================"
+          echo ""
+          echo "版本: ${DISPLAY_VERSION} (通道: ${BUILD_CHANNEL})"
+          echo ""
+          echo "支持平台: Windows x64 / Linux x64 / Linux arm64"
+          echo ""
+          echo "说明与限制："
+          echo "  - Linux 为 glibc 版本，不支持 musl 发行版（如 Alpine）。"
+          echo "  - Windows 仅支持 x64，不支持 Windows arm64。"
+          echo ""
+          echo "在离线环境中安装方式："
+          echo "  npm install -g ${ARTIFACT_NAME}"
+          echo ""
