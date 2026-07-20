@@ -2,6 +2,9 @@ name: Build NPM Universal Offline Package
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/default-provider-openai
 
 permissions:
   contents: write
