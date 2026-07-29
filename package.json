@@ -53,14 +53,14 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "sharp": "^0.34.5",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/api-logs": "0.214.0",
     "@opentelemetry/resources": "2.6.1",
     "@opentelemetry/sdk-logs": "0.214.0",
     "@opentelemetry/sdk-metrics": "2.6.1",
     "@opentelemetry/sdk-trace-base": "2.6.1",
-    "@opentelemetry/semantic-conventions": "1.40.0"
+    "@opentelemetry/semantic-conventions": "1.40.0",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@alcalzone/ansi-tokenize": "0.3.0",
@@ -160,6 +160,22 @@
     "lodash-es": "4.18.1"
   },
   "bundledDependencies": [
+    "@img/colour",
+    "@img/sharp-darwin-arm64",
+    "@img/sharp-libvips-darwin-arm64",
+    "@opentelemetry/api",
+    "@opentelemetry/api-logs",
+    "@opentelemetry/core",
+    "@opentelemetry/resources",
+    "@opentelemetry/sdk-logs",
+    "@opentelemetry/sdk-metrics",
+    "@opentelemetry/sdk-trace-base",
+    "@opentelemetry/semantic-conventions",
+    "detect-libc",
+    "semver",
+    "sharp"
+  ],
+  "bundleDependencies": [
     "@img/colour",
     "@img/sharp-darwin-arm64",
     "@img/sharp-libvips-darwin-arm64",

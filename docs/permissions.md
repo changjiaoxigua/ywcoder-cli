@@ -148,7 +148,142 @@ ywcoder --dangerously-skip-permissions
 
 ---
 
-## 五、模式细节
+## 五、常用 `permissions.allow` 配置参考
+
+以下配置按风险由低到高排列，放在 `settings.json` 的 `permissions` 字段中即可。
+
+> 注意：`Bash` 规则中，`Bash(ls:*)` 表示命令以 `ls` 开头并跟随任意参数（如 `ls -la`、`ls src/`），等价于日常写法 `Bash(ls *)`；`Bash(pip list)` 表示精确匹配整条命令。
+
+### 1. 只读审查（最低风险）
+
+适合查看代码、日志、依赖，不做任何修改：
+
+```json
+{
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Read",
+      "Bash(git:*)",
+      "Bash(git status)",
+      "Bash(git log)",
+      "Bash(git diff)",
+      "Bash(git branch)",
+      "Bash(git show)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(pip list)",
+      "mcp__playwright__navigate",
+      "mcp__playwright__screenshot"
+    ]
+  }
+}
+```
+
+### 2. 日常开发（推荐）
+
+覆盖本项目常用的构建、测试与代码编辑操作：
+
+```json
+{
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Read",
+      "Bash(git:*)",
+      "Bash(bun install)",
+      "Bash(bun run build)",
+      "Bash(bun run test)",
+      "Bash(bun run dev)",
+      "Bash(bun run smoke)",
+      "Bash(bun test)",
+      "Bash(npm run test)",
+      "Bash(npm run build)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(pip list)",
+      "Edit(src/**)",
+      "Edit(scripts/**)",
+      "Edit(package.json)",
+      "Edit(tsconfig.json)",
+      "Edit(docs/**)"
+    ]
+  }
+}
+```
+
+### 3. 自动接受编辑
+
+适合需要大量修改文件但希望保留对命令的询问：
+
+```json
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Read",
+      "Edit",
+      "Bash(git:*)",
+      "Bash(bun run test)",
+      "Bash(bun run build)"
+    ]
+  }
+}
+```
+
+### 4. `dontAsk` 严格白名单（CI / 批处理）
+
+未命中 `allow` 的操作会被直接拒绝，建议用 `deny` 兜底高危命令：
+
+```json
+{
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "allow": [
+      "Read",
+      "Edit(src/**)",
+      "Edit(scripts/**)",
+      "Edit(package.json)",
+      "Edit(tsconfig.json)",
+      "Edit(docs/**)",
+      "Bash(git status)",
+      "Bash(git add)",
+      "Bash(git diff)",
+      "Bash(git log)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(pip list)",
+      "Bash(bun run test)",
+      "Bash(bun run build)",
+      "Bash(bun run smoke)",
+      "mcp__playwright__*"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(sudo:*)",
+      "Write(/etc/*)",
+      "Write(~/.ssh/*)"
+    ]
+  }
+}
+```
+
+### MCP Playwright 说明
+
+Playwright MCP 工具名格式为 `mcp__playwright__<tool>`，常见只读工具包括：
+
+- `mcp__playwright__navigate`：打开页面
+- `mcp__playwright__screenshot`：截图
+- `mcp__playwright__get_text`：获取页面文本
+- `mcp__playwright__evaluate`：执行页面脚本
+
+如需放行整个 Playwright server，可使用 `mcp__playwright__*`；如需仅放行只读操作，建议单独列出上述工具。
+
+### 关于 `Bash(*)` 的提醒
+
+配置 `Bash` 或 `Bash(*)` 会被安全机制视为过度宽泛而剥离。建议按命令前缀精确放行，例如 `Bash(git:*)`、`Bash(bun:*)`，而不是无条件允许所有命令。
+
+## 六、模式细节
 
 ### `dontAsk` 模式
 
@@ -171,7 +306,7 @@ ywcoder --dangerously-skip-permissions
 
 ---
 
-## 六、运行时切换模式
+## 七、运行时切换模式
 
 在交互式会话中，可以通过斜杠命令切换模式：
 
@@ -186,7 +321,7 @@ ywcoder --dangerously-skip-permissions
 
 ---
 
-## 七、相关文件位置
+## 八、相关文件位置
 
 - 源码：`src/utils/permissions/`
 - 模式定义：`src/types/permissions.ts`

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YwCoder URL 残留补充审查</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="hljs-theme">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #faf8f5;
+      --text: #1a1a1a;
+      --muted: #6b6560;
+      --accent: #c45c26;
+      --card: #ffffff;
+      --border: #e5e0d8;
+      --sidebar: #f5f2ee;
+      --hover: #ede9e4;
+      --code-bg: #1e1e1e;
+      --code-text: #e8e4df;
+    }
+    .dark {
+      --bg: #161412;
+      --text: #e8e4df;
+      --muted: #a8a19a;
+      --accent: #e87a3e;
+      --card: #1f1c19;
+      --border: #2e2a25;
+      --sidebar: #1c1916;
+      --hover: #2a2621;
+      --code-bg: #1e1e1e;
+      --code-text: #e8e4df;
+    }
+    body {
+      font-family: 'DM Sans', 'Noto Serif SC', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+    h1, h2, h3, h4, h5, h6 { font-family: 'Noto Serif SC', serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+    .content-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .content-area h2 { font-size: 1.5rem; font-weight: 700; margin-top: 2rem; margin-bottom: 1rem; color: var(--accent); }
+    .content-area h3 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+    .content-area h4 { font-size: 1.1rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+    .content-area p { margin-bottom: 0.75rem; line-height: 1.7; }
+    .content-area ul, .content-area ol { margin-left: 1.5rem; margin-bottom: 1rem; line-height: 1.7; }
+    .content-area li { margin-bottom: 0.35rem; }
+    .content-area table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.875rem; }
+    .content-area th { background: var(--sidebar); border: 1px solid var(--border); padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; }
+    .content-area td { border: 1px solid var(--border); padding: 0.5rem 0.75rem; vertical-align: top; }
+    .content-area tr:nth-child(even) { background: rgba(0,0,0,0.015); }
+    .dark .content-area tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+    .content-area tr:hover { background: var(--hover); }
+    .content-area code { background: var(--hover); padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.85em; }
+    .content-area pre { background: var(--code-bg); color: var(--code-text); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 1rem 0; }
+    .content-area pre code { background: transparent; padding: 0; color: inherit; }
+    .content-area blockquote { border-left: 4px solid var(--accent); padding-left: 1rem; margin: 1rem 0; color: var(--muted); }
+    .content-area hr { border: 0; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+    .anchor-link { margin-left: 0.5rem; text-decoration: none; color: var(--accent); opacity: 0; transition: opacity 0.2s; }
+    .content-area h2:hover .anchor-link, .content-area h3:hover .anchor-link, .content-area h4:hover .anchor-link { opacity: 1; }
+    .toc-item { cursor: pointer; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.85rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .toc-item:hover { background: var(--hover); color: var(--text); }
+    .toc-item.h2 { padding-left: 0.5rem; font-weight: 500; }
+    .toc-item.h3 { padding-left: 1.25rem; }
+    .toc-item.h4 { padding-left: 2rem; font-size: 0.8rem; }
+    .writing-vertical { writing-mode: vertical-rl; text-orientation: mixed; transform: rotate(180deg); }
+    .fade-in { animation: fadeIn 0.25s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .editable:focus { outline: 2px dashed var(--accent); outline-offset: 4px; }
+  </style>
+</head>
+<body class="h-screen overflow-hidden">
+  <div class="flex h-full">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-72 flex-shrink-0 bg-[var(--sidebar)] border-r border-[var(--border)] flex flex-col transition-all duration-300 overflow-hidden">
+      <div class="sidebar-inner flex flex-col h-full w-full">
+        <div class="p-5 border-b border-[var(--border)] flex items-center justify-between">
+          <div>
+            <h1 class="text-lg font-bold" style="font-family: 'Noto Serif SC', serif;">YwCoder 品牌去标识</h1>
+            <p class="text-xs text-[var(--muted)] mt-1">URL 残留补充审查</p>
+          </div>
+          <button id="sidebar-close" class="p-1 rounded hover:bg-[var(--hover)] text-[var(--muted)] lg:block hidden" title="收起左侧目录">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
+          </button>
+        </div>
+        <nav id="nav" class="flex-1 overflow-y-auto p-3 space-y-2">
+          <!-- Nav items will be inserted here -->
+        </nav>
+        <div class="p-4 border-t border-[var(--border)] flex items-center justify-between">
+          <span class="text-xs text-[var(--muted)]">2026-06-16</span>
+          <button id="theme-btn" class="text-xs px-3 py-1.5 rounded-md border border-[var(--border)] hover:bg-[var(--hover)] transition-colors">🌙 深色</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Left collapsed trigger -->
+    <div id="sidebar-trigger" class="hidden lg:flex flex-col items-center justify-start w-10 flex-shrink-0 border-r border-[var(--border)] bg-[var(--sidebar)] py-3 cursor-pointer hover:bg-[var(--hover)] transition-colors" title="展开左侧目录">
+      <svg class="w-4 h-4 text-[var(--muted)] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+      <span class="text-[10px] text-[var(--muted)] writing-vertical">文档</span>
+    </div>
+
+    <!-- Main content -->
+    <main class="flex-1 flex flex-col min-w-0">
+      <header class="h-14 border-b border-[var(--border)] flex items-center px-4 bg-[var(--card)]">
+        <button id="sidebar-toggle" class="p-2 rounded-md hover:bg-[var(--hover)] mr-3 lg:hidden" title="切换左侧目录">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        <span class="font-semibold">URL 残留补充审查</span>
+      </header>
+
+      <div class="flex flex-1 overflow-hidden">
+        <div class="flex-1 overflow-y-auto p-4 lg:p-8">
+          <div id="content" class="content-card content-area p-6 lg:p-10 max-w-5xl mx-auto editable" contenteditable="true" spellcheck="false">
+            <!-- Markdown content rendered here -->
+          </div>
+          <div class="max-w-5xl mx-auto mt-4 text-center text-xs text-[var(--muted)]">
+            提示：内容区已启用编辑，可直接在页面上批注修改。
+          </div>
+          <div class="h-12"></div>
+        </div>
+
+        <!-- TOC -->
+        <aside id="toc-panel" class="hidden xl:flex w-64 flex-shrink-0 border-l border-[var(--border)] bg-[var(--sidebar)] overflow-y-auto flex-col transition-all duration-300">
+          <div class="p-4 border-b border-[var(--border)] flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-[var(--muted)]">目录</h3>
+            <button id="toc-close" class="p-1 rounded hover:bg-[var(--hover)] text-[var(--muted)]" title="收起目录">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
+            </button>
+          </div>
+          <div id="toc" class="flex-1 p-4 space-y-1 overflow-y-auto"></div>
+        </aside>
+
+        <!-- TOC collapsed trigger -->
+        <div id="toc-trigger" class="hidden xl:flex flex-col items-center justify-start w-10 flex-shrink-0 border-l border-[var(--border)] bg-[var(--sidebar)] py-3 cursor-pointer hover:bg-[var(--hover)] transition-colors" title="展开目录">
+          <svg class="w-4 h-4 text-[var(--muted)] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+          <span class="text-[10px] text-[var(--muted)] writing-vertical">目录</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const DOCS = [{"id": "review", "title": "URL 残留补充审查", "subtitle": "YwCoder 品牌去标识", "status": "in_progress", "statusLabel": "审查中", "content": "# YwCoder 品牌去标识 · URL 残留补充审查\n\n**生成日期**：2026-06-16  \n**审查目标**：用户可感知的 `code.claude.com` 文档链接与相关产品 URL 残留  \n**范围**：`src/**/*.ts` / `src/**/*.tsx` + `dist/cli.mjs`（构建产物镜像）  \n**基线分支**：`feature/brand-replacement`  \n\n---\n\n## 一、扫描方法与口径\n\n1. 使用 `grep -rn 'code\\.claude\\.com' src` 全量扫描源码。\n2. 同步扫描 `dist/cli.mjs` 与 `dist/cli.mjs.map`，确认源码残留会原样进入构建产物。\n3. 按**用户是否可能实际看到**分为「活跃面 / 已禁用面 / 内部模板 / 测试期望」四类。\n4. 同时检查 `PRODUCT_URL`（`https://claude.com/claude-code`），该常量虽不命中 `code.claude.com` 正则，但同属于用户可感知品牌 URL，一并纳入。\n\n---\n\n## 二、活跃用户面残留（必须处理）\n\n以下文件中的链接位于当前可达的功能路径上，用户运行时可能看到。\n\n### 2.1 UI 组件内的文档链接\n\n| # | 文件 | 行 | 当前 URL / 文案 | 所在功能 | 完整用户提示内容 |\n|---|------|----|-----------------|----------|------------------|\n| 1 | `src/components/HelpV2/HelpV2.tsx` | 149 | `https://code.claude.com/docs/en/overview` | `/help` 底部 “For more help” | `For more help: https://code.claude.com/docs/en/overview` |\n| 2 | `src/components/Onboarding.tsx` | 89 | `https://code.claude.com/docs/en/security` | 首次启动 Onboarding | `Security notes: YwCoder can make mistakes... Due to prompt injection risks, only use it with code you trust. For more details see:\\nhttps://code.claude.com/docs/en/security` |\n| 3 | `src/components/TrustDialog/TrustDialog.tsx` | 220 | `https://code.claude.com/docs/en/security` | 信任对话框安全指南 | `Quick safety check: Is this a project you created or one you trust? ... <Security guide>`（链接文字为 \"Security guide\"） |\n| 4 | `src/components/AutoModeOptInDialog.tsx` | 73 | `https://code.claude.com/docs/en/security` | 自动模式 opt-in | `Auto mode lets YwCoder handle permission prompts automatically... <https://code.claude.com/docs/en/security>`（独立 Link，无文字） |\n| 5 | `src/components/BypassPermissionsModeDialog.tsx` | 53 | `https://code.claude.com/docs/en/security` | Bypass 权限模式警告 | `In Bypass Permissions mode, YwCoder will not ask for your approval before running potentially dangerous commands. This mode should only be used in a sandboxed container/VM... By proceeding, you accept all responsibility... <https://code.claude.com/docs/en/security>` |\n| 6 | `src/components/hooks/SelectEventMode.tsx` | 61 | `https://code.claude.com/docs/en/hooks` | hooks 只读菜单提示 | `ℹ This menu is read-only. To add or modify hooks, edit settings.json directly or ask Claude. Learn more`（\"Learn more\" 为可点击链接） |\n| 7 | `src/components/sandbox/SandboxSettings.tsx` | 280 | `https://code.claude.com/docs/en/sandboxing` | 沙箱设置页 | `Auto-allow mode: Commands will try to run in the sandbox automatically... Learn more: code.claude.com/docs/en/sandboxing` |\n| 8 | `src/components/sandbox/SandboxOverridesTab.tsx` | 178 | `https://code.claude.com/docs/en/sandboxing#configure-sandboxing` | 沙箱覆盖配置 | `Strict sandbox mode: All bash commands invoked by the model must run in the sandbox... Learn more: code.claude.com/docs/en/sandboxing#configure-sandboxing` |\n| 9 | `src/components/CostThresholdDialog.tsx` | 40 | `https://code.claude.com/docs/en/costs` | 成本阈值弹窗 | `You've spent $5 on the {providerLabel} this session. Learn more about how to monitor your spending:\\nhttps://code.claude.com/docs/en/costs` |\n| 10 | `src/components/ClaudeInChromeOnboarding.tsx` | 90 | `https://code.claude.com/docs/en/chrome` | Chrome 插件引导 | `Claude in Chrome works with the Chrome extension... For more info, use /chrome or visit https://code.claude.com/docs/en/chrome` |\n| 11 | `src/components/mcp/MCPServerDialogCopy.tsx` | 7 | `https://code.claude.com/docs/en/mcp` | MCP 服务器添加弹窗 | `MCP servers may execute code or access system resources. All tool calls require approval. Learn more in the MCP documentation.`（\"MCP documentation\" 为可点击链接） |\n| 12 | `src/components/mcp/MCPListPanel.tsx` | 434 | `https://code.claude.com/docs/en/mcp` | MCP 列表面板 | `※ Run ywcoder --debug to see error logs\\nhttps://code.claude.com/docs/en/mcp for help` |\n| 13 | `src/components/mcp/McpParsingWarnings.tsx` | 184 | `https://code.claude.com/docs/en/mcp` | MCP 配置解析警告 | `MCP Config Diagnostics. For help configuring MCP servers, see: https://code.claude.com/docs/en/mcp` |\n| 14 | `src/components/ClaudeMdExternalIncludesDialog.tsx` | 77 | `https://code.claude.com/docs/en/security` | 外部 CLAUDE.md 包含警告 | `This project's YWCODER.md imports files outside the current working directory... Important: Only use YwCoder with files you trust. Accessing untrusted files may pose security risks <https://code.claude.com/docs/en/security>`（独立 Link，无文字） |\n| 15 | `src/components/FeedbackSurvey/TranscriptSharePrompt.tsx` | 60 | `https://code.claude.com/docs/en/data-usage#session-quality-surveys` | 会话质量反馈弹窗（入口已禁，组件代码仍带链接） | `Can Anthropic look at your session transcript to help us improve YwCoder?\\nLearn more: https://code.claude.com/docs/en/data-usage#session-quality-surveys\\n1: Yes\\n2: No\\n3: Don't ask again` |\n\n### 2.2 命令输出 / 运行时提示\n\n| # | 文件 | 行 | 当前 URL / 文案 | 所在功能 | 完整用户提示内容 |\n|---|------|----|-----------------|----------|------------------|\n| 16 | `src/commands/fast/fast.tsx` | 194 | `https://code.claude.com/docs/en/fast-mode` | `/fast` 命令底部 | `Learn more: https://code.claude.com/docs/en/fast-mode` |\n| 17 | `src/commands/memory/memory.tsx` | 77 | `https://code.claude.com/docs/en/memory` | `/memory` 命令提示 | `Learn more: https://code.claude.com/docs/en/memory` |\n| 18 | `src/commands/model/model.tsx` | 159 | `https://code.claude.com/docs/en/model-config#extended-context-with-1m` | 1M 上下文不可用提示 | `Opus 4.6 with 1M context is not available for your account. Learn more: https://code.claude.com/docs/en/model-config#extended-context-with-1m` |\n| 19 | `src/commands/model/model.tsx` | 165 | `https://code.claude.com/docs/en/model-config#extended-context-with-1m` | 同上 | `Sonnet 4.6 with 1M context is not available for your account. Learn more: https://code.claude.com/docs/en/model-config#extended-context-with-1m` |\n| 20 | `src/services/mcp/config.ts` | 1362 | `https://code.claude.com/docs/en/mcp#configure-mcp-servers` | Windows npx MCP 配置建议 | `Change command to \"cmd\" with args [\"/c\", \"npx\", ...]. See: https://code.claude.com/docs/en/mcp#configure-mcp-servers` |\n\n### 2.3 Settings 校验提示（间接用户面）\n\n| # | 文件 | 行 | 当前 URL / 文案 | 说明 | 完整用户提示内容 |\n|---|------|----|-----------------|------|------------------|\n| 21 | `src/utils/settings/validationTips.ts` | 26 | `const DOCUMENTATION_BASE = 'https://code.claude.com/docs/en'` | 所有校验提示 docLink 的基地址 | 不直接显示；用于构造下方 docLink |\n| 22 | `src/utils/settings/validationTips.ts` | 35 | `${DOCUMENTATION_BASE}/iam#permission-modes` | permissions.defaultMode 校验失败 | `Valid modes: \"acceptEdits\"...` + docLink `https://code.claude.com/docs/en/iam#permission-modes` |\n| 23 | `src/utils/settings/validationTips.ts` | 62 | `${DOCUMENTATION_BASE}/settings#environment-variables` | env.* 校验失败 | `Environment variables must be strings...` + docLink `https://code.claude.com/docs/en/settings#environment-variables` |\n| 24 | `src/utils/settings/validationTips.ts` | 101 | `${DOCUMENTATION_BASE}/settings` | unrecognized_keys | `Check for typos or refer to the documentation for valid fields` + docLink `https://code.claude.com/docs/en/settings` |\n| 25 | `src/utils/settings/validationTips.ts` | 129 | `${DOCUMENTATION_BASE}/iam#working-directories` | additionalDirectories 校验失败 | `Must be an array of directory paths...` + docLink `https://code.claude.com/docs/en/iam#working-directories` |\n| 26 | `src/utils/settings/validationTips.ts` | 135-137 | iam / settings / hooks 路径前缀链接 | PATH_DOC_LINKS 派生 | 对应路径前缀的校验错误会附带 `https://code.claude.com/docs/en/{iam,settings,hooks}` |\n\n### 2.4 Keybindings 配置模板\n\n| # | 文件 | 行 | 当前 URL / 文案 | 说明 | 完整用户提示内容 |\n|---|------|----|-----------------|------|------------------|\n| 27 | `src/keybindings/template.ts` | 47 | `$docs: 'https://code.claude.com/docs/en/keybindings'` | 默认 keybindings JSON 中的 `$docs` 字段 | 生成默认 `~/.ywcoder/keybindings.json` 时写入的 `$docs` 字段值，用户打开配置文件可见 |\n| 28 | `src/skills/bundled/keybindings.ts` | 119 | `$docs: 'https://code.claude.com/docs/en/keybindings'` | keybindings skill 生成的配置模板 | `/keybindings` skill 提示用户修改 keybindings 时，模板中同样带 `$docs: https://code.claude.com/docs/en/keybindings` |\n\n### 2.5 产品主页 URL（非 code.claude.com，但同属于品牌残留）\n\n| # | 文件 | 行 | 当前 URL / 文案 | 说明 |\n|---|------|----|-----------------|------|\n| 29 | `src/constants/product.ts` | 1 | `export const PRODUCT_URL = 'https://claude.com/claude-code'` | MCP client `websiteUrl` 字段来源 |\n| 30 | `src/services/mcp/client.ts` | 1005 | `websiteUrl: PRODUCT_URL` | 本地 stdio MCP 连接 client info |\n| 31 | `src/services/mcp/client.ts` | 3301 | `websiteUrl: PRODUCT_URL` | SDK MCP 连接 client info |\n\n---\n\n## 三、已禁用/不可达功能中的残留（本次不建议改）\n\n这些链接位于已被 `isEnabled: () => false`、feature flag 关闭或代码路径不可达的位置，用户实际看不到。本次品牌清理可暂缓，避免在禁用代码上引入无意义的 diff。\n\n| # | 文件 | 行 | 当前 URL / 文案 | 禁用状态 | 完整用户提示内容 |\n|---|------|----|-----------------|----------|------------------|\n| 32 | `src/commands/chrome/chrome.tsx` | 237 | `https://code.claude.com/docs/en/chrome` | `/chrome` 命令 `isEnabled: () => false` | `Learn more: https://code.claude.com/docs/en/chrome`（命令 footer） |\n| 33 | `src/commands/ultraplan.tsx` | 25 | `https://code.claude.com/docs/en/claude-code-on-the-web` | `CCR_TERMS_URL`，功能已禁用 | `const CCR_TERMS_URL = 'https://code.claude.com/docs/en/claude-code-on-the-web'`（terms 链接常量） |\n| 34 | `src/commands/review.ts` | 7 | `https://code.claude.com/docs/en/claude-code-on-the-web` | CCR web review，功能已禁用 | `const CCR_TERMS_URL = 'https://code.claude.com/docs/en/claude-code-on-the-web'`（terms 链接常量） |\n| 35 | `src/bridge/bridgeMain.ts` | 2255 | `https://code.claude.com/docs/en/remote-control` | Bridge/Remote Control，编译期 flag 关闭 | `Claude Remote Control is launching in spawn mode... Learn more here: https://code.claude.com/docs/en/remote-control` |\n| 36 | `src/tools/AgentTool/built-in/claudeCodeGuideAgent.ts` | 18 | `https://code.claude.com/docs/en/claude_code_docs_map.md` | Guide agent 已整体禁用并移出产物 | `'https://code.claude.com/docs/en/claude_code_docs_map.md'`（docs map URL 常量） |\n| 37 | `src/constants/github-app.ts` | 53 / 142 | `https://code.claude.com/docs/en/cli-reference` | GitHub App setup prompt 模板（`install-github-app` 已禁用） | `# ...or https://code.claude.com/docs/en/cli-reference for available options`（GitHub Actions workflow prompt 模板中） |\n\n---\n\n## 四、内部/工具链/测试中的引用（非用户面）\n\n| # | 文件 | 行 | 说明 | 处理建议 | 完整用户提示内容 |\n|---|------|----|------|----------|------------------|\n| 38 | `scripts/process_brand_worklist.ts` | 25 | 品牌扫描脚本自身的关键词列表 | 工作流脚本，可保留 | `'code.claude.com'`（扫描关键词数组元素） |\n| 39 | `src/tools/WebFetchTool/preapproved.ts` | 17 | WebFetch 预批准域名列表 | 功能性保留项，决定是否允许抓取该域 | `'code.claude.com'`（预批准域名数组元素） |\n| 40 | `src/constants/prompts.ts` | 103 | 系统提示中引用的 docs map URL | 位于 prompt 文本，本次按内部 prompt 处理 | `'https://code.claude.com/docs/en/claude_code_docs_map.md'`（prompt 常量） |\n| 41 | `src/services/mcp/doctor.test.ts` | 99 | MCP doctor 测试断言中的建议文案 | 若改 `services/mcp/config.ts` 则需同步更新 | `Change command to \"cmd\" with args [\"/c\", \"npx\", ...]. See: https://code.claude.com/docs/en/mcp#configure-mcp-servers` |\n\n---\n\n## 五、dist 构建产物验证\n\n`dist/cli.mjs` 中 `code.claude.com` 共命中 **约 30 处**，与源码残留一一对应，说明：\n\n- 活跃面源码修改会直接进入产物。\n- 已禁用功能由于代码仍在包中，字符串也会进产物（但不影响运行时可达性）。\n- 验收应以 **运行时可达路径** 为准，而非单纯统计 dist 命中数。\n\n`dist/cli.mjs.map` 中也有大量命中，仅 source map 用途，不影响用户。\n\n---\n\n## 六、处理建议：去链接化（不引入新外链）\n\n当前内网既无 GitHub 仓库也无独立文档站，因此**不宜把链接替换为任何新 URL**（会出现 404 或指向不可达服务）。建议方案：\n\n### 6.1 活跃用户面：删除 URL，保留纯文案或删除整句\n\n示例：\n\n```tsx\n// 改前\n<Text>For more help: <Link url=\"https://code.claude.com/docs/en/overview\" /></Text>\n\n// 改后：删除整句或改为无链接文案\n<Text>For more help, see the project README.</Text>\n```\n\n覆盖范围：第 2.1、2.2 节所有条目。\n\n### 6.2 Settings 校验提示：移除 `docLink`\n\n`src/utils/settings/validationTips.ts` 中：\n\n- 删除 `DOCUMENTATION_BASE` 常量。\n- 删除所有 `tip.docLink` 赋值。\n- `PATH_DOC_LINKS` 可直接删除或清空。\n- 保留 `suggestion` 文本，功能不变。\n\n### 6.3 Keybindings 模板：删除 `$docs` 字段\n\n`src/keybindings/template.ts` 与 `src/skills/bundled/keybindings.ts` 中删除 `$docs` 键。该字段非功能必填。\n\n### 6.4 PRODUCT_URL：删除 `websiteUrl` 字段\n\n在 `src/services/mcp/client.ts` 两处 `new Client({...})` 中删除 `websiteUrl: PRODUCT_URL`，然后删除 `src/constants/product.ts` 中的 `PRODUCT_URL` 常量（删除后该常量无其他引用）。\n\nMCP 规范中 `websiteUrl` 是可选字段，删除不影响连接、工具调用或协议合规性。\n\n---\n\n## 七、本次不改的项及理由\n\n| 项 | 理由 |\n|----|------|\n| `src/commands/chrome/chrome.tsx` 等已禁用命令中的链接 | 入口已关闭，用户不可达；禁用代码上改链接对品牌暴露面无收益 |\n| `src/bridge/bridgeMain.ts` | Bridge/Remote Control 编译期 flag 关闭，不可达 |\n| `src/tools/AgentTool/built-in/claudeCodeGuideAgent.ts` | Guide agent 已整体禁用并 tree-shaking 出产物 |\n| `src/constants/github-app.ts` | `install-github-app` 已禁用，prompt 模板不可达 |\n| `src/constants/prompts.ts:103` | 系统提示内部引用，属于长尾 prompt 文本，本次聚焦 UI/命令/runtime |\n| `src/tools/WebFetchTool/preapproved.ts` | 功能性域名单，非品牌展示 |\n| `scripts/process_brand_worklist.ts` | 工作流扫描脚本自身 |\n\n---\n\n## 八、待决策点\n\n1. **通用替换文案**：删除链接后，部分位置需要一句无链接的替代文案（如 \"See README for details\" / \"更多信息请参考项目文档\"）。是否统一文案？\n2. **`FeedbackSurvey/TranscriptSharePrompt.tsx`**：虽然入口已禁，组件代码中的链接是否一并清理？建议一并清理，避免未来误释放。\n3. **是否同步修改 `services/mcp/doctor.test.ts`**：若改 `services/mcp/config.ts` 的建议文案，测试断言必须同步更新。\n4. **commit 范围**：本次改动文件较多（约 20+），是否一次性提交或按 UI/命令/校验/常量拆分提交？\n\n---\n\n## 九、影响面总结\n\n| 类型 | 文件数 | 用户面影响 | 功能影响 |\n|------|--------|------------|----------|\n| UI 组件去链接 | ~16 | 高 | 无（仅移除 Link） |\n| 命令/服务去链接 | ~4 | 中 | 无（仅移除文案中的 URL） |\n| validationTips 去 docLink | 1 | 中 | 无（校验建议仍存在，只是无 docLink） |\n| keybindings 模板删 `$docs` | 2 | 低 | 无（非必填字段） |\n| PRODUCT_URL / websiteUrl 删除 | 2 | 低 | 无（MCP 可选字段） |\n| 已禁用功能保留 | ~6 | 无 | 无 |\n\n**总体结论**：本次清理只影响用户可见的品牌 URL，不影响任何核心功能或协议行为。\n"}];
+
+    function renderMarkdown(md) {
+      return marked.parse(md, { headerIds: true, mangle: false });
+    }
+
+    function switchDoc(index) {
+      const doc = DOCS[index];
+      const contentArea = document.getElementById('content');
+      contentArea.innerHTML = renderMarkdown(doc.content);
+      contentArea.classList.remove('fade-in');
+      void contentArea.offsetWidth;
+      contentArea.classList.add('fade-in');
+
+      // Add anchor links
+      contentArea.querySelectorAll('h2, h3, h4').forEach(h => {
+        if (!h.id) h.id = 'heading-' + Math.random().toString(36).substr(2, 9);
+        const anchor = document.createElement('a');
+        anchor.href = '#' + h.id;
+        anchor.className = 'anchor-link';
+        anchor.innerHTML = '#';
+        anchor.onclick = e => { e.preventDefault(); scrollToHeading(h.id); };
+        h.appendChild(anchor);
+      });
+
+      // Syntax highlight
+      contentArea.querySelectorAll('pre code').forEach(block => {
+        hljs.highlightElement(block);
+      });
+
+      // Update active nav
+      document.querySelectorAll('.nav-item').forEach((item, i) => {
+        item.classList.toggle('bg-[var(--hover)]', i === index);
+        item.classList.toggle('border-l-4', i === index);
+        item.classList.toggle('border-[var(--accent)]', i === index);
+      });
+
+      renderTOC();
+    }
+
+    function renderTOC() {
+      const contentArea = document.getElementById('content');
+      const toc = document.getElementById('toc');
+      const headings = contentArea.querySelectorAll('h2, h3, h4');
+      toc.innerHTML = Array.from(headings).map(h => {
+        const level = h.tagName.toLowerCase();
+        const text = h.textContent.replace('#', '').trim();
+        return `<div class="toc-item ${level}" onclick="scrollToHeading('${h.id}')">${text}</div>`;
+      }).join('');
+    }
+
+    function scrollToHeading(id) {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function renderNav() {
+      const nav = document.getElementById('nav');
+      nav.innerHTML = DOCS.map((doc, i) => `
+        <button class="nav-item w-full text-left px-3 py-3 rounded-lg border-l-4 border-transparent hover:bg-[var(--hover)] transition-all group" onclick="switchDoc(${i}); if(window.innerWidth < 1024) toggleSidebar();">
+          <div class="flex items-center justify-between">
+            <span class="font-medium text-sm">${doc.title}</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full border border-[var(--border)] text-[var(--muted)]">${doc.statusLabel}</span>
+          </div>
+          <div class="text-xs text-[var(--muted)] mt-1">${doc.subtitle}</div>
+        </button>
+      `).join('');
+    }
+
+    function toggleSidebar(show) {
+      const sidebar = document.getElementById('sidebar');
+      const trigger = document.getElementById('sidebar-trigger');
+      const isMobile = window.innerWidth < 1024;
+      if (isMobile) {
+        sidebar.classList.toggle('-translate-x-full');
+        const overlay = document.getElementById('overlay');
+        overlay.classList.toggle('hidden');
+      } else {
+        if (typeof show === 'undefined') show = sidebar.classList.contains('hidden');
+        if (show) {
+          sidebar.classList.remove('hidden');
+          sidebar.classList.add('flex');
+          trigger.classList.add('hidden');
+          trigger.classList.remove('flex');
+          localStorage.setItem('leftSidebarCollapsed', 'false');
+        } else {
+          sidebar.classList.add('hidden');
+          sidebar.classList.remove('flex');
+          trigger.classList.remove('hidden');
+          trigger.classList.add('flex');
+          localStorage.setItem('leftSidebarCollapsed', 'true');
+        }
+      }
+    }
+
+    document.getElementById('sidebar-toggle').onclick = () => toggleSidebar();
+    document.getElementById('sidebar-close').onclick = () => toggleSidebar(false);
+    document.getElementById('sidebar-trigger').onclick = () => toggleSidebar(true);
+
+    function setTheme(isDark) {
+      document.documentElement.classList.toggle('dark', isDark);
+      const themeLink = document.getElementById('hljs-theme');
+      themeLink.href = isDark
+        ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css'
+        : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      document.getElementById('theme-btn').textContent = isDark ? '☀️ 浅色' : '🌙 深色';
+    }
+
+    document.getElementById('theme-btn').onclick = () => {
+      const isDark = !document.documentElement.classList.contains('dark');
+      setTheme(isDark);
+    };
+
+    function toggleTOC(show) {
+      const panel = document.getElementById('toc-panel');
+      const trigger = document.getElementById('toc-trigger');
+      if (show) {
+        panel.style.display = 'flex';
+        trigger.style.display = 'none';
+        localStorage.setItem('tocVisible', 'true');
+      } else {
+        panel.style.display = 'none';
+        trigger.style.display = 'flex';
+        localStorage.setItem('tocVisible', 'false');
+      }
+    }
+
+    document.getElementById('toc-close').onclick = e => { e.stopPropagation(); toggleTOC(false); };
+    document.getElementById('toc-trigger').onclick = e => { e.stopPropagation(); toggleTOC(true); };
+
+    // Initialize
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') setTheme(true);
+    const savedTOC = localStorage.getItem('tocVisible');
+    if (savedTOC === 'false') toggleTOC(false);
+    const savedLeftSidebar = localStorage.getItem('leftSidebarCollapsed');
+    if (savedLeftSidebar === 'true') toggleSidebar(false);
+    else toggleSidebar(true);
+    renderNav();
+    switchDoc(0);
+  </script>
+</body>
+</html>

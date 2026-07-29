@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>版本号管理与自动更新 — 文档浏览器</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet" id="hljs-theme" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #faf8f5;
+    --bg-secondary: #f3f0eb;
+    --bg-card: #ffffff;
+    --bg-sidebar: #f5f2ed;
+    --text-primary: #1a1a1a;
+    --text-secondary: #555550;
+    --text-muted: #8a8880;
+    --accent: #c45c26;
+    --accent-light: #e87a3e;
+    --accent-bg: rgba(196,92,38,0.08);
+    --border: #e5e0d8;
+    --border-light: #ede9e3;
+    --code-bg: #1e1e1e;
+    --code-text: #d4d4d4;
+    --table-stripe: #f9f7f4;
+    --table-hover: #f0ece6;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .dark {
+    --bg-primary: #161412;
+    --bg-secondary: #1e1b18;
+    --bg-card: #221f1c;
+    --bg-sidebar: #1a1816;
+    --text-primary: #e8e4df;
+    --text-secondary: #a8a49e;
+    --text-muted: #706c66;
+    --accent: #e87a3e;
+    --accent-light: #f09050;
+    --accent-bg: rgba(232,122,62,0.12);
+    --border: #332f2a;
+    --border-light: #2a2724;
+    --code-bg: #131110;
+    --code-text: #d4d4d4;
+    --table-stripe: #1a1816;
+    --table-hover: #2a2724;
+    --shadow: 0 1px 3px rgba(0,0,0,0.2);
+    --shadow-lg: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', 'Noto Serif SC', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: background 0.3s, color 0.3s;
+  }
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  /* Sidebar */
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0; width: 288px;
+    background: var(--bg-sidebar); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; z-index: 40;
+    transition: transform 0.3s ease, background 0.3s;
+  }
+  .sidebar-header {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-header h1 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 18px; font-weight: 700; color: var(--text-primary);
+    line-height: 1.4;
+  }
+  .sidebar-header p {
+    font-size: 12px; color: var(--text-muted); margin-top: 4px;
+  }
+  .sidebar-nav {
+    flex: 1; overflow-y: auto; padding: 12px 8px;
+  }
+  .nav-item {
+    padding: 10px 12px; border-radius: 8px; cursor: pointer;
+    margin-bottom: 2px; transition: all 0.15s;
+  }
+  .nav-item:hover { background: var(--accent-bg); }
+  .nav-item.active {
+    background: var(--accent-bg);
+    border-left: 3px solid var(--accent);
+    padding-left: 9px;
+  }
+  .nav-item .nav-title {
+    font-size: 13px; font-weight: 600; color: var(--text-primary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .nav-item .nav-subtitle {
+    font-size: 11px; color: var(--text-muted); margin-top: 2px;
+  }
+  .nav-status {
+    font-size: 10px; padding: 1px 6px; border-radius: 4px;
+    font-weight: 500; white-space: nowrap;
+  }
+  .status-final { background: #d1fae5; color: #065f46; }
+  .status-done { background: #dbeafe; color: #1e40af; }
+  .status-planning { background: #fef3c7; color: #92400e; }
+  .dark .status-final { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+  .dark .status-done { background: rgba(59,130,246,0.15); color: #93c5fd; }
+  .dark .status-planning { background: rgba(245,158,11,0.15); color: #fcd34d; }
+
+  .sidebar-footer {
+    padding: 12px 16px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .sidebar-footer span { font-size: 11px; color: var(--text-muted); }
+
+  /* Theme toggle */
+  .theme-toggle {
+    width: 40px; height: 22px; border-radius: 11px;
+    background: var(--border); cursor: pointer; position: relative;
+    transition: background 0.3s; border: none; outline: none;
+  }
+  .theme-toggle::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--bg-card); transition: transform 0.3s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  }
+  .dark .theme-toggle { background: var(--accent); }
+  .dark .theme-toggle::after { transform: translateX(18px); }
+
+  /* Main content */
+  .main-content {
+    margin-left: 288px; min-height: 100vh;
+    transition: margin 0.3s;
+  }
+  .content-wrapper {
+    max-width: 820px; margin: 0 auto; padding: 40px 48px;
+  }
+
+  /* Mobile menu */
+  .mobile-menu-btn {
+    display: none; position: fixed; top: 12px; left: 12px; z-index: 50;
+    width: 40px; height: 40px; border-radius: 8px;
+    background: var(--bg-card); border: 1px solid var(--border);
+    cursor: pointer; align-items: center; justify-content: center;
+    box-shadow: var(--shadow);
+  }
+  .mobile-menu-btn svg { width: 20px; height: 20px; color: var(--text-primary); }
+  .sidebar-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+    z-index: 35;
+  }
+
+  /* Markdown content styles */
+  .md-content h1 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 28px; font-weight: 700; color: var(--text-primary);
+    margin-bottom: 8px; padding-bottom: 12px;
+    border-bottom: 2px solid var(--accent);
+  }
+  .md-content h2 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 22px; font-weight: 700; color: var(--text-primary);
+    margin-top: 40px; margin-bottom: 16px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .md-content h3 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 17px; font-weight: 600; color: var(--text-primary);
+    margin-top: 28px; margin-bottom: 12px;
+    position: relative;
+  }
+  .md-content h4 {
+    font-size: 15px; font-weight: 600; color: var(--text-secondary);
+    margin-top: 20px; margin-bottom: 8px;
+    position: relative;
+  }
+  .md-content p {
+    font-size: 14px; line-height: 1.75; color: var(--text-secondary);
+    margin-bottom: 12px;
+  }
+  .md-content ul, .md-content ol {
+    margin-bottom: 12px; padding-left: 20px;
+  }
+  .md-content li {
+    font-size: 14px; line-height: 1.75; color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+  .md-content strong { color: var(--text-primary); font-weight: 600; }
+  .md-content a { color: var(--accent); text-decoration: none; }
+  .md-content a:hover { text-decoration: underline; }
+  .md-content hr {
+    border: none; border-top: 1px solid var(--border);
+    margin: 32px 0;
+  }
+  .md-content blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 8px 16px; margin: 12px 0;
+    background: var(--accent-bg); border-radius: 0 6px 6px 0;
+  }
+  .md-content blockquote p { color: var(--text-secondary); margin: 0; }
+
+  /* Code */
+  .md-content code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+  .md-content p code, .md-content li code, .md-content td code {
+    background: var(--bg-secondary);
+    padding: 2px 6px; border-radius: 4px;
+    color: var(--accent); font-size: 12px;
+  }
+  .md-content pre {
+    background: var(--code-bg) !important;
+    border-radius: 8px; padding: 16px 20px;
+    margin: 12px 0 16px; overflow-x: auto;
+    box-shadow: var(--shadow);
+  }
+  .md-content pre code {
+    background: none !important; padding: 0;
+    color: var(--code-text); font-size: 12.5px;
+    line-height: 1.6;
+  }
+
+  /* Tables */
+  .md-content table {
+    width: 100%; border-collapse: collapse;
+    margin: 12px 0 16px; font-size: 13px;
+    border-radius: 8px; overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .md-content thead th {
+    background: var(--bg-secondary); color: var(--text-primary);
+    font-weight: 600; text-align: left;
+    padding: 10px 14px; border-bottom: 2px solid var(--border);
+  }
+  .md-content tbody td {
+    padding: 9px 14px; border-bottom: 1px solid var(--border-light);
+    color: var(--text-secondary); vertical-align: top;
+  }
+  .md-content tbody tr:nth-child(even) { background: var(--table-stripe); }
+  .md-content tbody tr:hover { background: var(--table-hover); }
+
+  /* Anchor links */
+  .anchor-link {
+    display: inline-block; margin-left: 6px;
+    color: var(--text-muted) !important; opacity: 0;
+    font-size: 0.8em; font-weight: 400;
+    text-decoration: none !important;
+    transition: opacity 0.15s;
+  }
+  h2:hover .anchor-link, h3:hover .anchor-link, h4:hover .anchor-link { opacity: 1; }
+  .anchor-link:hover { color: var(--accent) !important; }
+
+  /* TOC */
+  .toc-panel {
+    position: fixed; right: 24px; top: 80px;
+    width: 200px; max-height: calc(100vh - 120px);
+    overflow-y: auto; display: none;
+  }
+  .toc-title {
+    font-size: 11px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .toc-item {
+    font-size: 12px; color: var(--text-muted); cursor: pointer;
+    padding: 3px 0; transition: color 0.15s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .toc-item:hover { color: var(--accent); }
+  .toc-item.h3 { padding-left: 12px; }
+  .toc-item.h4 { padding-left: 24px; font-size: 11px; }
+
+  /* Fade-in animation */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .fade-in { animation: fadeIn 0.3s ease; }
+
+  /* Responsive */
+  @media (min-width: 1400px) {
+    .toc-panel { display: block; }
+    .content-wrapper { margin-right: 240px; }
+  }
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay.open { display: block; }
+    .mobile-menu-btn { display: flex; }
+    .main-content { margin-left: 0; }
+    .content-wrapper { padding: 60px 20px 40px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Mobile menu button -->
+<button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileMenu()">
+  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+</button>
+
+<!-- Sidebar overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleMobileMenu()"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <h1>版本号管理与自动更新</h1>
+    <p>YwCoder CLI Feature Docs</p>
+  </div>
+  <nav class="sidebar-nav" id="sidebarNav"></nav>
+  <div class="sidebar-footer">
+    <span>2026-05-11</span>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="切换主题"></button>
+  </div>
+</aside>
+
+<!-- Main -->
+<main class="main-content">
+  <div class="content-wrapper">
+    <div class="md-content fade-in" id="contentArea"></div>
+  </div>
+</main>
+
+<!-- TOC -->
+<aside class="toc-panel" id="tocPanel">
+  <div class="toc-title">目录</div>
+  <div id="tocList"></div>
+</aside>
+
+<script>
+const DOCS_DATA = {
+  "read": "# Feature: \u7248\u672c\u53f7\u7ba1\u7406\u4e0e\u81ea\u52a8\u66f4\u65b0\n\n## 1. \u5f53\u524d\u72b6\u6001\n\nStatus: Planning\nDate: 2026-05-11\nOwner: changjiaoxigua\nBranch: feature/brand-replacement\n\n\u9700\u6c42\u4e0e\u8bbe\u8ba1\u6587\u6863\u5df2\u8d77\u8349\uff0c\u5f85\u8bc4\u5ba1\u540e\u8fdb\u5165\u5b9e\u65bd\u3002\n\n## 2. \u80cc\u666f\u4e00\u53e5\u8bdd\n\nYwCoder \u5f53\u524d\u7248\u672c\u53f7\u5728 `package.json` \u4e2d\u786c\u7f16\u7801\u7ef4\u62a4\uff0c\u6784\u5efa\u4ea7\u7269\u7f3a\u4e4f\u53ef\u8ffd\u6eaf\u6807\u8bc6\uff0c\u5185\u7f51\u7528\u6237\u62ff\u5230 `.tgz` \u540e\u65e0\u6cd5\u533a\u5206\u662f\u54ea\u4e00\u6b21 CI \u6784\u5efa\uff0c\u53d1\u7248\u6d41\u7a0b\u4f9d\u8d56\u4eba\u5de5\u8bb0\u5fc6\u6539\u7248\u672c\u53f7\u3002\n\n## 3. \u5b9e\u65bd\u573a\u666f\uff08\u91cd\u8981\u7ea6\u675f\uff09\n\n- **\u5916\u7f51\u5f00\u53d1**\uff1a\u5728 GitHub \u4e0a\u63d0\u4ea4\u4ee3\u7801\uff0c\u89e6\u53d1 GitHub Actions \u6253\u5305\uff1b\n- **\u4eba\u5de5\u642c\u8fd0**\uff1a\u5c06\u6784\u5efa\u4ea7\u7269\uff08`.tgz` / `.zip`\uff09\u4ece\u5916\u7f51\u62f7\u8d1d\u5230\u5185\u7f51\uff1b\n- **\u5185\u7f51\u5b89\u88c5**\uff1a\u5185\u7f51\u7528\u6237\u79bb\u7ebf `npm install -g xxx.tgz` \u4f7f\u7528 YwCoder\u3002\n\n\u5185\u7f51\u7528\u6237**\u4e0d\u80fd**\u56de\u8fde\u5916\u7f51 npm registry / GitHub\u3002\u6240\u6709\u201c\u5185\u7f51\u7528\u6237\u4e3b\u52a8\u68c0\u67e5\u66f4\u65b0\u201d\u7684\u65b9\u6848\u9ed8\u8ba4\u4e0d\u53ef\u7528\u3002\n\n## 4. \u6587\u6863\u7d22\u5f15\n\n| \u6587\u6863                              | \u72b6\u6001     | \u7528\u9014                                       |\n| --------------------------------- | -------- | ------------------------------------------ |\n| `01-requirements.md`              | Final    | \u9700\u6c42\u8bf4\u660e\uff1a\u76ee\u6807\u3001\u8303\u56f4\u3001\u7ea6\u675f\u3001\u9a8c\u6536\u6807\u51c6       |\n| `02-design.md`                    | Final    | \u8bbe\u8ba1\u65b9\u6848\uff1a\u7248\u672c\u53f7\u4f53\u7cfb\u3001CI \u53cc\u8f68\u3001\u4ea7\u7269\u547d\u540d    |\n| `03-implementation-summary.md`    | Done     | \u5b9e\u65bd\u603b\u7ed3\uff1a\u6539\u52a8\u6e05\u5355\u3001\u9a8c\u8bc1\u60c5\u51b5\u3001\u9057\u7559\u9879       |\n\n## 5. \u8303\u56f4\u9884\u89c8\n\n**\u505a**\uff1a\n- \u5f15\u5165 release-please \u81ea\u52a8\u7ef4\u62a4 `package.json` \u7248\u672c\u53f7\u4e0e CHANGELOG\n- \u6784\u5efa\u671f\u6ce8\u5165 git sha / build id / build time\uff0c`ywcoder --version` \u8f93\u51fa\u53ef\u8ffd\u6eaf\u6807\u8bc6\n- CI \u53cc\u8f68\uff1afeature \u5206\u652f push \u4ea7 dev build\uff0ctag push \u4ea7 release build\n- \u6784\u5efa\u4ea7\u7269\u547d\u540d\u89c4\u8303\u5316\uff1a`ywcoder-<version>-<platform>.<ext>`\n\n**\u4e0d\u505a**\uff1a\n- \u5185\u7f51\u7528\u6237\u8fd0\u884c\u65f6\u81ea\u52a8\u68c0\u67e5\u66f4\u65b0\uff08\u7f3a\u5c11\u5185\u7f51\u6e05\u5355\u670d\u52a1\uff0c\u4e0d\u5f3a\u884c\u505a\uff09\n- `ywcoder update` \u547d\u4ee4\u771f\u6b63\u53bb\u62c9\u65b0\u7248\u672c\u5b89\u88c5\uff08\u540c\u4e0a\uff09\n- \u6539\u52a8 `MACRO.VERSION = \"99.0.0\"` \u8fd9\u4e2a\u7ed5\u8fc7 first-party min-version \u7684\u5360\u4f4d\u7b26\n- \u5f15\u5165 changeset / semantic-release \u7b49\u66ff\u4ee3\u54c1\n- `RELEASE.json` manifest\uff08\u5f53\u524d\u65e0\u6d88\u8d39\u65b9\uff0c\u7b49\u5185\u7f51\u6709\u6e05\u5355\u670d\u52a1\u65f6\u518d\u52a0\uff09\n\n## 6. \u5173\u952e\u98ce\u9669\n\n- release-please \u63a5\u5165\u540e\uff0c\u4ecd\u5b58\u5728\u7684\u624b\u5de5\u201c\u5408\u5e76 Release PR\u201d\u52a8\u4f5c\u5fc5\u987b\u6709\u4e13\u4eba\u628a\u5173\uff0c\u5426\u5219\u4f1a\u8bef\u53d1\uff1b\n- \u4ea7\u7269\u540d\u53d8\u5316\u4f1a\u5f71\u54cd\u5185\u7f51\u7ba1\u7406\u5458\u7684\u642c\u8fd0\u811a\u672c\uff0c\u9700\u540c\u6b65\u77e5\u4f1a\uff1b\n- \u4efb\u4f55\u5ba2\u6237\u7aef\u542f\u52a8\u671f\u7f51\u7edc\u8bf7\u6c42\u90fd\u5fc5\u987b \u22641.5s \u8d85\u65f6 + \u9759\u9ed8\u5931\u8d25\uff0c\u907f\u514d\u5f71\u54cd\u5185\u7f51\u542f\u52a8\u4f53\u9a8c\u3002",
+  "requirements": "# 01 - \u9700\u6c42\u8bf4\u660e\uff1a\u7248\u672c\u53f7\u7ba1\u7406\u4e0e\u81ea\u52a8\u66f4\u65b0\n\n**Status**: Draft\n**Date**: 2026-05-11\n**Owner**: changjiaoxigua\n\n---\n\n## 1. \u80cc\u666f\n\n### 1.1 \u73b0\u72b6\n\n- `package.json` \u4e2d `version` \u5b57\u6bb5\uff08\u5f53\u524d `1.0.1`\uff09\u7531\u4eba\u624b\u5de5\u7ef4\u62a4\uff0c\u6bcf\u6b21\u53d1\u7248\u8981\u8bb0\u5f97\u6539\uff1b\n- `scripts/build.ts:14-15` \u8bfb\u53d6 `pkg.version` \u6ce8\u5165\u5230 `MACRO.DISPLAY_VERSION`\uff08\u89c1 `scripts/build.ts:71`\uff09\uff1b\n- `scripts/build.ts:70` \u5c06 `MACRO.VERSION` \u5199\u6b7b\u4e3a `\"99.0.0\"`\uff0c\u4ec5\u7528\u4e8e\u7ed5\u8fc7 first-party \u7684 `assertMinVersion` \u7b49\u6700\u5c0f\u7248\u672c\u68c0\u67e5\uff08\u53c2\u89c1 `src/utils/autoUpdater.ts:71`\u3001`src/bridge/envLessBridgeConfig.ts:149` \u7b49\u591a\u5904\uff09\uff1b\n- \u73b0\u6709 CI workflow\uff08`.github/workflows/build-npm-linux-offline.yml` \u7b49\uff09\u5728 `feature/brand-replacement` \u5206\u652f `push` \u65f6\u89e6\u53d1\uff0c\u6bcf\u6b21 push \u90fd\u91cd\u65b0\u6253\u5305\uff0c**\u591a\u6b21\u6784\u5efa\u5747\u6807\u6ce8\u540c\u4e00\u4e2a `1.0.1`**\uff0c\u65e0\u6cd5\u533a\u5206\uff1b\n- \u6784\u5efa\u4ea7\u7269\u4ee5\u56fa\u5b9a\u540d `ywcoder-linux-offline` \u7b49\u901a\u8fc7 Actions Artifact \u66b4\u9732\uff0c\u547d\u540d\u4e2d\u4e0d\u5e26\u7248\u672c\u53f7\uff1b\n- `src/utils/autoUpdater.ts` \u4e2d\u73b0\u6709\u7684\u81ea\u52a8\u66f4\u65b0\u94fe\u8def\u6307\u5411 Anthropic \u7684 GCS bucket\uff08`storage.googleapis.com/claude-code-dist-...`\uff09\uff0c\u5bf9 fork \u540e\u7684 `@dcywzc/ywcoder` \u5305**\u5b8c\u5168\u4e0d\u751f\u6548**\uff1b\n- \u6ca1\u6709 `.changeset/` / `release-please.yml` / `semantic-release` \u7b49\u4efb\u4f55\u81ea\u52a8\u7248\u672c\u7ba1\u7406\u5de5\u5177\uff1b\n- \u6ca1\u6709 release / publish \u7c7b workflow\u3002\n\n### 1.2 \u90e8\u7f72\u94fe\u8def\n\n```\n[\u5916\u7f51]  \u5f00\u53d1\u8005\u672c\u5730  \u2192  git push  \u2192  GitHub Actions \u6253\u5305  \u2192  GitHub Artifact / Release\n                                                                    \u2502\n                                                                    \u2502 \u4eba\u5de5 / \u5355\u5411\u7f51\u95f8\u642c\u8fd0\n                                                                    \u25bc\n[\u5185\u7f51]  \u7ba1\u7406\u5458\u5b58\u653e\u70b9\uff08\u5171\u4eab\u76d8/U \u76d8\uff09 \u2192 \u5185\u7f51\u7528\u6237\u79bb\u7ebf npm install -g xxx.tgz\n```\n\n\u5185\u7f51\u7528\u6237**\u4e0d\u80fd**\u56de\u8fde\u5916\u7f51 npm registry / GitHub\u3002\n\n### 1.3 \u75db\u70b9\n\n| #   | \u75db\u70b9                                                                          | \u5f71\u54cd\u7b49\u7ea7 |\n| --- | ----------------------------------------------------------------------------- | -------- |\n| 1   | \u540c\u4e00\u4e2a `1.0.1` \u7248\u672c\u53f7\u88ab\u53cd\u590d\u6784\u5efa\u591a\u6b21\uff0c\u6392\u969c\u65f6\u65e0\u6cd5\u5b9a\u4f4d\u7528\u6237\u8dd1\u7684\u662f\u54ea\u6b21 build       | \u9ad8       |\n| 2   | \u53d1\u7248\u9700\u8981\u624b\u5de5\u6539 `package.json` \u7684\u7248\u672c\u53f7\uff0c\u5bb9\u6613\u5fd8                                | \u9ad8       |\n| 3   | \u6ca1\u6709 CHANGELOG\uff0c\u53d1\u7248\u540e\u65e0\u6cd5\u5feb\u901f\u544a\u8bc9\u5185\u7f51\u7528\u6237\u201c\u8fd9\u4e00\u7248\u6539\u4e86\u4ec0\u4e48\u201d                    | \u4e2d       |\n| 4   | \u6784\u5efa\u4ea7\u7269\u547d\u540d\u56fa\u5b9a\uff08`ywcoder-linux-offline`\uff09\uff0c\u5185\u7f51\u5171\u4eab\u76d8\u4e0a\u591a\u7248\u672c\u5e76\u5b58\u65f6\u5bb9\u6613\u62ff\u9519 | \u4e2d       |\n| 5   | \u7f3a\u4e4f\u201c\u9884\u53d1 / \u6b63\u5f0f\u201d\u8bed\u4e49\uff0c\u7ed9\u5185\u7f51\u6d4b\u8bd5\u7684\u5305\u548c\u6b63\u5f0f\u53d1\u7248\u7684\u5305\u5916\u89c2\u4e0a\u4e00\u6a21\u4e00\u6837             | \u4e2d       |\n\n---\n\n## 2. \u76ee\u6807\n\n### 2.1 \u4e3b\u76ee\u6807\n\n1. **G1 \u7248\u672c\u53f7\u81ea\u52a8\u5316**\uff1a\u5408\u5e76\u5230 main \u540e\uff0c\u4e0b\u4e00\u6b21\u53d1\u7248\u7684\u7248\u672c\u53f7\u7531\u5de5\u5177\u6839\u636e commit \u7c7b\u578b\u81ea\u52a8\u8ba1\u7b97\uff0c\u5f00\u53d1\u8005\u4e0d\u518d\u624b\u6539 `package.json`\uff1b\n2. **G2 \u6784\u5efa\u4ea7\u7269\u53ef\u8ffd\u6eaf**\uff1a`ywcoder --version` \u8f93\u51fa\u80fd\u7cbe\u786e\u5b9a\u4f4d\u5230\u4e00\u6b21 CI \u6784\u5efa\uff08\u542b git sha + build id\uff09\uff1b\n3. **G3 \u9884\u53d1 / \u6b63\u5f0f\u8bed\u4e49\u6e05\u6670**\uff1a\u5206\u652f push \u51fa\u7684 dev build \u4e0e tag push \u51fa\u7684 release build\uff0c\u4ece\u4ea7\u7269\u540d\u548c\u7248\u672c\u53f7\u5b57\u7b26\u4e32\u5c31\u80fd\u76f4\u63a5\u533a\u5206\uff1b\n4. **G4 CHANGELOG \u81ea\u52a8\u7ef4\u62a4**\uff1a\u6bcf\u6b21\u53d1\u7248\u540c\u65f6\u81ea\u52a8\u751f\u6210 / \u8ffd\u52a0 CHANGELOG\uff0c\u53ef\u4f5c\u4e3a\u5185\u7f51\u7528\u6237\u5347\u7ea7\u524d\u7684\u9605\u8bfb\u6750\u6599\u3002\n\n### 2.2 \u6b21\u8981\u76ee\u6807\n\n5. **G5 \u4ea7\u7269\u547d\u540d\u89c4\u8303**\uff1a\u6240\u6709 CI \u4ea7\u7269\u6587\u4ef6\u540d\u5305\u542b\u7248\u672c\u53f7 + \u5e73\u53f0\uff0c\u907f\u514d\u5185\u7f51\u5171\u4eab\u76d8\u591a\u7248\u672c\u5e76\u5b58\u65f6\u6df7\u6dc6\u3002\n\n---\n\n## 3. \u8303\u56f4\n\n### 3.1 In Scope\n\n- \u5f15\u5165 release-please \u7ef4\u62a4\u7248\u672c\u53f7\u4e0e CHANGELOG\uff1b\n- \u4fee\u6539 `scripts/build.ts` \u6ce8\u5165 `GIT_SHA` / `BUILD_ID` / `BUILD_TIME` \u7b49\u5143\u6570\u636e\uff1b\n- \u4fee\u6539 `ywcoder --version` \u8f93\u51fa\uff0c\u5c55\u793a\u53ef\u8ffd\u6eaf\u6807\u8bc6\uff1b\n- \u6539\u9020\u73b0\u6709 build workflow\uff1a\n  - \u89e6\u53d1\u6761\u4ef6\uff1a`feature/**` push + `tag v*` push\uff1b\n  - \u5206\u652f push \u4ea7\u7269\u7248\u672c\u53f7\u5e26 `-dev.<sha>` \u540e\u7f00\uff0ctag push \u4ea7\u7269\u4e3a\u5e72\u51c0\u7248\u672c\u53f7\uff1b\n  - \u4ea7\u7269\u6587\u4ef6\u547d\u540d\u5305\u542b\u7248\u672c\u53f7\u548c\u5e73\u53f0\uff1b\n  - tag \u89e6\u53d1\u65f6\u9644\u52a0\u6784\u5efa\u4ea7\u7269\u5230 GitHub Release\u3002\n\n### 3.2 Out of Scope\uff08\u660e\u786e\u4e0d\u505a\uff09\n\n- **\u4e0d\u505a\u5ba2\u6237\u7aef\u8fd0\u884c\u65f6\u81ea\u52a8\u68c0\u67e5\u66f4\u65b0**\uff1a\u5185\u7f51\u65e0\u53ef\u8fbe\u7684\u7248\u672c\u6e05\u5355\u5730\u5740\uff0c\u5f3a\u884c\u505a\u4f1a\u5f15\u5165\u201c\u542f\u52a8\u671f\u7f51\u7edc\u8bf7\u6c42\u201d\u7684\u98ce\u9669\uff0c\u4e14 ROI \u4f4e\uff1b\n- **\u4e0d\u505a `ywcoder update` \u4e00\u952e\u5347\u7ea7**\uff1a\u540c\u4e0a\u539f\u56e0\uff0c\u4e14\u5168\u5c40 npm \u5b89\u88c5\u6743\u9650\u5728\u5185\u7f51\u7528\u6237\u673a\u5668\u4e0a\u4e0d\u4e00\u5b9a\u5177\u5907\uff1b\n- **\u4e0d\u52a8 `MACRO.VERSION = \"99.0.0\"`**\uff1a\u8fd9\u662f\u7ed5\u8fc7 first-party min-version \u68c0\u67e5\u7684\u5360\u4f4d\u7b26\uff0c\u6539\u52a8\u4f1a\u5bfc\u81f4 bridge \u6a21\u5f0f\u88ab\u5224\u5b9a\u4e3a\u201c\u8fc7\u65e7\u201d\u800c\u62d2\u7edd\u670d\u52a1\uff1b\n- **\u4e0d\u6539 first-party `assertMinVersion` / \u81ea\u52a8\u66f4\u65b0\u94fe\u8def**\uff1a`src/utils/autoUpdater.ts` \u4fdd\u6301\u73b0\u72b6\uff0c\u65b0\u673a\u5236\u5b8c\u5168\u72ec\u7acb\uff1b\n- **\u4e0d\u5f15\u5165 npm publish**\uff1a\u5f53\u524d\u6ca1\u6709\u516c\u7f51\u53d1\u5e03\u9700\u6c42\uff1b\n- **\u4e0d\u5f3a\u5236\u7ea6\u5b9a\u5f0f\u63d0\u4ea4\uff08Conventional Commits\uff09\u683c\u5f0f**\uff1arelease-please \u80fd\u4ece\u5df2\u6709\u7684 `feat:` / `fix:` \u524d\u7f00\u5de5\u4f5c\uff0c\u4f46\u4e0d\u5f3a\u5236\u8d21\u732e\u8005\u6539\u4e60\u60ef\uff1b\n- **\u4e0d\u505a `RELEASE.json` manifest**\uff1a\u5f53\u524d\u6ca1\u6709\u6d88\u8d39\u65b9\uff0c\u7b49\u5185\u7f51\u6709\u6e05\u5355\u670d\u52a1\u65f6\u518d\u52a0\uff1b\n- **\u4e0d\u505a `main` push \u7684 rc build**\uff1a\u5355\u4eba\u5f00\u53d1\u6d41\u7a0b\u4e2d rc \u6863\u6ca1\u6709\u5b9e\u9645\u6d88\u8d39\u573a\u666f\u3002\n\n---\n\n## 4. \u7ea6\u675f\n\n### 4.1 \u6280\u672f\u7ea6\u675f\n\n| #   | \u7ea6\u675f                                                                     | \u6765\u6e90                                             |\n| --- | ------------------------------------------------------------------------ | ------------------------------------------------ |\n| C1  | `MACRO.VERSION` \u5fc5\u987b\u4fdd\u6301 `\"99.0.0\"`\uff0c\u4e0e `MACRO.DISPLAY_VERSION` \u4e25\u683c\u5206\u79bb | first-party min-version \u68c0\u67e5\u7684\u5360\u4f4d\u7b56\u7565           |\n| C2  | \u6784\u5efa\u671f\u6ce8\u5165\u903b\u8f91\u5fc5\u987b\u5728 `scripts/build.ts` \u96c6\u4e2d\uff0c\u4e0d\u80fd\u6563\u843d\u5230\u8fd0\u884c\u65f6\u4ee3\u7801       | \u73b0\u6709 macro \u6ce8\u5165\u6a21\u5f0f                              |\n| C3  | \u4efb\u4f55\u5ba2\u6237\u7aef\u542f\u52a8\u671f\u7684\u5916\u90e8\u8bf7\u6c42\u90fd\u5fc5\u987b \u22641.5s \u8d85\u65f6 + \u9759\u9ed8\u5931\u8d25                   | \u5185\u7f51/\u79bb\u7ebf\u73af\u5883\u7684\u9c81\u68d2\u6027                            |\n| C4  | \u4e0d\u80fd\u5f15\u5165\u9700\u8981 publish \u5230\u516c\u7f51\u7684\u53d1\u5e03\u6b65\u9aa4                                    | \u5185\u7f51\u90e8\u7f72\u573a\u666f                                     |\n| C5  | \u6784\u5efa\u4ea7\u7269\u5927\u5c0f\u4e0d\u5e94\u660e\u663e\u589e\u52a0                                                 | NPM \u5305\u7626\u8eab\u5df2\u6709\u7684\u4f18\u5316\u76ee\u6807\uff08\u53c2\u8003 note \u4e2d\u76f8\u5173\u6587\u6863\uff09 |\n\n### 4.2 \u6d41\u7a0b\u7ea6\u675f\n\n- \u5f00\u53d1\u6a21\u5f0f\uff1a\u5355\u4eba\u5728 feature \u5206\u652f\u5f00\u53d1\uff0c\u81ea\u6d4b\u540e\u5408\u5e76\u5230 main\uff1b\n- \u53d1\u7248\u89e6\u53d1\uff1a\u5408\u5e76\u5230 main \u540e\u7531 release-please \u81ea\u52a8\u5f00 Release PR\uff0c\u624b\u52a8 review \u5e76 merge \u540e\u624d\u771f\u6b63\u53d1\u7248\uff1b\n- \u6784\u5efa\u73af\u5883\uff1aGitHub Actions\uff08\u5df2\u6709\uff09\uff0cNode 18.20\u3001Bun 1.3.11\u3002\n\n---\n\n## 5. \u9a8c\u6536\u6807\u51c6\n\n| #   | \u9a8c\u6536\u9879                                                                                | \u9a8c\u8bc1\u65b9\u5f0f                          |\n| --- | ------------------------------------------------------------------------------------- | --------------------------------- |\n| A1  | feature \u5206\u652f push \u540e\u4ea7\u7269\u540d\u5f62\u5982 `ywcoder-1.0.2-dev.a3f2c1d-linux-x64.tgz`              | \u68c0\u67e5 GitHub Actions Artifact \u5217\u8868 |\n| A2  | tag `v1.0.2` push \u540e\u4ea7\u7269\u540d\u5f62\u5982 `ywcoder-1.0.2-linux-x64.tgz` \u4e14\u9644\u5728 GitHub Release \u4e0a | \u68c0\u67e5 Releases \u9875\u9762                |\n| A3  | `ywcoder --version` \u8f93\u51fa\u5f62\u5982 `1.0.2-dev.a3f2c1d (YwCoder, build #128, 2026-05-11)`    | \u5728\u65b0 build \u4e0a\u6267\u884c                 |\n| A4  | \u5728 main \u4e0a\u6709 `feat:` / `fix:` \u7c7b commit \u540e\uff0c\u81ea\u52a8\u51fa\u73b0 release-please \u7ef4\u62a4\u7684 Release PR | \u89c2\u5bdf PR \u5217\u8868                      |\n| A5  | merge Release PR \u540e\uff0c`package.json` \u7248\u672c\u53f7\u3001`CHANGELOG.md` \u81ea\u52a8\u66f4\u65b0                   | git diff                          |\n| A6  | bridge \u6a21\u5f0f\u4ecd\u7136\u53ef\u7528\uff08`MACRO.VERSION` \u672a\u88ab\u5f71\u54cd\uff09                                       | \u8d70\u4e00\u6b21 bridge \u542f\u52a8\u6d41\u7a0b            |\n| A7  | \u6784\u5efa\u4ea7\u7269\u5927\u5c0f\u76f8\u5bf9\u5f53\u524d\u57fa\u7ebf\u53d8\u5316 \u22642%                                                      | \u5bf9\u6bd4 `npm pack --dry-run` \u8f93\u51fa    |\n\n---\n\n## 6. \u975e\u76ee\u6807 / \u6682\u7f13\u9879\n\n\u53ef\u4f5c\u4e3a\u540e\u7eed\u8fed\u4ee3\u8003\u8651\uff0c\u672c\u671f\u4e0d\u505a\uff1a\n\n- **\u8fd0\u884c\u65f6\u68c0\u67e5\u66f4\u65b0**\uff1a\u672a\u6765\u5982\u679c\u5185\u7f51\u642d\u8d77 Verdaccio \u6216\u5171\u4eab\u6587\u4ef6\u670d\u52a1\u5668\uff0c\u518d\u52a0\u4e0a banner \u63d0\u793a\u843d\u540e\u7248\u672c\u7684\u903b\u8f91\uff1b\n- **`ywcoder update` \u547d\u4ee4**\uff1a\u4f9d\u8d56\u4e0a\u4e00\u6761\uff1b\n- **`RELEASE.json` manifest**\uff1a\u7b49\u6709\u6d88\u8d39\u65b9\u518d\u52a0\uff1b\n- **\u591a release channel\uff08stable/beta\uff09**\uff1a\u5f53\u524d\u7528\u6237\u7fa4\u5355\u4e00\uff0c\u65e0\u9700\u6c42\uff1b\n- **\u7b7e\u540d / \u6821\u9a8c**\uff1a\u5185\u7f51\u642c\u8fd0\u4fe1\u4efb\u94fe\u7531\u7ec4\u7ec7\u6d41\u7a0b\u4fdd\u8bc1\uff0c\u4e0d\u5f15\u5165\u7b7e\u540d\u673a\u5236\u3002\n\n---\n\n## 7. \u76f8\u5173\u53c2\u8003\n\n- `note/internal-model-config-gateway/` \u2014 \u7c7b\u4f3c\u7684 feature \u6587\u6863\u5939\u7ec4\u7ec7\u683c\u5f0f\n- `note/NPM-PACKAGE-OPTIMIZATION-Opus.md` \u2014 npm \u5305\u4f18\u5316\u80cc\u666f\uff0c\u7ea6\u675f C5 \u7684\u6765\u6e90\n- `note/PACKAGING_AND_INSTALL.md` \u2014 \u73b0\u6709\u6253\u5305/\u5b89\u88c5\u6d41\u7a0b\n- `scripts/build.ts` \u2014 \u6784\u5efa\u811a\u672c\uff0c\u672c\u6b21\u4e3b\u8981\u6539\u52a8\u70b9\u4e4b\u4e00\n- `.github/workflows/build-npm-linux-offline.yml` \u7b49 \u2014 \u73b0\u6709 CI workflow\n- `src/utils/autoUpdater.ts` \u2014 first-party \u81ea\u52a8\u66f4\u65b0\u94fe\u8def\uff0c\u672c\u6b21**\u4e0d\u52a8**",
+  "design": "# 02 - \u8bbe\u8ba1\u6587\u6863\uff1a\u7248\u672c\u53f7\u7ba1\u7406\u4e0e\u81ea\u52a8\u66f4\u65b0\n\n**Status**: Draft\n**Date**: 2026-05-11\n**Owner**: changjiaoxigua\n**\u5bf9\u5e94\u9700\u6c42**: `01-requirements.md`\n\n---\n\n## 1. \u6574\u4f53\u67b6\u6784\n\n\u672c\u65b9\u6848\u5206\u4e3a **3 \u4e2a\u5b50\u7cfb\u7edf**\uff0c\u6309\u98ce\u9669\u9012\u589e\u987a\u5e8f\u5206\u9636\u6bb5\u5b9e\u65bd\uff1a\n\n```\n\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502  [\u5916\u7f51]                                                              \u2502\n\u2502                                                                       \u2502\n\u2502   \u5f00\u53d1\u8005                                                              \u2502\n\u2502     \u2502 git push (feature/**)                                          \u2502\n\u2502     \u25bc                                                                 \u2502\n\u2502  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510    \u5206\u652f push \u89e6\u53d1           \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510    \u2502\n\u2502  \u2502  Workflow  \u2502 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u25ba\u2502  dev build (.tgz)\u2502    \u2502\n\u2502  \u2502   build-*  \u2502    \u7248\u672c\u53f7: 1.0.2-dev.<sha>   \u2502  \u9644 GIT_SHA \u5143\u6570\u636e \u2502    \u2502\n\u2502  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518                              \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518    \u2502\n\u2502     \u2502                                                                 \u2502\n\u2502     \u2502 merge to main                                                  \u2502\n\u2502     \u25bc                                                                 \u2502\n\u2502  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510  \u81ea\u52a8\u5f00 Release PR                                \u2502\n\u2502  \u2502 release-please \u2502 \u2500\u2500\u2500\u2500\u2500\u2500\u25ba  Release PR (\u6539 package.json + CHANGELOG)\u2502\n\u2502  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518                                                  \u2502\n\u2502     \u2502                                                                 \u2502\n\u2502     \u2502 \u624b\u5de5 review + merge Release PR                                 \u2502\n\u2502     \u25bc                                                                 \u2502\n\u2502  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510  \u6253 tag v1.0.2                                       \u2502\n\u2502  \u2502 release-   \u2502 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u25ba  GitHub Release      \u2502\n\u2502  \u2502  please    \u2502                                    \u2502 ywcoder-1.0.2-..\u2502\n\u2502  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518                                    \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n                           \u2502 \u4eba\u5de5\u642c\u8fd0\n                           \u25bc\n\u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n\u2502  [\u5185\u7f51]                                                              \u2502\n\u2502   \u7ba1\u7406\u5458\u5b58\u653e\u70b9\uff08\u5171\u4eab\u76d8/U \u76d8\uff09                                         \u2502\n\u2502     \u2502                                                                 \u2502\n\u2502     \u2502 \u901a\u77e5 + \u62f7\u8d1d                                                    \u2502\n\u2502     \u25bc                                                                 \u2502\n\u2502   \u5185\u7f51\u7528\u6237  \u2500\u2500\u25ba  npm install -g ywcoder-1.0.2-linux-x64.tgz          \u2502\n\u2502              \u2500\u2500\u25ba  ywcoder --version \u663e\u793a\u5b8c\u6574\u53ef\u8ffd\u6eaf\u6807\u8bc6                \u2502\n\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n```\n\n\u4e09\u4e2a\u5b50\u7cfb\u7edf\uff1a\n\n| \u5b50\u7cfb\u7edf | \u540d\u79f0                | \u6d89\u53ca\u6587\u4ef6                                         | \u5b9e\u65bd\u9636\u6bb5 |\n| ------ | ------------------- | ------------------------------------------------ | -------- |\n| S1     | \u6784\u5efa\u671f\u5143\u6570\u636e\u6ce8\u5165    | `scripts/build.ts`\u3001`src/main.tsx`               | Phase 1  |\n| S2     | release-please \u63a5\u5165 | `.github/workflows/release-please.yml`\uff08\u65b0\u589e\uff09   | Phase 3  |\n| S3     | CI \u53cc\u8f68\u6539\u9020         | `.github/workflows/build-*.yml`\uff08\u4fee\u6539\uff09          | Phase 2  |\n\n---\n\n## 2. S1\uff1a\u6784\u5efa\u671f\u5143\u6570\u636e\u6ce8\u5165\n\n### 2.1 \u8bbe\u8ba1\n\n\u5728 `scripts/build.ts` \u7684 `define` \u6bb5\u589e\u8865 MACRO \u6ce8\u5165\u9879\uff0c**\u6240\u6709\u5143\u6570\u636e\u5728\u6784\u5efa\u65f6\u4e00\u6b21\u6027\u786e\u5b9a\uff0c\u8fd0\u884c\u65f6\u4e0d\u518d\u52a8\u6001\u8ba1\u7b97**\uff0c\u4e0e\u73b0\u6709 `MACRO.DISPLAY_VERSION` / `MACRO.BUILD_TIME` \u98ce\u683c\u4fdd\u6301\u4e00\u81f4\u3002\n\n### 2.2 \u65b0\u589e MACRO \u5b57\u6bb5\n\n| \u5b57\u6bb5                       | \u6765\u6e90                                                            | \u793a\u4f8b                          |\n| -------------------------- | --------------------------------------------------------------- | ----------------------------- |\n| `MACRO.GIT_SHA`            | `git rev-parse --short HEAD`                                    | `\"a3f2c1d\"`                   |\n| `MACRO.BUILD_ID`           | `process.env.GITHUB_RUN_NUMBER` ?? `\"local\"`                    | `\"128\"` / `\"local\"`           |\n| `MACRO.BUILD_CHANNEL`      | `process.env.BUILD_CHANNEL` ?? `\"local\"`                        | `\"dev\"` / `\"release\"` / `\"local\"` |\n| `MACRO.DISPLAY_VERSION`    | \u5df2\u5b58\u5728\uff1b\u6539\u4e3a\u62fc\u63a5 `version + (process.env.VERSION_SUFFIX ?? '')` | `\"1.0.2-dev.a3f2c1d\"`         |\n\n### 2.3 `MACRO.VERSION` \u4fdd\u6301\u4e0d\u53d8\n\n\u7ee7\u7eed\u786c\u7f16\u7801\u4e3a `\"99.0.0\"`\uff0c\u4ec5\u4f9b first-party min-version \u68c0\u67e5\u4f7f\u7528\u3002**\u4e25\u7981\u4e0e `MACRO.DISPLAY_VERSION` \u5408\u5e76**\u3002\n\n### 2.4 `--version` \u8f93\u51fa\n\n\u4fee\u6539 `src/main.tsx` \u7684 `.version()` \u8c03\u7528\uff0c\u8f93\u51fa\u683c\u5f0f\uff1a\n\n```\n1.0.2-dev.a3f2c1d (YwCoder, build #128, 2026-05-11)\n```\n\n\u5b57\u6bb5\u6765\u6e90\uff1a\n- `1.0.2-dev.a3f2c1d` \u2192 `MACRO.DISPLAY_VERSION`\n- `build #128` \u2192 `MACRO.BUILD_ID`\n- `2026-05-11` \u2192 `MACRO.BUILD_TIME` \u622a\u53d6\u65e5\u671f\u90e8\u5206\n\n\u672c\u5730\u5f00\u53d1\u6784\u5efa\uff08\u65e0 CI \u73af\u5883\u53d8\u91cf\uff09\u8f93\u51fa\uff1a\n\n```\n1.0.2 (YwCoder, build #local, 2026-05-11)\n```\n\n### 2.5 \u517c\u5bb9\u6027\n\n- `MACRO.VERSION` \u4e0d\u52a8\uff0c\u6240\u6709 first-party \u68c0\u67e5\u94fe\u8def\u4e0d\u53d7\u5f71\u54cd\uff1b\n- `releaseNotes.ts` \u7b49\u8bfb `MACRO.VERSION` \u7684\u903b\u8f91\u6682\u4e0d\u8c03\u6574\uff08\u53c2\u8003\u9700\u6c42 4.1 C1\uff09\uff1b\n- \u5185\u5d4c\u7684 `-dev.sha` \u5f62\u5f0f\u7b26\u5408 SemVer pre-release identifier \u89c4\u8303\uff0c\u73b0\u6709 `semver` \u6bd4\u8f83\u5e93\u53ef\u6b63\u786e\u5904\u7406\u3002\n\n---\n\n## 3. S2\uff1arelease-please \u63a5\u5165\n\n### 3.1 \u5de5\u5177\u9009\u578b\u7406\u7531\n\n| \u5019\u9009          | \u662f\u5426\u8981 publish \u516c\u7f51 | \u662f\u5426\u8981\u7ea6\u5b9a\u5f0f\u63d0\u4ea4 | \u662f\u5426\u63d0\u4f9b Review \u673a\u5236 | \u7ed3\u8bba        |\n| ------------- | ------------------- | ---------------- | -------------------- | ----------- |\n| Changesets    | \u5426                  | \u5426               | \u4e0d\u76f4\u63a5               | \u5907\u9009        |\n| semantic-release | \u901a\u5e38\u9700\u8981         | \u5f3a\u5236             | \u5426\uff08\u76f4\u63a5\u53d1\u7248\uff09       | \u4e0d\u9009        |\n| **release-please** | **\u4e0d\u8981\u6c42**     | **\u662f\uff08\u63a8\u8350\u4f46\u53ef\u5bbd\u677e\uff09** | **\u662f\uff08\u81ea\u52a8\u5f00 PR\uff09** | **\u91c7\u7528**    |\n\n\u9009\u7528 release-please \u4e3b\u8981\u56e0\u4e3a\uff1a\n1. \u4e0d\u7ed1\u6b7b npm publish\uff0c\u53ef\u5355\u72ec\u7ba1\u7406 tag + Release\uff1b\n2. \u5df2\u6709 commit \u98ce\u683c\uff08`feat:` / `fix:` \u5df2\u4f7f\u7528\uff09\u517c\u5bb9\u5176\u9ed8\u8ba4 parser\uff1b\n3. \u81ea\u52a8\u7ef4\u62a4\u4e00\u4e2a\u957f\u671f Release PR\uff0c\u53d1\u7248\u524d\u8fd8\u6709\u4eba\u5de5 review \u673a\u4f1a\uff0c\u7b26\u5408\u201c\u5185\u7f51\u6d4b\u8bd5\u901a\u8fc7\u624d\u53d1\u7248\u201d\u7684\u5b9e\u9645\u6d41\u7a0b\u3002\n\n### 3.2 \u65b0\u589e workflow\uff1a`.github/workflows/release-please.yml`\n\n\u8bbe\u8ba1\u8981\u70b9\uff1a\n\n- **\u89e6\u53d1**\uff1a`push: branches: [main]`\uff1b\n- **\u914d\u7f6e**\uff1a`release-type: node`\u3001`package-name: @dcywzc/ywcoder`\uff1b\n- **\u884c\u4e3a**\uff1a\n  - \u89e3\u6790 main \u4e0a\u65b0\u589e commit\uff1b\n  - \u5728\u5df2\u6709 Release PR \u4e0a\u7d2f\u8ba1\u53d8\u66f4\uff0c\u6216\u521b\u5efa\u65b0\u7684 Release PR\uff1b\n  - merge Release PR \u540e\u81ea\u52a8 `git tag v<version>` + \u521b\u5efa GitHub Release\uff1b\n- **\u540e\u7eed**\uff1atag \u521b\u5efa\u4f1a\u89e6\u53d1\u4e0b\u6587 S3 \u63cf\u8ff0\u7684 build workflow\u3002\n\n### 3.3 Commit \u7c7b\u578b\u4e0e\u7248\u672c\u53f7 bump \u89c4\u5219\uff08\u9ed8\u8ba4 release-please \u884c\u4e3a\uff09\n\n| Commit \u524d\u7f00                            | bump \u7c7b\u578b | \u662f\u5426\u8fdb CHANGELOG |\n| -------------------------------------- | --------- | ---------------- |\n| `feat:`                                | minor     | \u662f               |\n| `fix:`                                 | patch     | \u662f               |\n| `feat!:` / `fix!:` / `BREAKING CHANGE` | major     | \u662f               |\n| `docs:` / `chore:` / `refactor:` \u7b49     | \u65e0 bump   | \u5426               |\n\n### 3.4 \u4e0d\u5f15\u5165 publish\n\n\u4e0d\u5728 release-please \u914d\u7f6e\u91cc\u542f\u7528 `npm publish`\u3002release-please \u4ec5\u8d1f\u8d23\uff1a\n- \u7ef4\u62a4 `package.json` \u7248\u672c\u53f7\uff1b\n- \u751f\u6210 CHANGELOG\uff1b\n- \u6253 tag + \u521b\u5efa GitHub Release\u3002\n\n\u6253\u5305\u52a8\u4f5c\u7531 S3 \u63a5\u7ba1\u3002\n\n### 3.5 \u6ce8\u610f\u4e8b\u9879\n\n\u81ea\u52a8\u751f\u6210\u7684 CHANGELOG \u4f1a\u76f4\u63a5\u4f7f\u7528 commit message \u4e2d\u6587\u6807\u9898\u3002\u5982\u9700\u66f4\u597d\u7684\u53ef\u8bfb\u6027\uff0c\u53ef\u5728 merge Release PR \u524d\u624b\u52a8\u7f16\u8f91 release notes\u3002\n\n---\n\n## 4. S3\uff1aCI \u53cc\u8f68\u6539\u9020\n\n### 4.1 \u89e6\u53d1\u77e9\u9635\n\n| \u89e6\u53d1\u6e90                  | BUILD_CHANNEL | \u7248\u672c\u53f7\u540e\u7f00          | \u4ea7\u7269\u53bb\u5411            | \u7528\u9014                 |\n| ----------------------- | ------------- | ------------------- | ------------------- | -------------------- |\n| `feature/**` push       | `dev`         | `-dev.<sha>`        | Actions Artifact    | \u81ea\u6d4b\u3001\u62f7\u5185\u7f51\u9a8c\u8bc1     |\n| tag `v*` push           | `release`     | \u65e0\u540e\u7f00\uff08\u5e72\u51c0\u7248\u672c\u53f7\uff09| GitHub Release      | \u6b63\u5f0f\u53d1\u7248             |\n| `workflow_dispatch`     | `dev`\uff08\u9ed8\u8ba4\uff09 | `-dev.<sha>`        | Actions Artifact    | \u624b\u52a8\u91cd\u6253             |\n\n\u6ce8\uff1a`main` push \u4e0d\u5355\u72ec\u89e6\u53d1\u6784\u5efa\u3002\u6b63\u5f0f\u53d1\u7248\u901a\u8fc7 release-please \u6253 tag \u540e\u89e6\u53d1\u3002\n\n### 4.2 \u6539\u9020\u70b9\n\n**`.github/workflows/build-npm-linux-offline.yml`** \u7b49\u73b0\u6709 workflow\uff1a\n\n1. **\u89e6\u53d1\u6761\u4ef6**\uff1a\n\n```yaml\non:\n  push:\n    branches: ['feature/**']\n    tags: ['v*']\n  workflow_dispatch:\n```\n\n2. **\u65b0\u589e\u524d\u7f6e step\uff1a\u6839\u636e\u89e6\u53d1\u6e90\u51b3\u5b9a channel \u4e0e\u540e\u7f00**\n\n```bash\nif [[ \"$GITHUB_REF\" == refs/tags/v* ]]; then\n    BUILD_CHANNEL=release\n    VERSION_SUFFIX=\"\"\nelse\n    BUILD_CHANNEL=dev\n    VERSION_SUFFIX=\"-dev.${GITHUB_SHA::7}\"\nfi\n\necho \"BUILD_CHANNEL=$BUILD_CHANNEL\" >> $GITHUB_ENV\necho \"VERSION_SUFFIX=$VERSION_SUFFIX\" >> $GITHUB_ENV\n```\n\n3. **`scripts/build.ts` \u8bfb\u53d6\u73af\u5883\u53d8\u91cf**\uff1a\n\n`MACRO.DISPLAY_VERSION` \u6ce8\u5165\u903b\u8f91\u6539\u4e3a\uff1a\n\n```typescript\nJSON.stringify(version + (process.env.VERSION_SUFFIX ?? ''))\n```\n\n`MACRO.BUILD_CHANNEL` \u540c\u7406\u8bfb `process.env.BUILD_CHANNEL ?? 'local'`\u3002\n\n\u672c\u5730\u5f00\u53d1\u65f6\u8fd9\u4e9b\u73af\u5883\u53d8\u91cf\u4e0d\u5b58\u5728\uff0c`DISPLAY_VERSION` \u4e3a\u7eaf\u7248\u672c\u53f7\uff0c`BUILD_CHANNEL` \u4e3a `\"local\"`\u3002\n\n4. **\u4ea7\u7269\u547d\u540d**\uff1a\n\n```\nywcoder-${DISPLAY_VERSION}-${PLATFORM}.tgz\n```\n\n\u4f8b\uff1a\n- `ywcoder-1.0.2-dev.a3f2c1d-linux-x64.tgz`\uff08dev build\uff09\n- `ywcoder-1.0.2-linux-x64.tgz`\uff08release build\uff09\n\n5. **Release \u89e6\u53d1\u65f6\u4e0a\u4f20 asset**\uff1a\n\n\u65b0\u589e step \u4f7f\u7528 `softprops/action-gh-release@v2`\uff0c\u5c06\u672c\u6b21 build \u4ea7\u7269\u9644\u52a0\u5230\u5df2\u6709\u7684 GitHub Release\uff08\u7531 release-please \u521b\u5efa\uff09\u4e0a\u3002\n\n---\n\n## 5. \u5931\u8d25\u6a21\u5f0f\u4e0e\u56de\u6eda\n\n| \u573a\u666f                                 | \u5f71\u54cd                       | \u5e94\u5bf9                                                                 |\n| ------------------------------------ | -------------------------- | -------------------------------------------------------------------- |\n| release-please \u8bef\u5224 commit \u7c7b\u578b      | \u7248\u672c\u53f7 bump \u4e0d\u7b26\u5408\u9884\u671f     | Release PR \u662f\u624b\u5de5 merge\uff0creview \u65f6\u5373\u53ef\u53d1\u73b0\uff0c\u6539 PR \u5185\u5bb9\u5373\u53ef           |\n| `MACRO.VERSION` \u88ab\u8bef\u6539               | bridge \u6a21\u5f0f\u62d2\u7edd\u670d\u52a1         | code review \u62e6\u622a\uff1b\u53ef\u5728 `build.ts` \u52a0 assert: \u5fc5\u987b `=== \"99.0.0\"`     |\n| `VERSION_SUFFIX` \u6ce8\u5165\u5931\u8d25            | \u4ea7\u7269\u7248\u672c\u53f7\u53d8\u6210\u7eaf `1.0.1`   | \u4e0e\u73b0\u72b6\u65e0\u5dee\u5f02\uff0c\u4e0d\u4f1a\u9020\u6210\u65b0\u589e\u6545\u969c                                       |\n| tag \u5df2\u5b58\u5728\u91cd\u590d\u521b\u5efa                   | release-please \u62a5\u9519        | \u5220\u9664\u51b2\u7a81 tag \u540e\u91cd\u8dd1                                                  |\n| \u6784\u5efa\u4ea7\u7269\u9644\u52a0\u5230 GitHub Release \u5931\u8d25   | Release \u9875\u7f3a\u4ea7\u7269            | \u91cd\u8dd1 workflow \u5373\u53ef\uff1brelease-please \u4e0d\u4f1a\u56e0\u6b64\u56de\u9000\u7248\u672c\u53f7                |\n\n---\n\n## 6. \u4e0e\u73b0\u6709\u4ee3\u7801\u7684\u63a5\u89e6\u70b9\n\n| \u6587\u4ef6                                                          | \u6539\u52a8\u7c7b\u578b | \u8bf4\u660e                                                  |\n| ------------------------------------------------------------- | -------- | ----------------------------------------------------- |\n| `scripts/build.ts`                                            | \u4fee\u6539     | \u65b0\u589e MACRO \u6ce8\u5165\uff1b\u4fdd\u7559 `MACRO.VERSION = \"99.0.0\"`     |\n| `src/main.tsx`\uff08`.version()` \u8c03\u7528\u5904\uff09                          | \u4fee\u6539     | `--version` \u8f93\u51fa\u683c\u5f0f\u6269\u5c55                              |\n| `.github/workflows/release-please.yml`                        | \u65b0\u589e     | release-please action \u914d\u7f6e                            |\n| `.github/workflows/build-npm-linux-offline.yml`               | \u4fee\u6539     | \u89e6\u53d1\u6761\u4ef6\u3001channel \u51b3\u7b56\u3001\u4ea7\u7269\u547d\u540d                      |\n| `.github/workflows/build-npm-windows-offline.yml`             | \u4fee\u6539     | \u540c\u4e0a                                                  |\n| `.github/workflows/build-zip-windows-offline.yml`             | \u4fee\u6539     | \u540c\u4e0a                                                  |\n| `package.json`\uff08`version` \u5b57\u6bb5\uff09                              | \u63a5\u7ba1     | \u540e\u7eed\u7531 release-please \u4fee\u6539\uff0c\u5f00\u53d1\u8005\u4e0d\u518d\u624b\u6539           |\n| `CHANGELOG.md`                                                | \u65b0\u589e     | \u7531 release-please \u81ea\u52a8\u7ef4\u62a4                            |\n\n**\u660e\u786e\u4e0d\u52a8**\uff1a\n- `src/utils/autoUpdater.ts`\n- `src/bridge/envLessBridgeConfig.ts`\u3001`src/bridge/bridgeEnabled.ts`\uff08\u6d89\u53ca `MACRO.VERSION` \u6bd4\u8f83\uff09\n- `src/utils/releaseNotes.ts`\n- `MACRO.VERSION` \u7684\u503c\n\n---\n\n## 7. \u5b9e\u65bd\u987a\u5e8f\n\n| \u9636\u6bb5    | \u5185\u5bb9                              | \u98ce\u9669 | \u6536\u76ca |\n| ------- | --------------------------------- | ---- | ---- |\n| Phase 1 | S1 \u6784\u5efa\u671f\u5143\u6570\u636e\u6ce8\u5165               | \u4f4e   | \u9ad8\uff08\u7acb\u523b\u89e3\u51b3\u201c\u770b\u4e0d\u51fa\u54ea\u6b21 build\u201d\u7684\u75db\u70b9\uff09 |\n| Phase 2 | S3\uff1aCI workflow \u6539\u9020 + \u4ea7\u7269\u547d\u540d   | \u4e2d   | \u9ad8\uff08\u89e3\u51b3\u4ea7\u7269\u6df7\u6dc6 + \u9884\u53d1/\u6b63\u5f0f\u533a\u5206\uff09     |\n| Phase 3 | S2\uff1a\u63a5\u5165 release-please           | \u4e2d   | \u4e2d\uff08\u81ea\u52a8\u5316 bump\uff0c\u8282\u7701\u4eba\u5de5\u8bb0\u5fc6\uff09        |\n\nPhase 1 \u5b8c\u5168\u72ec\u7acb\uff0c\u4e0d\u4f9d\u8d56\u5176\u5b83\u9636\u6bb5\uff0c\u53ef\u5355 PR \u843d\u5730\u3002Phase 2 \u4e0e Phase 3 \u987a\u5e8f\u53ef\u5bf9\u8c03\uff0c\u4f46 Phase 2 \u5148\u505a\u80fd\u66f4\u5feb\u9a8c\u8bc1\u201c\u4ea7\u7269\u547d\u540d\u89c4\u8303\u201d\u662f\u5426\u7b26\u5408\u5185\u7f51\u642c\u8fd0\u9700\u6c42\u3002\n\n---\n\n## 8. \u5f85\u8bc4\u5ba1\u51b3\u7b56\u70b9\n\n| # | \u5f85\u5b9a                                                                                              | \u5907\u6ce8                                                                 |\n| - | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |\n| Q1 | release-please \u914d\u7f6e\u6587\u4ef6\u4f4d\u7f6e\uff1a`.release-please-config.json` \u8fd8\u662f inline workflow\uff1f                | \u63a8\u8350\u524d\u8005\uff0c\u4fbf\u4e8e\u540e\u7eed\u6269\u5c55                                                |\n| Q2 | \u662f\u5426\u5728 `scripts/build.ts` \u52a0 assert \u5f3a\u5236 `MACRO.VERSION === \"99.0.0\"`\uff1f                          | \u63a8\u8350\u52a0\uff0c\u9632\u6b62\u8bef\u6539                                                      |\n| Q3 | `build-node-modules-windows.yml` \u662f\u5426\u7eb3\u5165\u53cc\u8f68\u6539\u9020\uff1f                                              | \u9700\u5148\u786e\u8ba4\u8be5 workflow \u5f53\u524d\u7684\u5b9e\u9645\u7528\u9014                                    |\n\n---\n\n## 9. \u540e\u7eed\u53ef\u80fd\u7684\u6269\u5c55\uff08\u4e0d\u5728\u672c\u671f\u8303\u56f4\uff09\n\n- **\u5185\u7f51\u6e05\u5355\u670d\u52a1**\uff1a\u82e5\u5185\u7f51\u67b6\u8d77\u5171\u4eab\u6587\u4ef6\u670d\u52a1\u5668\uff0c\u53ef\u5728\u5ba2\u6237\u7aef\u542f\u52a8\u671f\u8bfb\u6e05\u5355\u505a\u7248\u672c\u63d0\u793a\uff1b\n- **`ywcoder update` \u547d\u4ee4**\uff1a\u4f9d\u8d56\u4e0a\u4e00\u6761\uff1b\n- **`RELEASE.json` manifest**\uff1a\u7b49\u6709\u6d88\u8d39\u65b9\u518d\u52a0\uff1b\n- **\u591a channel\uff08beta / stable\uff09**\uff1a\u901a\u8fc7 release-please \u7684 `release-as` \u4e0e channel \u914d\u7f6e\u5b9e\u73b0\uff1b\n- **\u6784\u5efa\u4ea7\u7269\u7b7e\u540d**\uff1a\u7528 GPG / cosign \u7b7e\u4ea7\u7269\uff0c\u589e\u5f3a\u642c\u8fd0\u4fe1\u4efb\u3002",
+  "summary": "# 03 - \u5b9e\u65bd\u603b\u7ed3\uff1a\u7248\u672c\u53f7\u7ba1\u7406\u4e0e\u81ea\u52a8\u66f4\u65b0\n\n**Status**: Done\n**Date**: 2026-05-11\n**Owner**: changjiaoxigua\n**Branch**: feature/brand-replacement\n\n---\n\n## 1. \u5b9e\u65bd\u6982\u89c8\n\n\u4e09\u4e2a Phase \u6309\u8bbe\u8ba1\u6587\u6863\u987a\u5e8f\u5168\u90e8\u5b8c\u6210\uff0c\u6240\u6709\u6539\u52a8\u5728\u672c\u5730\u6784\u5efa\u9a8c\u8bc1\u901a\u8fc7\u3002\n\n| \u9636\u6bb5 | \u5185\u5bb9 | \u72b6\u6001 | \u6d89\u53ca\u6587\u4ef6 |\n|------|------|------|----------|\n| Phase 1 | S1 \u6784\u5efa\u671f\u5143\u6570\u636e\u6ce8\u5165 | \u2705 \u5b8c\u6210 | `scripts/build.ts`\u3001`src/entrypoints/cli.tsx`\u3001`src/main.tsx` |\n| Phase 2 | S3 CI \u53cc\u8f68\u6539\u9020 + \u4ea7\u7269\u547d\u540d | \u2705 \u5b8c\u6210 | 3 \u4e2a `build-*.yml` workflow |\n| Phase 3 | S2 release-please \u63a5\u5165 | \u2705 \u5b8c\u6210 | 3 \u4e2a\u65b0\u589e\u914d\u7f6e/workflow \u6587\u4ef6 |\n\n---\n\n## 2. Phase 1\uff1a\u6784\u5efa\u671f\u5143\u6570\u636e\u6ce8\u5165\n\n### \u6539\u52a8\u6587\u4ef6\n\n| \u6587\u4ef6 | \u6539\u52a8 |\n|------|------|\n| `scripts/build.ts` | \u65b0\u589e `GIT_SHA`/`BUILD_ID`/`BUILD_CHANNEL` \u8ba1\u7b97\u903b\u8f91\uff1b\u6ce8\u5165 3 \u4e2a\u65b0 MACRO\uff1b`DISPLAY_VERSION` \u6539\u4e3a\u62fc\u63a5 `VERSION_SUFFIX`\uff1b\u6784\u5efa\u65e5\u5fd7\u8f93\u51fa\u5b8c\u6574\u5143\u6570\u636e |\n| `src/entrypoints/cli.tsx` | `--version` \u5feb\u901f\u8def\u5f84\u8f93\u51fa\u683c\u5f0f\u6539\u4e3a\u542b build id \u548c\u65e5\u671f |\n| `src/main.tsx:3792` | Commander `.version()` \u5146\u5e95\u8def\u5f84\u540c\u6b65\u66f4\u65b0\u683c\u5f0f |\n\n### \u65b0\u589e MACRO\n\n| \u5b57\u6bb5 | \u672c\u5730\u9ed8\u8ba4\u503c | CI \u793a\u4f8b |\n|------|-----------|--------|\n| `MACRO.GIT_SHA` | \u5f53\u524d HEAD short sha | `\"a3f2c1d\"` |\n| `MACRO.BUILD_ID` | `\"local\"` | `\"128\"` |\n| `MACRO.BUILD_CHANNEL` | `\"local\"` | `\"dev\"` / `\"release\"` |\n| `MACRO.DISPLAY_VERSION` | `\"1.0.1\"`\uff08\u7eaf\u7248\u672c\u53f7\uff09 | `\"1.0.2-dev.a3f2c1d\"` |\n\n### `--version` \u8f93\u51fa\u6548\u679c\n\n```\n# \u672c\u5730\u5f00\u53d1\n1.0.1 (YwCoder, build #local, 2026-05-11)\n\n# CI dev build\n1.0.2-dev.a3f2c1d (YwCoder, build #128, 2026-05-11)\n\n# CI release build\n1.0.2 (YwCoder, build #128, 2026-05-11)\n```\n\n### \u6ce8\u610f\u4e8b\u9879\n\n- `MACRO.VERSION` \u4fdd\u6301 `\"99.0.0\"` \u672a\u52a8\n- \u53d1\u73b0 `src/entrypoints/cli.tsx` \u6709 `--version` \u5feb\u901f\u8def\u5f84\uff08\u7ed5\u8fc7 Commander\uff09\uff0cPhase 1 \u5b9e\u65bd\u65f6\u5df2\u540c\u6b65\u4fee\u6539\n\n---\n\n## 3. Phase 2\uff1aCI \u53cc\u8f68\u6539\u9020\n\n### \u6539\u52a8\u6587\u4ef6\n\n| \u6587\u4ef6 | \u6539\u52a8 |\n|------|------|\n| `.github/workflows/build-npm-linux-offline.yml` | \u89e6\u53d1\u6761\u4ef6\u3001channel \u51b3\u7b56\u3001\u4ea7\u7269\u91cd\u547d\u540d\u3001Release \u4e0a\u4f20 |\n| `.github/workflows/build-npm-windows-offline.yml` | \u540c\u4e0a |\n| `.github/workflows/build-zip-windows-offline.yml` | \u540c\u4e0a\uff08\u539f\u6765\u4ec5 `workflow_dispatch`\uff0c\u73b0\u6269\u5c55\u652f\u6301 push \u89e6\u53d1\uff09 |\n| `.github/workflows/build-node-modules-windows.yml` | **\u672a\u6539\u52a8**\uff08\u4ec5\u6253\u5305 node_modules\uff0c\u4e0d\u6d89\u53ca\u7248\u672c\u5143\u6570\u636e\uff09 |\n\n### \u89e6\u53d1\u77e9\u9635\uff08\u7cbe\u7b80\u4e3a\u4e24\u6863\uff09\n\n| \u89e6\u53d1\u6e90 | BUILD_CHANNEL | \u7248\u672c\u53f7\u540e\u7f00 | \u4ea7\u7269\u53bb\u5411 |\n|--------|---------------|-----------|----------|\n| `feature/**` push | `dev` | `-dev.<sha>` | Actions Artifact |\n| tag `v*` push | `release` | \u65e0\u540e\u7f00 | GitHub Release |\n| `workflow_dispatch` | `dev` | `-dev.<sha>` | Actions Artifact |\n\n\u5df2\u6309\u8bc4\u5ba1\u610f\u89c1\u780d\u6389 `rc` channel\uff0c`main` push \u4e0d\u5355\u72ec\u89e6\u53d1\u6784\u5efa\u3002\n\n### \u4ea7\u7269\u547d\u540d\u89c4\u8303\n\n```\n# dev build\nywcoder-1.0.1-dev.d3e918c-linux-x64.tgz\nywcoder-1.0.1-dev.d3e918c-win-x64.tgz\nywcoder-1.0.1-dev.d3e918c-win-x64.zip\n\n# release build\nywcoder-1.0.2-linux-x64.tgz\nywcoder-1.0.2-win-x64.tgz\nywcoder-1.0.2-win-x64.zip\n```\n\n### \u5173\u952e\u5b9e\u73b0\u7ec6\u8282\n\n- \"Determine build channel\" step \u4f7f\u7528 `shell: bash`\uff08Windows runner \u4e0a\u4e5f\u7528 bash \u505a channel \u5224\u65ad\uff0c\u907f\u514d PowerShell \u8bed\u6cd5\u5dee\u5f02\uff09\n- `npm pack` \u4ea7\u51fa\u7684 `dcywzc-ywcoder-*.tgz` \u901a\u8fc7 `mv` \u91cd\u547d\u540d\u4e3a\u89c4\u8303\u540d\u79f0\n- `permissions: contents: write`\uff08\u4ece `read` \u5347\u7ea7\uff0crelease \u4e0a\u4f20\u9700\u8981\u5199\u6743\u9650\uff09\n- tag \u89e6\u53d1\u65f6\u4f7f\u7528 `softprops/action-gh-release@v2` \u4e0a\u4f20\u4ea7\u7269\u5230 GitHub Release\n\n---\n\n## 4. Phase 3\uff1arelease-please \u63a5\u5165\n\n### \u65b0\u589e\u6587\u4ef6\n\n| \u6587\u4ef6 | \u7528\u9014 |\n|------|------|\n| `.github/workflows/release-please.yml` | \u5728 `main` push \u65f6\u89e6\u53d1 release-please action |\n| `.release-please-config.json` | release-please \u914d\u7f6e\uff08\u72ec\u7acb\u6587\u4ef6\uff0c\u4fbf\u4e8e\u6269\u5c55\uff09 |\n| `.release-please-manifest.json` | \u7248\u672c\u53f7\u8d77\u70b9\u8bb0\u5f55\uff0c\u5f53\u524d `1.0.1` |\n\n### \u914d\u7f6e\u8981\u70b9\n\n- `release-type: node`\uff1a\u81ea\u52a8\u4fee\u6539 `package.json` \u7684 `version` \u5b57\u6bb5\n- `include-component-in-tag: false`\uff1atag \u683c\u5f0f\u4e3a `v1.0.2`\uff08\u4e0d\u5e26\u5305\u540d\u524d\u7f00\uff09\n- `bump-minor-pre-major: true`\uff1a1.x \u9636\u6bb5 `feat:` \u4ec5 bump minor\n- PR \u6807\u9898 `chore: release v${version}`\uff1a\u907f\u514d release-please \u81ea\u8eab commit \u89e6\u53d1\u4e0b\u4e00\u8f6e bump\n\n### CHANGELOG.md\n\n\u9879\u76ee\u6839\u76ee\u5f55\u5f53\u524d\u4e0d\u5b58\u5728 `CHANGELOG.md`\uff0c\u65e0\u9700\u624b\u52a8\u521b\u5efa\u3002release-please \u9996\u6b21\u8fd0\u884c\u5e76\u751f\u6210 Release PR \u65f6\u4f1a\u81ea\u52a8\u521b\u5efa\u8be5\u6587\u4ef6\u3002\n\n### \u7aef\u5230\u7aef\u6d41\u7a0b\n\n```\nfeature \u5206\u652f\u5f00\u53d1 \u2192 merge \u5230 main\n    \u2192 release-please \u81ea\u52a8\u5f00/\u66f4\u65b0 Release PR\n        \uff08\u4fee\u6539 package.json version + \u751f\u6210 CHANGELOG.md\uff09\n    \u2192 \u624b\u52a8 review + merge Release PR\n        \u2192 release-please \u81ea\u52a8\u6253 tag v1.0.2 + \u521b\u5efa GitHub Release\n            \u2192 tag push \u89e6\u53d1 build-*.yml workflow\n                \u2192 \u6784\u5efa\u4ea7\u7269\u4e0a\u4f20\u5230 GitHub Release \u9875\u9762\n                    \u2192 \u4eba\u5de5\u642c\u8fd0\u5230\u5185\u7f51\n```\n\n---\n\n## 5. \u8bbe\u8ba1\u6587\u6863\u8bc4\u5ba1\u51b3\u7b56\u843d\u5730\u60c5\u51b5\n\n| \u51b3\u7b56\u70b9 | \u7ed3\u8bba |\n|--------|------|\n| Q1 release-please \u914d\u7f6e\u6587\u4ef6\u4f4d\u7f6e | \u91c7\u7528\u72ec\u7acb `.release-please-config.json` |\n| Q2 build.ts \u52a0 assert `MACRO.VERSION === \"99.0.0\"` | \u672c\u6b21\u672a\u52a0\uff0c\u53ef\u540e\u7eed\u8865\u5145 |\n| Q3 `build-node-modules-windows.yml` \u662f\u5426\u7eb3\u5165\u53cc\u8f68 | \u4e0d\u7eb3\u5165\uff0c\u8be5 workflow \u4ec5\u6253\u5305\u4f9d\u8d56 |\n\n---\n\n## 6. \u9a8c\u8bc1\u60c5\u51b5\n\n- \u2705 \u672c\u5730 `bun run build` \u6784\u5efa\u6210\u529f\n- \u2705 \u672c\u5730 `bun run smoke` \u901a\u8fc7\n- \u2705 `--version` \u8f93\u51fa\u683c\u5f0f\u7b26\u5408\u8bbe\u8ba1\uff1a`1.0.1 (YwCoder, build #local, 2026-05-11)`\n- \u2705 `MACRO.VERSION` \u4fdd\u6301 `\"99.0.0\"`\uff0cbridge \u6a21\u5f0f\u4e0d\u53d7\u5f71\u54cd\n- \u23f3 CI workflow \u53d8\u66f4\u9700 push \u540e\u5728 GitHub Actions \u4e0a\u9a8c\u8bc1\n- \u23f3 release-please \u9700 merge \u5230 main \u540e\u9a8c\u8bc1\u9996\u6b21 Release PR \u751f\u6210\n\n---\n\n## 7. \u9057\u7559\u9879\n\n- build.ts \u4e2d `MACRO.VERSION === \"99.0.0\"` \u7684 assert \u5b88\u536b\uff08\u8bbe\u8ba1\u6587\u6863 Q2 \u63a8\u8350\u52a0\uff0c\u672c\u6b21\u6682\u672a\u5b9e\u65bd\uff09\n- release-please \u751f\u6210\u7684 CHANGELOG \u4e3a\u4e2d\u6587 commit message \u76f4\u51fa\uff0c\u5982\u9700\u66f4\u597d\u53ef\u8bfb\u6027\u9700\u5728 Release PR review \u65f6\u624b\u52a8\u8c03\u6574\n- \u9996\u6b21 merge \u5230 main \u540e\u9700\u89c2\u5bdf release-please \u662f\u5426\u6b63\u786e\u521b\u5efa Release PR"
+};
+
+const DOCS = [
+  { id: 'read', title: '\u603b\u89c8', subtitle: '\u80cc\u666f\u3001\u7d22\u5f15\u3001\u8303\u56f4\u9884\u89c8', status: 'planning', statusLabel: 'Planning', content: DOCS_DATA['read'] },
+  { id: 'requirements', title: '01 - \u9700\u6c42\u8bf4\u660e', subtitle: '\u76ee\u6807\u3001\u8303\u56f4\u3001\u7ea6\u675f\u3001\u9a8c\u6536\u6807\u51c6', status: 'final', statusLabel: 'Final', content: DOCS_DATA['requirements'] },
+  { id: 'design', title: '02 - \u8bbe\u8ba1\u65b9\u6848', subtitle: '\u7248\u672c\u53f7\u4f53\u7cfb\u3001CI \u53cc\u8f68\u3001\u4ea7\u7269\u547d\u540d', status: 'final', statusLabel: 'Final', content: DOCS_DATA['design'] },
+  { id: 'summary', title: '03 - \u5b9e\u65bd\u603b\u7ed3', subtitle: '\u6539\u52a8\u6e05\u5355\u3001\u9a8c\u8bc1\u60c5\u51b5\u3001\u9057\u7559\u9879', status: 'done', statusLabel: 'Done', content: DOCS_DATA['summary'] }
+];
+
+let currentIndex = 0;
+const contentArea = document.getElementById('contentArea');
+const sidebarNav = document.getElementById('sidebarNav');
+const tocList = document.getElementById('tocList');
+
+// Build sidebar nav
+function buildNav() {
+  sidebarNav.innerHTML = DOCS.map((doc, i) => {
+    const statusClass = 'status-' + doc.status;
+    return '<div class="nav-item' + (i === currentIndex ? ' active' : '') + '" onclick="switchDoc(' + i + ')">' +
+      '<div class="nav-title"><span>' + doc.title + '</span><span class="nav-status ' + statusClass + '">' + doc.statusLabel + '</span></div>' +
+      '<div class="nav-subtitle">' + doc.subtitle + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// Switch document
+function switchDoc(index) {
+  currentIndex = index;
+  const doc = DOCS[index];
+
+  // Render markdown
+  contentArea.innerHTML = marked.parse(doc.content);
+  contentArea.className = 'md-content fade-in';
+
+  // Add anchor links to headings
+  contentArea.querySelectorAll('h2, h3, h4').forEach(function(h) {
+    var id = 'heading-' + Math.random().toString(36).substr(2, 9);
+    h.id = id;
+    var anchor = document.createElement('a');
+    anchor.href = '#' + id;
+    anchor.className = 'anchor-link';
+    anchor.innerHTML = '#';
+    anchor.onclick = function(e) { e.preventDefault(); scrollToHeading(id); };
+    h.appendChild(anchor);
+  });
+
+  // Syntax highlight
+  contentArea.querySelectorAll('pre code').forEach(function(block) {
+    hljs.highlightElement(block);
+  });
+
+  // Update nav
+  buildNav();
+
+  // Render TOC
+  renderTOC();
+
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Close mobile menu if open
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+  }
+}
+
+function scrollToHeading(id) {
+  var el = document.getElementById(id);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function renderTOC() {
+  var headings = contentArea.querySelectorAll('h2, h3, h4');
+  tocList.innerHTML = Array.from(headings).map(function(h) {
+    var level = h.tagName.toLowerCase();
+    var text = h.textContent.replace('#', '').trim();
+    return '<div class="toc-item ' + level + '" onclick="scrollToHeading(\'' + h.id + '\')">' + text + '</div>';
+  }).join('');
+}
+
+// Theme
+function toggleTheme() {
+  var isDark = !document.documentElement.classList.contains('dark');
+  setTheme(isDark);
+}
+
+function setTheme(isDark) {
+  document.documentElement.classList.toggle('dark', isDark);
+  var hljsTheme = document.getElementById('hljs-theme');
+  hljsTheme.href = isDark
+    ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css'
+    : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+}
+
+// Mobile menu
+function toggleMobileMenu() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+// Init
+(function() {
+  // Restore theme
+  var saved = localStorage.getItem('theme');
+  if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    setTheme(true);
+  }
+
+  // Configure marked
+  marked.setOptions({
+    breaks: true,
+    gfm: true
+  });
+
+  buildNav();
+  switchDoc(0);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>默认 Provider 改为 OpenAI 的需求与方案文档</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="hljs-theme">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Sans:opsz,wght@9..40,400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            paper: { light: '#faf8f5', dark: '#161412' },
+            ink: { light: '#1a1a1a', dark: '#e8e4df' },
+            accent: { light: '#c45c26', dark: '#e87a3e' },
+            muted: { light: '#6b6560', dark: '#a8a29e' },
+            card: { light: '#ffffff', dark: '#1f1c19' },
+            border: { light: '#e8e2da', dark: '#2d2925' }
+          },
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'serif'],
+            sans: ['"DM Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { --radius: 0.75rem; }
+    body { font-family: 'DM Sans', sans-serif; }
+    h1, h2, h3, h4 { font-family: 'Noto Serif SC', serif; }
+    .anchor-link {
+      opacity: 0; margin-left: 0.5rem; text-decoration: none;
+      color: #c45c26; font-weight: 400; font-size: 0.85em;
+      transition: opacity 0.2s;
+    }
+    .dark .anchor-link { color: #e87a3e; }
+    h2:hover .anchor-link, h3:hover .anchor-link, h4:hover .anchor-link { opacity: 1; }
+    .toc-item { cursor: pointer; border-radius: 0.375rem; padding: 0.375rem 0.5rem; font-size: 0.875rem; color: #6b6560; transition: all 0.15s; }
+    .dark .toc-item { color: #a8a29e; }
+    .toc-item:hover { background: rgba(196,92,38,0.08); color: #c45c26; }
+    .dark .toc-item:hover { background: rgba(232,122,62,0.12); color: #e87a3e; }
+    .toc-item.h3 { padding-left: 1rem; font-size: 0.8125rem; }
+    .toc-item.h4 { padding-left: 1.75rem; font-size: 0.8125rem; }
+    .content-body h1 { font-size: 2rem; font-weight: 700; margin-bottom: 1rem; color: #1a1a1a; }
+    .dark .content-body h1 { color: #e8e4df; }
+    .content-body h2 { font-size: 1.5rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid #e8e2da; color: #1a1a1a; }
+    .dark .content-body h2 { color: #e8e4df; border-color: #2d2925; }
+    .content-body h3 { font-size: 1.2rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.6rem; color: #1a1a1a; }
+    .dark .content-body h3 { color: #e8e4df; }
+    .content-body h4 { font-size: 1.05rem; font-weight: 600; margin-top: 1.2rem; margin-bottom: 0.5rem; color: #1a1a1a; }
+    .dark .content-body h4 { color: #e8e4df; }
+    .content-body p { margin-bottom: 0.75rem; line-height: 1.75; }
+    .content-body ul, .content-body ol { margin-bottom: 0.75rem; padding-left: 1.5rem; }
+    .content-body li { margin-bottom: 0.35rem; line-height: 1.7; }
+    .content-body code { font-family: 'JetBrains Mono', monospace; background: rgba(196,92,38,0.08); color: #c45c26; padding: 0.15rem 0.35rem; border-radius: 0.25rem; font-size: 0.88em; }
+    .dark .content-body code { background: rgba(232,122,62,0.12); color: #e87a3e; }
+    .content-body pre { background: #1e1e1e; border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; overflow-x: auto; }
+    .content-body pre code { background: transparent; color: #e8e4df; padding: 0; font-size: 0.85rem; }
+    .content-body blockquote { border-left: 4px solid #c45c26; padding-left: 1rem; margin: 1rem 0; color: #6b6560; font-style: italic; }
+    .dark .content-body blockquote { border-color: #e87a3e; color: #a8a29e; }
+    .content-body table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.9rem; }
+    .content-body th { background: rgba(196,92,38,0.08); color: #1a1a1a; font-weight: 600; text-align: left; padding: 0.6rem 0.75rem; border-bottom: 2px solid #e8e2da; }
+    .dark .content-body th { background: rgba(232,122,62,0.12); color: #e8e4df; border-color: #2d2925; }
+    .content-body td { padding: 0.55rem 0.75rem; border-bottom: 1px solid #e8e2da; }
+    .dark .content-body td { border-color: #2d2925; }
+    .content-body tbody tr:nth-child(even) { background: rgba(0,0,0,0.02); }
+    .dark .content-body tbody tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+    .content-body tbody tr:hover { background: rgba(196,92,38,0.05); }
+    .dark .content-body tbody tr:hover { background: rgba(232,122,62,0.06); }
+    .content-body hr { border: none; border-top: 1px solid #e8e2da; margin: 1.5rem 0; }
+    .dark .content-body hr { border-color: #2d2925; }
+    .fade-in { animation: fadeIn 0.3s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d6cdc3; border-radius: 4px; }
+    .dark ::-webkit-scrollbar-thumb { background: #3d3834; }
+    ::-webkit-scrollbar-thumb:hover { background: #c45c26; }
+    .dark ::-webkit-scrollbar-thumb:hover { background: #e87a3e; }
+  </style>
+</head>
+<body class="bg-paper-light dark:bg-paper-dark text-ink-light dark:text-ink-dark antialiased">
+  <div class="flex h-screen overflow-hidden">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-72 bg-card-light dark:bg-card-dark border-r border-border-light dark:border-border-dark transform -translate-x-full transition-transform duration-300 lg:translate-x-0 lg:static lg:flex-shrink-0 flex flex-col">
+      <div class="p-6 border-b border-border-light dark:border-border-dark">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-accent-light dark:bg-accent-dark flex items-center justify-center text-white font-bold text-lg">文</div>
+          <div>
+            <h1 class="font-serif font-bold text-lg leading-tight">方案文档</h1>
+            <p class="text-xs text-muted-light dark:text-muted-dark mt-0.5">默认 Provider 改为 OpenAI</p>
+          </div>
+        </div>
+      </div>
+      <nav id="doc-nav" class="flex-1 overflow-y-auto p-4 space-y-2"></nav>
+      <div class="p-4 border-t border-border-light dark:border-border-dark">
+        <div class="flex items-center justify-between text-xs text-muted-light dark:text-muted-dark">
+          <span>2026-07-06</span>
+          <button id="theme-toggle" class="p-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5 transition-colors" aria-label="切换主题">
+            <svg id="icon-sun" class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            <svg id="icon-moon" class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/30 z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
+
+    <main class="flex-1 flex flex-col min-w-0">
+      <header class="lg:hidden flex items-center justify-between p-4 border-b border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark">
+        <button onclick="toggleSidebar()" class="p-2 rounded-md hover:bg-black/5 dark:hover:bg-white/5">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        <span class="font-serif font-semibold text-sm truncate px-2">默认 Provider 改为 OpenAI</span>
+        <div class="w-9"></div>
+      </header>
+      <div class="flex flex-1 overflow-hidden">
+        <div id="content-area" class="content-body flex-1 overflow-y-auto p-6 lg:p-10 scroll-smooth"></div>
+        <aside id="toc" class="hidden xl:block w-64 flex-shrink-0 overflow-y-auto p-6 border-l border-border-light dark:border-border-dark bg-card-light/50 dark:bg-card-dark/50"></aside>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const DOCS_DATA = {
+      "default-provider-openai": "# 默认 Provider 改为 OpenAI 的需求与方案文档\n\n## 日期\n\n2026-07-06\n\n## 状态\n\n方案已确定（2026-07-12 评审 + grep 核实修订：补齐\"正向 USE_OPENAI 检查\"及\"切换 UI 残留 USE_ANTHROPIC\"遗漏项，方案一改动文件由 10 增至 15，修正 providerValidation 工作量估计，补充多 entrypoint 覆盖论据）\n\n---\n\n## 一、需求背景\n\n### 1.1 问题描述\n\n当前 ywcoder-cli 通过设置 `YWCODER_USE_OPENAI=1` 环境变量来使用 OpenAI 协议接口（对接内网 LLM 网关）。但如果该变量被误改、误删或未设置，系统会回退到默认的 Anthropic 直连（`firstParty`），而 Anthropic API（`api.anthropic.com`）在内网环境不可触达。\n\n### 1.2 核心诉求\n\n**代码级保证**：默认走 OpenAI 协议，只有显式配置才走 Anthropic。即使没有任何环境变量，系统也不会尝试连接 Anthropic API。\n\n### 1.3 现有机制\n\nprovider 选择由两个关键函数控制：\n\n| 函数 | 文件 | 默认行为（无 USE_* 标志时） |\n|------|------|---------------------------|\n| `getAPIProvider()` | `src/utils/model/providers.ts:15-31` | 返回 `'firstParty'`（即 Anthropic 官方 API） |\n| `getAnthropicClient()` | `src/services/api/client.ts:178-359` | 创建原生 Anthropic SDK 客户端 |\n\n环境变量优先级链：`gemini > github > openai/codex > bedrock > vertex > foundry > firstParty`\n\n两个函数的最后一行都是\"什么都没设 → Anthropic\"。所以只要 `YWCODER_USE_OPENAI` 没设或被清掉，系统就会尝试连接 Anthropic API。\n\n### 1.4 关键概念说明\n\n- **`firstParty`**：对项目原作者 Anthropic 而言，自己就是\"第一方\"，所以源码用 `firstParty` 指代 Anthropic 官方 API。其余 provider（openai、bedrock 等）统称\"第三方（3P）\"。\n\n- **`getYwCoderEnv()`**：品牌改名后的兼容函数。先查 `YWCODER_*` 新名字，没找到再回退查旧的 `CLAUDE_CODE_*`。因为有些老用户可能仍在使用旧环境变量名。但 `YWCODER_USE_ANTHROPIC` 是 ywcoder 自创概念，上游 Claude Code 不存在这个变量，因此不需要此回退。\n\n- **OpenAI shim**：适配层（`src/services/api/openaiShim.ts`）。整个项目的业务代码是按 Anthropic SDK 接口写的（参数名、返回值格式全是 Anthropic 风格），shim 在中间翻译：接收 Anthropic 格式的调用，转换为 OpenAI 协议（`/v1/chat/completions`）发出去，再把返回的 OpenAI 格式翻译回 Anthropic 格式。这样改底层协议时上层业务代码每行都不用动。\n\n- **`isAnthropicAuthEnabled()` / `isUsing3PServices()`**：这两个函数不调用 `getAPIProvider()`，而是各自独立列举 `USE_*` 环境变量来判断。如果只改 `getAPIProvider()` 的默认值而不改它们，会出现\"provider 说自己是 openai，但 auth 模块认为还是 Anthropic\"的矛盾。这是方案一要改它们的根本原因。\n\n- **正向检查（正向信号）陷阱**：代码里读 provider 的判断分三类：\n  1. `getAPIProvider() !== 'firstParty'` / `=== 'firstParty'` —— 几十处（betas、autoUpdater、webSearch、mcp registry、settingsSync、analytics、modelOptions 等）。翻转 `getAPIProvider()` 默认值后**全部自动跟着正确**，这是方案一优于方案二/三的根本原因。\n  2. `getAPIProvider() === 'openai'` —— 少量。同样**自动正确**。\n  3. 手写 `isEnvTruthy(getYwCoderEnv('USE_OPENAI'))` 作为\"是否 OpenAI 模式\"的**正向信号** —— 若干处。翻转默认值**不会**让它们变对：默认走 openai 但环境变量 `USE_OPENAI` 并没有被设置，这些正向检查会返回 `false`，导致\"provider 是 openai，但该模块以为不是\"。**这类检查必须逐个改造**，不会自动收敛。方案一原先只处理了 `auth.ts`/`client.ts`/`providerValidation.ts`/`providerConfig.ts` 里的正向检查，还漏了 `context.ts`（功能性）、`main.tsx`/`StartupScreen.ts`/`provider.tsx`（展示层）。\n\n---\n\n## 二、方案对比\n\n### 2.1 方案一：硬编码默认值反转（推荐）\n\n**思路**：修改 `getAPIProvider()` 的 fallback 和所有相关判断逻辑，默认走 OpenAI。新增 `YWCODER_USE_ANTHROPIC=1` 给需要显式切回 Anthropic 的场景。核心原则是**将所有零散的 `isEnvTruthy(USE_*)` 判断收敛到 `getAPIProvider()` 单一真相源**。\n\n**改动文件（15 个）**：\n\n| # | 文件 | 改动 | 说明 |\n|---|------|------|------|\n| 1 | `src/utils/model/providers.ts` | ~5 行 | 加 `YWCODER_USE_ANTHROPIC` 最高优先级；fallback 改为 `'openai'`；`getAPIProvider()` 加可选 env 参数（默认 process.env） |\n| 2 | `src/services/api/client.ts` | ~15 行 | 重构为按 `getAPIProvider()` 分流：firstParty → Anthropic SDK，bedrock/vertex/foundry → 各自 SDK，其余 → OpenAI shim |\n| 3 | `src/utils/auth.ts` | ~6 行 | `isUsing3PServices()` 和 `isAnthropicAuthEnabled()` 的 is3P 判断改为基于 `getAPIProvider() !== 'firstParty'` |\n| 4 | `src/utils/providerValidation.ts` | ~15 行（小重构） | `getProviderValidationError()` 内部的 `useOpenAI` 改为从 `getAPIProvider(env)` 推导，不能只改外层触发条件（见 3.2 第 4 条） |\n| 5 | `src/utils/providerFlag.ts` | +1 行 | `--provider anthropic` 从 no-op 改为设 `YWCODER_USE_ANTHROPIC=1` |\n| 6 | `src/utils/managedEnvConstants.ts` | +2 行 | `PROVIDER_MANAGED_ENV_VARS` 和 `SAFE_ENV_VARS` 各加入 `YWCODER_USE_ANTHROPIC` |\n| 7 | `src/utils/swarm/spawnUtils.ts` | +1 行 | 子进程 env 转发加入 `YWCODER_USE_ANTHROPIC` |\n| 8 | `src/utils/providerProfiles.ts` | ~8 行 | anthropic preset 设 `USE_ANTHROPIC=1`；`hasProviderSelectionFlags()`、`hasConflictingProviderFlagsForProfile()`、`clearProviderProfileEnvFromProcessEnv()` 三处补上 ANTHROPIC |\n| 9 | `src/utils/providerProfile.ts` | +1 行 | `hasExplicitProviderSelection()` 加入 `YWCODER_USE_ANTHROPIC` 检测 |\n| 10 | `providerConfig.ts` → `modelOptions.ts`（搬函数）+ 3 处 import 改指向 | ~10 行 | `getAdditionalModelOptionsCacheScope()` **从 providerConfig.ts 搬到 modelOptions.ts**，改为基于 `getAPIProvider() === 'firstParty'` 判断。**避免 providers.ts ⇄ providerConfig.ts 循环依赖**（详见 3.2 第 10 条）。连带改 `ModelCapabilitiesDoctorSection.tsx`/`model.tsx`/`bootstrap.ts` 的 import 指向 |\n| 11 | `src/utils/context.ts` | ~4 行 | **（必修，功能性）** `getContextWindowForModel()`（第 98 行）和 `getMaxOutputTokens()`（第 214 行）的正向 `isEnvTruthy(USE_OPENAI)` 检查改为基于 `getAPIProvider() !== 'firstParty'`。否则默认 openai 无 env 时会回落到 Anthropic 的上下文窗口/输出 token 假设，发到内网网关可能触发 400 |\n| 12 | `src/main.tsx` | ~2 行 | **（建议，展示层）** 第 2319 行非法 settings 弹窗抑制条件的正向 `USE_OPENAI` 检查改为基于 `getAPIProvider()` |\n| 13 | `src/components/StartupScreen.ts` | ~2 行 | **（建议，展示层）** 第 59 行启动屏 provider 展示的正向 `USE_OPENAI` 检查改为基于 `getAPIProvider()` |\n| 14 | `src/commands/provider/provider.tsx` | ~2 行 | **（建议，展示层）** 第 200 行 provider 命令显示逻辑的正向 `USE_OPENAI` 检查改为基于 `getAPIProvider()` |\n| 15 | `src/components/ProviderManager.tsx` | ~3 行 | **（必修，功能性）** 交互式 `/provider` 切换 UI。`clearStartupProviderOverrideFromUserSettings()`（第 262 行）和 `activateGithubProvider()`（第 297/321 行）在清空兄弟 `USE_*` 时补上 `YWCODER_USE_ANTHROPIC`（settings 置 undefined + `delete process.env`）。否则从 Anthropic 切到其他 provider 时 `USE_ANTHROPIC=1` 残留，因其在 `getAPIProvider()` 中优先级最高，会强制盖回 firstParty，切换静默失效 |\n\n> **注 1**：`YWCODER_USE_ANTHROPIC` 是 ywcoder 自创概念，上游 Claude Code 不存在 `CLAUDE_CODE_USE_ANTHROPIC`，因此直接用 `process.env.YWCODER_USE_ANTHROPIC`，不经过 `getYwCoderEnv()`。\n>\n> **注 2**：文件 #11~#14 属于\"正向检查陷阱\"（见 1.4 节）、#15 属于\"切换时残留 `USE_ANTHROPIC`\"陷阱，翻转默认值都不会让它们自动变对。**实施第一步应先全量 grep**（见 3.2 开头），逐个核实每处 `isEnvTruthy(USE_OPENAI)` / `getYwCoderEnv('USE_OPENAI') === '1'` 正向检查在翻转默认后是否仍正确，而不是照本清单机械改。建议抽一个 `isOpenAICompatibleProvider()`（内部即 `getAPIProvider() !== 'firstParty'`）helper 复用，真正把正向检查收敛掉。\n\n**优点**：\n- 代码级保证，无法被环境变量绕过（连 `USE_OPENAI=0` 这种误改也不会回退 Anthropic，仍走 openai）\n- 改在 `getAPIProvider()` 这个所有 entrypoint 共享的函数里，`cli.tsx` / `grpc` / `bridge` / SDK 全部自动覆盖（方案二把默认值设在 `cli.tsx` 启动阶段，非 cli 入口拿不到默认值，会退回 Anthropic）\n- 第一类 `!== 'firstParty'` 判断（几十处）自动跟着翻转，无需逐个改\n- 运行时语义直观——看 `providers.ts` 末尾即知默认 provider\n- 不依赖构建系统\n\n**缺点**：\n- 无构建灵活性（写死 openai）\n- 改动文件较多，且需甄别所有\"正向 `USE_OPENAI` 检查\"（第三类），无法完全靠 `getAPIProvider()` 自动收敛\n\n---\n\n### 2.2 方案二：MACRO 编译时注入\n\n**思路**：用 `build.ts` 的 `define` 注入 `MACRO.DEFAULT_USE_OPENAI = '1'`，在 `cli.tsx` 启动最早阶段用 `??=` 给 `process.env.YWCODER_USE_OPENAI` 设默认值。让现有依赖 `isEnvTruthy(USE_OPENAI)` 的代码自动生效，不需要逐个改造。\n\n**改动文件（6 个）**：\n\n| # | 文件 | 改动 | 说明 |\n|---|------|------|------|\n| 1 | `scripts/build.ts` | +1 行 | define: `MACRO.DEFAULT_USE_OPENAI: '1'` |\n| 2 | `src/entrypoints/cli.tsx` | +3 行 | 最早阶段设 `process.env.YWCODER_USE_OPENAI ??= MACRO.DEFAULT_USE_OPENAI` |\n| 3 | `src/utils/model/providers.ts` | +3 行 | 加 `USE_ANTHROPIC` 最高优先级检测 |\n| 4 | `src/utils/providerFlag.ts` | +1 行 | `--provider anthropic` 设 `USE_ANTHROPIC=1` |\n| 5 | `src/utils/managedEnvConstants.ts` | +2 行 | `PROVIDER_MANAGED_ENV_VARS` 和 `SAFE_ENV_VARS` 加入 `YWCODER_USE_ANTHROPIC` |\n| 6 | `src/utils/swarm/spawnUtils.ts` | +1 行 | 转发 `YWCODER_USE_ANTHROPIC` |\n\n**相较于方案一不需要改的文件**：\n- `client.ts` — 现有 `USE_OPENAI` 检测自动命中\n- `auth.ts` — `is3P` 检测到 `USE_OPENAI=1`，auth 自动禁用\n- `providerValidation.ts` — `useOpenAI=true`，正常验证凭证\n- `providerProfiles.ts` / `providerProfile.ts` / `providerConfig.ts` — 现有逻辑自动生效\n\n**优点**：\n- 改动文件更少（6 个）\n- 构建层面可切换（改 define 即可，不需要改源码）\n- 对大多数现有代码零侵入\n\n**缺点**：\n- 运行时有两层间接性：MACRO 替换 → env var 默认值 → 行为，出问题时 debug 路径更长\n- `??=` 时序敏感：必须确保在 `applyProviderFlagFromArgs()` 之前执行，否则 `--provider anthropic` 可能不生效\n- MACRO 替换依赖构建系统正确配置，历史上有 feature flag shim 因 Bun 版本升级而整体失效的先例（见 `build.ts` 第 82-89 行注释）\n- 保留了分散的 `isEnvTruthy(USE_*)` 判断，未收敛到 `getAPIProvider()` 单一真相源\n\n---\n\n### 2.3 方案三：打包默认 settings.json\n\n**思路**：在部署包中自带含 `YWCODER_USE_OPENAI=1` 的配置文件，利用现有的 `applySafeConfigEnvironmentVariables()` 在启动时应用。\n\n**改动**：\n- 在打包脚本中添加默认 `settings.json` 文件，包含 `\"env\": { \"CLAUDE_CODE_USE_OPENAI\": \"1\" }`\n\n**优点**：\n- 不改任何源码\n- 对构建系统零侵入\n\n**缺点**：\n- **非代码级保证**：用户或管理员可能覆盖 settings.json，使默认值失效\n- settings.json 的 env 应用时机较晚，某些早期初始化可能在 env 应用前就走到了 Anthropic 路径\n- 不可控：无法阻止用户删除或修改此文件\n\n---\n\n### 2.4 方案对比总表\n\n| 维度 | 方案一（硬编码） | 方案二（MACRO env 默认） | 方案三（默认 settings.json） |\n|------|-----------------|------------------------|----------------------------|\n| 改动文件数 | 15 | 6 | 1 |\n| 代码级保证 | ✅ 是 | ✅ 是 | ❌ 否（文件级） |\n| 可被环境变量绕过 | ❌ 否 | ⚠️ `USE_OPENAI=0` 误改会回退 | ✅ 是 |\n| 覆盖全部 entrypoint（cli/grpc/bridge/sdk） | ✅ 是 | ❌ 仅 cli.tsx | ⚠️ 取决于加载时机 |\n| 构建灵活性 | 无 | 有（改 define） | 有（改文件） |\n| 运行时可见性 | 高 | 中 | 低 |\n| debug 难度 | 低 | 中 | 中 |\n| 正向 USE_OPENAI 检查处理 | 需逐个改造（第三类不自动收敛） | 自动生效（env 被设真） | 自动生效（env 被设真） |\n| 依赖构建系统 | 否 | 是 | 否 |\n\n---\n\n## 三、推荐方案：方案一\n\n### 3.1 推荐理由\n\n1. **覆盖全部 entrypoint（最强理由）**：改在 `getAPIProvider()` 这个所有入口共享的函数里，`cli.tsx` / `grpc` / `bridge` / SDK 全部生效。方案二把默认值设在 `cli.tsx` 启动阶段，`grpc`/`bridge`/`sdk` 这些不走 cli.tsx 的入口拿不到默认值，会退回 Anthropic——这是方案二一个致命硬伤。\n2. **代码级保证最彻底**：方案三的 settings.json 可能被覆盖；方案二用 `??=` 设默认值，若有人把 `USE_OPENAI` 误改为 `0` 仍会回退 Anthropic；方案一即使 `USE_OPENAI=0` 也不回退（fallback 恒为 openai），完全对齐\"变量被误改/误删/未设置都不连 Anthropic\"的原始诉求。\n3. **内网部署永远不需要 Anthropic 直连**，方案二的构建灵活性是多余的\n4. **运行时语义直观**：看 `providers.ts` 末尾即知默认 provider，不需要追到 `build.ts` 查 MACRO define\n5. **方案二的 MACRO 机制有历史风险**：feature flag shim 曾因 Bun 版本升级而整体失效（见 `build.ts` 第 82-89 行注释），如果 MACRO 替换失灵，默认值会悄悄回到 Anthropic\n\n> **代价（务必正视）**：方案一唯一的短板是\"第三类正向 `USE_OPENAI` 检查不会自动收敛\"（见 1.4 节）。方案二/三因为把 `USE_OPENAI` 环境变量真的设成了 `1`，这些正向检查会自动生效；方案一必须逐个改造 `context.ts`（必修）、`main.tsx`/`StartupScreen.ts`/`provider.tsx`（展示层）。因此**不能只改 10 个文件就收工**——实施第一步必须先 grep 出所有正向检查逐个核实。抽 `isOpenAICompatibleProvider()` helper 复用后，即可兑现\"收敛到单一真相源\"的目标。\n\n### 3.2 具体实施步骤\n\n> **第 0 步（必做）：全量 grep 正向检查。** 先执行：\n> ```bash\n> grep -rn \"isEnvTruthy(getYwCoderEnv('USE_OPENAI'))\\|getYwCoderEnv('USE_OPENAI') ===\" src --include=\"*.ts\" --include=\"*.tsx\" | grep -v \"\\.test\\.\"\n> ```\n> 逐个判定每处\"正向 `USE_OPENAI` 检查\"在翻转默认后是否仍正确（默认 openai 时该 env 是没设的，正向检查会返回 false）。已知命中（2026-07-12 grep 全量核实，共 11 处正向检查）：`providers.ts`(20)、`client.ts`(179)、`auth.ts`(121/1744)、`providerValidation.ts`(27)、`providerConfig.ts`(348) 已在步骤 1~4/10 覆盖；`context.ts`(98/214，必修)、`main.tsx`(2319)、`StartupScreen.ts`(59)、`provider.tsx`(200) 见步骤 11~14。**建议先在 `providers.ts` 里导出一个 `isOpenAICompatibleProvider()`（内部 `getAPIProvider() !== 'firstParty'`），下面各处统一复用。**\n>\n> **第 0 步补充：还要 grep \"切换 UI 清除 USE_* 的地方\"**，确认它们都补上了 `USE_ANTHROPIC` 的清除，否则从 Anthropic 切走会残留：\n> ```bash\n> grep -rn \"delete process.env.YWCODER_USE_\\|_USE_OPENAI: undefined\\|clearStartupProviderOverride\\|clearProviderProfileEnv\" src --include=\"*.ts\" --include=\"*.tsx\" | grep -v \"\\.test\\.\"\n> ```\n> 已知命中：`ProviderManager.tsx`（步骤 15）、`providerProfiles.ts` / `providerProfile.ts`（步骤 8/9）。\n\n1. **`src/utils/model/providers.ts`**\n   - `getAPIProvider()` 加可选 `env?: NodeJS.ProcessEnv` 参数（默认 `process.env`），让验证/测试函数可注入自定义 env。内部所有 `getYwCoderEnv('USE_*')` 需能读到传入的 `env`（注意 `getYwCoderEnv` 目前硬读 `process.env`，透传 env 时要么给它加 env 参数、要么在本函数内直接用 `env.YWCODER_USE_* ?? env.CLAUDE_CODE_USE_*`——实施时二选一，保持与 `env` 参数一致）\n   - **`isCodexModel()` 加 `env` 参数**（当前是无参、硬读 `process.env`）。现状：\n     ```ts\n     function isCodexModel(): boolean {\n       return shouldUseCodexTransport(\n         process.env.OPENAI_MODEL || '',\n         process.env.OPENAI_BASE_URL ?? process.env.OPENAI_API_BASE,\n       )\n     }\n     ```\n     改为：\n     ```ts\n     function isCodexModel(env: NodeJS.ProcessEnv = process.env): boolean {\n       return shouldUseCodexTransport(\n         env.OPENAI_MODEL || '',\n         env.OPENAI_BASE_URL ?? env.OPENAI_API_BASE,\n       )\n     }\n     ```\n     默认仍 `process.env`（向后兼容），但 `getAPIProvider(env)` 须把自己的 `env` 透传进去（`isCodexModel(env)`），避免自定义 env 时 codex 判断读到全局的另一套值。\n   - 新增 `env.YWCODER_USE_ANTHROPIC` 检测（**最高优先级**），truthy 时返回 `'firstParty'`。直接用 `env.YWCODER_USE_ANTHROPIC`，不走 `getYwCoderEnv()`（无 `CLAUDE_CODE_*` 旧名需回退）\n   - **末尾 fallback 改为 codex-aware**：从字面量 `'firstParty'` 改为 `isCodexModel(env) ? 'codex' : 'openai'`，**不是**简单的 `'openai'`。原因：现状只有 `USE_OPENAI` 分支里做 codex 检测，若兜底写死 `'openai'`，则\"不设 `USE_OPENAI` + 用 codex 模型/base URL\"会得到 `'openai'`、codex 传输不激活，与\"显式 `USE_OPENAI=1`\"行为不一致。改成 codex-aware 后，默认路径与显式路径行为完全一致。\n     ```ts\n     // ...上面各 USE_* 分支不变...\n                 : isEnvTruthy(getYwCoderEnv('USE_FOUNDRY'))\n                   ? 'foundry'\n                   : isCodexModel(env) ? 'codex' : 'openai'   // 原为 'firstParty'\n     ```\n   - **新增导出 `isOpenAICompatibleProvider(): boolean`**（内部 `return getAPIProvider() !== 'firstParty'`），供 `context.ts`、`main.tsx`、`StartupScreen.ts`、`provider.tsx` 等正向检查点统一复用，避免再散落 `isEnvTruthy(USE_OPENAI)`\n\n2. **`src/services/api/client.ts`**\n   - 重构为按 `getAPIProvider()` 分流：\n     ```\n     providerOverride  → OpenAI shim（agent routing 覆盖，保留在最前面）\n     firstParty        → new Anthropic({apiKey, authToken})\n     bedrock           → new AnthropicBedrock()\n     vertex            → new AnthropicVertex()\n     foundry           → new AnthropicFoundry()\n     其余(openai/codex/github/gemini) → createOpenAIShimClient()\n     ```\n   - 不再新增独立的 `isEnvTruthy(USE_ANTHROPIC)` 判断，与 `providers.ts` 永远一致\n\n3. **`src/utils/auth.ts`**\n   - `isUsing3PServices()`：改为 `return getAPIProvider() !== 'firstParty'`\n   - `isAnthropicAuthEnabled()`：is3P 判断改为 `getAPIProvider() !== 'firstParty'`\n\n4. **`src/utils/providerValidation.ts`（小重构，非仅改触发条件）**\n   - **不能只改外层触发条件**：`getProviderValidationError()` 内部有多处基于原始 env 的 `useOpenAI` 判断——第 27 行 `const useOpenAI = isEnvTruthy(env.YWCODER_USE_OPENAI ?? ...)`、第 40 行 `if (useGithub && !useOpenAI)`、第 48 行 `if (!useOpenAI) return null`。默认 openai 但无 env 时 `useOpenAI` 仍是 `false`，函数会在第 48 行提前 `return null`，**根本不会校验 `OPENAI_API_KEY`**，验证场景 #7/#9 会失效。\n   - **正确做法**：把第 27 行的 `useOpenAI` 改为从 `getAPIProvider(env)` 推导，例如 `const provider = getAPIProvider(env); const useOpenAI = provider === 'openai' || provider === 'codex'`，后续 codex 分支判断也随之对齐。这样默认 openai（provider 推导为 openai）时才会走到 `OPENAI_API_KEY` 校验分支。\n   - 显式选了 Anthropic / Bedrock / Vertex / Foundry / Gemini 时 `getAPIProvider()` 不是 openai/codex，自然跳过。\n   - 默认 OpenAI 时如果没配 `OPENAI_BASE_URL`/`OPENAI_API_KEY`，会在启动时报错退出。这是预期行为（代码级保证不回退 Anthropic），需在发布说明中注明。\n\n5. **`src/utils/providerFlag.ts`**\n   - `case 'anthropic': process.env.YWCODER_USE_ANTHROPIC = '1'; break`\n   - 更新注释：`// Default — no env vars needed` 改为说明 `USE_ANTHROPIC` 的作用\n   - 更新文件头注释：`anthropic (default, no-op)` 改为 `anthropic (sets YWCODER_USE_ANTHROPIC=1)`\n\n6. **`src/utils/managedEnvConstants.ts`**\n   - `PROVIDER_MANAGED_ENV_VARS`：加入 `YWCODER_USE_ANTHROPIC`\n   - `SAFE_ENV_VARS`：也加入 `YWCODER_USE_ANTHROPIC`（与已有的 `USE_BEDROCK`/`USE_FOUNDRY`/`USE_GITHUB`/`USE_VERTEX` 保持一致）\n\n7. **`src/utils/swarm/spawnUtils.ts`**\n   - `TEAMMATE_ENV_VARS` 列表加入 `YWCODER_USE_ANTHROPIC`\n\n8. **`src/utils/providerProfiles.ts`**\n   - `applyProviderProfileToProcessEnv()`：anthropic provider 时设 `process.env.YWCODER_USE_ANTHROPIC = '1'`\n   - `hasProviderSelectionFlags()`：加入 `processEnv.YWCODER_USE_ANTHROPIC !== undefined`\n   - `hasConflictingProviderFlagsForProfile()`：非 anthropic profile 冲突检测加入 `processEnv.YWCODER_USE_ANTHROPIC !== undefined`\n   - `clearProviderProfileEnvFromProcessEnv()`：加入 `delete processEnv.YWCODER_USE_ANTHROPIC`\n\n9. **`src/utils/providerProfile.ts`**\n   - `hasExplicitProviderSelection()`：加入 `processEnv.YWCODER_USE_ANTHROPIC !== undefined`\n\n10. **`getAdditionalModelOptionsCacheScope()`：从 `providerConfig.ts` 搬到 `modelOptions.ts`（避免循环依赖）**\n    - **循环依赖风险（2026-07-13 核实）**：若原地让 `providerConfig.ts` 的该函数调 `getAPIProvider()`，会造成 `providers.ts ⇄ providerConfig.ts` 循环 import（`providers.ts` 已 import `providerConfig.ts` 的 `shouldUseCodexTransport`）。两个函数虽都是 hoist 的 `export function`、仅运行时互调，Node ESM 下安全，但经 Bun bundle 后属隐性风险——不值得押在\"永不连 Anthropic\"的安全保证上。\n    - **解法（选项 C，最优）**：把 `getAdditionalModelOptionsCacheScope()` 搬到 `src/utils/model/modelOptions.ts`。该文件已 import `getAPIProvider`（providers.ts）与 `isLocalProviderUrl`/`resolveProviderRequest`（providerConfig.ts），零新增依赖；`providerConfig.ts` 保持\"只依赖 envUtils\"的叶子状态，环从根上消失。依赖方向始终为 `modelOptions → providers → providerConfig → envUtils` 的 DAG。\n    - **函数逻辑**：第一分支改为 `getAPIProvider() === 'firstParty'` 返回 `'firstParty'`，其余 provider 统一走 `resolveProviderRequest()` + `isLocalProviderUrl()`，不再有零散 `!isEnvTruthy(USE_OPENAI)` 分支。bedrock/vertex/foundry 经 `isLocalProviderUrl()` 对远程 URL 返回 false，自然走到 null，行为正确。\n    - **连带改 import 指向**：`providerConfig.ts` 删除该函数（内部无自调用，删除干净）；4 个消费者中 `modelOptions.ts` 改为本地调用，`ModelCapabilitiesDoctorSection.tsx`、`commands/model/model.tsx`、`services/api/bootstrap.ts` 的 import 从 `providerConfig.js` 改指向 `modelOptions.js`。\n    - **备选（若不想搬函数）**：选项 A 抽 `shouldUseCodexTransport` 及其依赖（`asEnvUrl`/`isCodexBaseUrl`/`isCodexAlias`/`CODEX_ALIAS_MODELS`）成叶子模块打断另一条边——但这些符号深嵌 `resolveProviderRequest` 等核心，手术量大；选项 B 在 `providerConfig.ts` 内用纯 env 判定则会重复 provider 优先级链，引入漂移风险。二者均劣于选项 C。\n\n11. **`src/utils/context.ts`（必修，功能正确性）**\n    - `getContextWindowForModel()`（第 98 行）与 `getMaxOutputTokens()`（第 214 行）里 `isEnvTruthy(getYwCoderEnv('USE_OPENAI'))` 的正向分支改为基于 `isOpenAICompatibleProvider()`（即 `getAPIProvider() !== 'firstParty'`）\n    - 原因：默认 openai 无 env 时该正向检查返回 false，会回落到 Anthropic 的上下文窗口 / 输出 token 假设（`getMaxOutputTokens` 的注释明写\"use known output limits **to avoid 400 errors**\"），发到内网网关可能触发 400\n    - 注意原分支同时列举了 `USE_GEMINI`/`USE_GITHUB`，改为 `!== 'firstParty'` 后同样覆盖这些 provider，语义一致\n\n12. **`src/main.tsx`（建议，展示层）**\n    - 第 2319 行非法 settings 弹窗抑制条件的正向 `USE_OPENAI` 检查改为基于 `getAPIProvider()`。不改的后果仅是 openai 模式下 settings 错误弹窗仍会弹出，非阻断\n\n13. **`src/components/StartupScreen.ts`（建议，展示层）**\n    - 第 59 行启动屏 provider 展示的 `getYwCoderEnv('USE_OPENAI') === '1'` 判断改为基于 `getAPIProvider()`，否则默认 openai 时启动屏可能显示成 Anthropic\n\n14. **`src/commands/provider/provider.tsx`（建议，展示层）**\n    - 第 200 行 provider 命令显示逻辑的正向 `USE_OPENAI` 检查改为基于 `getAPIProvider()`，保证 `/provider` 命令展示的当前 provider 与实际一致\n\n15. **`src/components/ProviderManager.tsx`（必修，功能正确性）**\n    - `clearStartupProviderOverrideFromUserSettings()`（第 262 行）：在清空 `USE_OPENAI/GEMINI/GITHUB/BEDROCK/VERTEX/FOUNDRY`（settings 置 `undefined`）的列表里补上 `YWCODER_USE_ANTHROPIC: undefined`（注意：`USE_ANTHROPIC` 无 `CLAUDE_CODE_*` 变体，不用加旧名）\n    - `activateGithubProvider()`（第 297~322 行）：settings 层 env 与 `process.env` 两处都补上 `YWCODER_USE_ANTHROPIC` 的清除（`undefined` / `delete`），与它删除其他 `USE_*` 的写法保持一致\n    - 原因：`USE_ANTHROPIC` 在 `getAPIProvider()` 中优先级最高，从 Anthropic 切到其他 provider 若不清除，会残留并强制盖回 firstParty，导致切换静默失效（与场景 #10 同类，只是发生在交互式 UI 路径）\n    - 核对：该文件只有 `activateGithubProvider` 一个独立 activate 函数，其余 provider 走\"保存 profile → `setActiveProviderProfile` → `clearStartupProviderOverride` + `applyProviderProfileToProcessEnv`\"通用路径，由本步与步骤 #8 共同覆盖\n\n### 3.3 验证计划\n\n| # | 场景 | 预期行为 |\n|---|------|---------|\n| 1 | 不设任何环境变量 | `getAPIProvider()` → `'openai'`；客户端走 OpenAI shim；Anthropic OAuth/keychain 不触发；自动更新被阻止 |\n| 2 | `YWCODER_USE_ANTHROPIC=1` | `getAPIProvider()` → `'firstParty'`；走 Anthropic SDK |\n| 3 | `YWCODER_USE_OPENAI=1`（显式设） | 行为不变，仍走 OpenAI |\n| 4 | `YWCODER_USE_OPENAI=1` + Codex 模型 | `getAPIProvider()` → `'codex'`；验证 Codex 凭证 |\n| 4b | **不设** `USE_OPENAI` + Codex 模型/base URL | `getAPIProvider()` → `'codex'`（验证兜底 codex-aware，与场景 4 行为一致，不因省略 `USE_OPENAI` 而退化为 `'openai'`） |\n| 5 | `--provider anthropic` | 设 `YWCODER_USE_ANTHROPIC=1`，走 Anthropic；saved profile 不覆盖此选择 |\n| 6 | `--provider openai` / `--provider ollama` | 行为不变 |\n| 7 | 默认 + 未配 `OPENAI_BASE_URL`/`OPENAI_API_KEY` | `validateProviderEnvOrExit()` 报错退出（预期行为，非回归） |\n| 8 | 默认无 env + 有 saved openai profile | `buildStartupEnvFromProfile()` 应用 profile，正常启动 |\n| 9 | 默认无 env + 无 profile + 无 key | `validateProviderEnvOrExit()` 报错退出 |\n| 10 | anthropic profile 切换到 openai profile | `clearProviderProfileEnvFromProcessEnv()` 清理 `USE_ANTHROPIC`，切换生效 |\n| 11 | swarm/tmux 子进程 | `YWCODER_USE_ANTHROPIC` 正确转发到子进程 |\n| 12 | 默认无 env，未设 `OPENAI_MODEL` | 默认模型为 `gpt-4o`，发到内网网关。需在发布说明中提醒确认网关接受此模型名 |\n| 13 | 默认无 env | `getContextWindowForModel()` / `getMaxOutputTokens()` 走 OpenAI 分支（读网关自报告 contextWindow / OpenAI 输出上限），**不回落到 Anthropic 假设**——验证 context.ts 改造生效 |\n| 14 | 默认无 env | `/provider` 命令、启动屏展示的当前 provider 均为 openai，与 `getAPIProvider()` 一致——验证展示层正向检查改造生效 |\n| 15 | `/provider` UI 里从 Anthropic 切到 openai/github profile | `USE_ANTHROPIC` 被清除，切换生效；不残留导致盖回 firstParty——验证 ProviderManager 改造生效 |\n\n### 3.4 需更新的测试\n\n> **注意**：以下为静态分析发现的测试。实施前应先跑 `bun test`、`bun run test:provider`、`bun run test:provider-recommendation` 全量测试，把所有因默认值翻转而挂掉的测试全部列出后统一修复。\n\n| 测试文件 | 变更 |\n|---------|------|\n| `src/utils/model/providers.test.ts` | 默认无 env 期望从 `'firstParty'` 改为 `'openai'`；新增 `USE_ANTHROPIC` 优先级测试 |\n| `src/utils/providerFlag.test.ts` | `--provider anthropic` 从\"不设置任何变量\"改为断言 `YWCODER_USE_ANTHROPIC === '1'` |\n| `src/utils/providerProfiles.test.ts` | anthropic profile 测试：断言 `YWCODER_USE_ANTHROPIC` 被设置 |\n| `src/utils/auth.test.ts` — 新增 | 默认无 env 时 `isUsing3PServices()` 返回 `true`、`isAnthropicAuthEnabled()` 返回 `false` |\n| `src/utils/providerValidation.test.ts` — 新增 | 默认无 env 时 `getProviderValidationError()` 要求 `OPENAI_API_KEY`（或本地 base URL） |\n| `src/services/api/withRetry.test.ts` | `setProvider` 辅助函数：清 flag 后默认走 OpenAI rate limit 头解析，需设置 `YWCODER_USE_ANTHROPIC=1` 才能测试 firstParty 行为 |\n| `src/utils/apiPreconnect.test.ts` | \"fetches in first-party mode\" 测试：清 flag 后需显式设 `YWCODER_USE_ANTHROPIC=1` |\n| `src/utils/fastMode.test.ts` | 依赖 `getAPIProvider()` 默认返回 `'firstParty'`，需相应调整或设 `USE_ANTHROPIC` |\n\n| `src/utils/context.test.ts` — 关注 | 若有针对 `getContextWindowForModel()` / `getMaxOutputTokens()` 且默认无 env 期望走 Anthropic 分支的用例，需改为期望 OpenAI 分支，或显式设 `YWCODER_USE_ANTHROPIC=1` |\n\n此外可能受影响的文件（实施时通过全量测试确认）：\n`src/utils/providerProfile.test.ts`、`src/commands/provider/provider.test.tsx`、`src/utils/model/modelOptions.local.test.ts` 等。\n\n### 3.5 发布说明要点\n\n1. **默认 provider 已改为 OpenAI**：不再需要设置 `YWCODER_USE_OPENAI=1`，系统默认走 OpenAI 协议。如需切回 Anthropic，使用 `--provider anthropic` 或设置 `YWCODER_USE_ANTHROPIC=1`。\n2. **默认模型为 `gpt-4o`**：需确认内网 LLM 网关接受此模型名，否则需设置 `OPENAI_MODEL` 环境变量。\n3. **启动时需要 OpenAI 凭证**：必须配置 `OPENAI_API_KEY` 和 `OPENAI_BASE_URL`（或在本地 Ollama 模式下设为本地地址），否则启动报错退出。\n4. **老用户迁移**：如果之前依赖 keychain 中的 Anthropic 凭证或 OAuth 登录，升级后需显式使用 `--provider anthropic` 或 `YWCODER_USE_ANTHROPIC=1`，或配置 OpenAI 网关凭证。\n5. **自动更新已阻止**：第三方 provider 模式下不检查、不下载上游 Claude Code 更新。使用 `git pull && bun run build` 手动更新。\n"
+    };
+
+    const DOCS = [
+      { id: 'default-provider-openai', title: '默认 Provider 改为 OpenAI', subtitle: '需求与方案文档', status: 'completed', statusLabel: '方案已确定', content: DOCS_DATA['default-provider-openai'] }
+    ];
+
+    const docNav = document.getElementById('doc-nav');
+    const contentArea = document.getElementById('content-area');
+    const toc = document.getElementById('toc');
+    const hljsTheme = document.getElementById('hljs-theme');
+
+    function renderNav() {
+      docNav.innerHTML = DOCS.map((doc, index) => `
+        <button onclick="switchDoc(${index})" id="nav-${index}" class="w-full text-left p-3 rounded-lg transition-all border border-transparent hover:border-border-light dark:hover:border-border-dark hover:bg-black/[0.02] dark:hover:bg-white/[0.02] group">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-serif font-semibold text-sm text-ink-light dark:text-ink-dark group-hover:text-accent-light dark:group-hover:text-accent-dark">${doc.title}</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium ${doc.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}">${doc.statusLabel}</span>
+          </div>
+          <div class="text-xs text-muted-light dark:text-muted-dark">${doc.subtitle}</div>
+        </button>
+      `).join('');
+    }
+
+    function switchDoc(index) {
+      const doc = DOCS[index];
+      document.querySelectorAll('#doc-nav button').forEach((btn, i) => {
+        if (i === index) {
+          btn.classList.add('bg-accent-light/10', 'dark:bg-accent-dark/10', 'border-accent-light/30', 'dark:border-accent-dark/30');
+        } else {
+          btn.classList.remove('bg-accent-light/10', 'dark:bg-accent-dark/10', 'border-accent-light/30', 'dark:border-accent-dark/30');
+        }
+      });
+
+      contentArea.innerHTML = '<div class="fade-in max-w-4xl mx-auto">' + marked.parse(doc.content) + '</div>';
+      contentArea.scrollTop = 0;
+
+      contentArea.querySelectorAll('h2, h3, h4').forEach(h => {
+        const id = 'heading-' + Math.random().toString(36).substr(2, 9);
+        h.id = id;
+        const anchor = document.createElement('a');
+        anchor.href = '#' + id;
+        anchor.className = 'anchor-link';
+        anchor.innerHTML = '#';
+        anchor.onclick = (e) => { e.preventDefault(); scrollToHeading(id); };
+        h.appendChild(anchor);
+      });
+
+      contentArea.querySelectorAll('pre code').forEach(block => {
+        hljs.highlightElement(block);
+      });
+
+      renderTOC();
+    }
+
+    function renderTOC() {
+      const headings = contentArea.querySelectorAll('h2, h3, h4');
+      toc.innerHTML = '<div class="text-xs font-semibold uppercase tracking-wider text-muted-light dark:text-muted-dark mb-3">目录</div>' +
+        Array.from(headings).map(h => {
+          const level = h.tagName.toLowerCase();
+          const text = h.textContent.replace('#', '').trim();
+          return `<div class="toc-item ${level}" onclick="scrollToHeading('${h.id}')">${text}</div>`;
+        }).join('');
+    }
+
+    function scrollToHeading(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (window.innerWidth < 1024) toggleSidebar();
+      }
+    }
+
+    function setTheme(isDark) {
+      document.documentElement.classList.toggle('dark', isDark);
+      document.documentElement.classList.toggle('light', !isDark);
+      hljsTheme.href = isDark
+        ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css'
+        : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebar-overlay');
+      const isOpen = sidebar.classList.contains('translate-x-0');
+      sidebar.classList.toggle('-translate-x-full', isOpen);
+      sidebar.classList.toggle('translate-x-0', !isOpen);
+      overlay.classList.toggle('hidden', isOpen);
+    }
+
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      setTheme(!document.documentElement.classList.contains('dark'));
+    });
+
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      setTheme(true);
+    } else {
+      setTheme(false);
+    }
+
+    renderNav();
+    switchDoc(0);
+  </script>
+</body>
+</html>

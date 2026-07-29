@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>需求说明与修改方案（修正版）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="hljs-light">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" id="hljs-dark" disabled>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style type="text/tailwindcss">
+    @layer base {
+      :root {
+        --bg-primary: #faf8f5;
+        --bg-secondary: #f5f1ec;
+        --bg-card: #ffffff;
+        --text-primary: #1a1a1a;
+        --text-secondary: #4a4a4a;
+        --text-muted: #6b6b6b;
+        --accent: #c45c26;
+        --accent-light: #e87a3e;
+        --border-color: #e5dfd6;
+        --sidebar-bg: #f0ece5;
+        --code-bg: #1e1e1e;
+        --toc-bg: #f8f5f0;
+      }
+      .dark {
+        --bg-primary: #161412;
+        --bg-secondary: #1e1b17;
+        --bg-card: #25221e;
+        --text-primary: #e8e4df;
+        --text-secondary: #b5b0a8;
+        --text-muted: #8a857e;
+        --accent: #e87a3e;
+        --accent-light: #f09563;
+        --border-color: #3d3832;
+        --sidebar-bg: #1c1915;
+        --code-bg: #0f0e0d;
+        --toc-bg: #1e1b17;
+      }
+      body {
+        font-family: 'DM Sans', 'Noto Serif SC', sans-serif;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        transition: background-color 0.3s, color 0.3s;
+      }
+      h1, h2, h3, h4 {
+        font-family: 'Noto Serif SC', serif;
+      }
+      code, pre {
+        font-family: 'JetBrains Mono', monospace;
+      }
+    }
+    @layer components {
+      .prose-custom h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-top: 2.5rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--accent);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .prose-custom h3 {
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-top: 2rem;
+        margin-bottom: 0.75rem;
+      }
+      .prose-custom h4 {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+      }
+      .prose-custom p {
+        margin-bottom: 1rem;
+        line-height: 1.8;
+        color: var(--text-secondary);
+      }
+      .prose-custom ul, .prose-custom ol {
+        margin-bottom: 1rem;
+        padding-left: 1.5rem;
+      }
+      .prose-custom li {
+        margin-bottom: 0.5rem;
+        line-height: 1.7;
+      }
+      .prose-custom code {
+        background-color: var(--bg-secondary);
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.9em;
+        color: var(--accent);
+      }
+      .prose-custom pre {
+        background-color: var(--code-bg);
+        border-radius: 8px;
+        padding: 1.25rem;
+        margin: 1.5rem 0;
+        overflow-x: auto;
+      }
+      .prose-custom pre code {
+        background-color: transparent;
+        padding: 0;
+        color: #e8e4df;
+        font-size: 0.85rem;
+        line-height: 1.6;
+        font-variant-emoji: text;
+        font-feature-settings: "liga" 0;
+        text-rendering: optimizeSpeed;
+      }
+      .prose-custom table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+        font-size: 0.95rem;
+      }
+      .prose-custom th {
+        background-color: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        padding: 0.75rem 1rem;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+      .prose-custom td {
+        border: 1px solid var(--border-color);
+        padding: 0.75rem 1rem;
+        color: var(--text-secondary);
+      }
+      .prose-custom tr:nth-child(even) {
+        background-color: var(--bg-secondary);
+      }
+      .prose-custom tr:hover {
+        background-color: var(--toc-bg);
+      }
+      .prose-custom blockquote {
+        border-left: 4px solid var(--accent);
+        padding-left: 1rem;
+        margin: 1.5rem 0;
+        color: var(--text-muted);
+        font-style: italic;
+      }
+      .prose-custom hr {
+        border: none;
+        border-top: 1px solid var(--border-color);
+        margin: 2rem 0;
+      }
+      .prose-custom a {
+        color: var(--accent);
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+      .prose-custom a:hover {
+        color: var(--accent-light);
+        text-decoration: underline;
+      }
+      .prose-custom strong {
+        color: var(--text-primary);
+        font-weight: 600;
+      }
+      .anchor-link {
+        opacity: 0;
+        margin-left: 0.5rem;
+        font-size: 0.8em;
+        color: var(--accent);
+        cursor: pointer;
+        transition: opacity 0.2s;
+        text-decoration: none;
+      }
+      .prose-custom h2:hover .anchor-link,
+      .prose-custom h3:hover .anchor-link,
+      .prose-custom h4:hover .anchor-link {
+        opacity: 1;
+      }
+      .toc-item {
+        padding: 0.4rem 0.75rem;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+      }
+      .toc-item:hover {
+        background-color: var(--bg-secondary);
+        color: var(--text-primary);
+      }
+      .toc-item.h3 {
+        padding-left: 1.5rem;
+        font-size: 0.85rem;
+      }
+      .toc-item.h4 {
+        padding-left: 2.25rem;
+        font-size: 0.8rem;
+      }
+      .sidebar-item {
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: all 0.2s;
+        margin-bottom: 0.25rem;
+      }
+      .sidebar-item:hover {
+        background-color: var(--bg-secondary);
+      }
+      .sidebar-item.active {
+        background-color: var(--accent);
+        color: white;
+      }
+      .sidebar-subtitle {
+        overflow-wrap: break-word;
+        word-break: break-all;
+        line-height: 1.4;
+      }
+      .sidebar-item.active .sidebar-subtitle {
+        color: rgba(255,255,255,0.8);
+      }
+      .fade-in {
+        animation: fadeIn 0.3s ease-in;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--text-muted);
+      }
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+</head>
+<body class="min-h-screen">
+  <div id="mobile-overlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
+
+  <aside id="sidebar" class="fixed left-0 top-0 h-full w-72 z-40 transform -translate-x-full lg:translate-x-0 transition-transform duration-300 overflow-y-auto border-r" style="background-color: var(--sidebar-bg); border-color: var(--border-color);">
+    <div class="p-6">
+      <div class="mb-8">
+        <h1 class="text-xl font-bold" style="color: var(--text-primary); font-family: 'Noto Serif SC', serif;">需求说明</h1>
+        <p class="text-sm mt-1" style="color: var(--text-muted);">修改方案（修正版）</p>
+      </div>
+
+      <nav id="sidebar-nav"></nav>
+
+      <div class="mt-8 pt-6 border-t" style="border-color: var(--border-color);">
+        <div class="flex items-center justify-between">
+          <span class="text-xs" style="color: var(--text-muted);">2026-05-21</span>
+          <button onclick="toggleTheme()" class="p-2 rounded-lg transition-colors hover:bg-gray-200 dark:hover:bg-gray-700" style="color: var(--text-muted);">
+            <svg id="theme-icon-light" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+            </svg>
+            <svg id="theme-icon-dark" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="lg:ml-72 min-h-screen">
+    <div class="max-w-4xl mx-auto px-6 py-8 lg:px-12">
+      <div class="lg:hidden flex items-center mb-6">
+        <button onclick="toggleSidebar()" class="p-2 -ml-2 rounded-lg" style="color: var(--text-primary);">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div id="content-area" class="prose-custom fade-in" style="background-color: var(--bg-card); border-radius: 12px; padding: 2rem;"></div>
+    </div>
+  </main>
+
+  <aside id="toc-sidebar" class="hidden xl:block fixed right-4 top-8 w-64 max-h-[calc(100vh-4rem)] overflow-y-auto" style="background-color: var(--toc-bg); border-radius: 12px; padding: 1rem;">
+    <h3 class="text-sm font-semibold mb-3 px-2" style="color: var(--text-muted);">目录</h3>
+    <div id="toc-content"></div>
+  </aside>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/bash.min.js"></script>
+  <script>
+    const DOCS_DATA = {'main': "# CLAUDE_CODE_ATTRIBUTION_HEADER 参数优化 — 需求说明与修改方案（修正版）\n\n**一句话概述**：将 `x-anthropic-billing-header` 从\"全量发送\"改为仅对 Anthropic 托管的 Provider 发送，消除 OpenAI/Gemini 等接口的无效 token 开销，在不影响 Anthropic 接口功能的前提下降低第三方用户的使用成本。\n\n**业务价值**：OpenAI 等接口每轮对话会多发送约 15-20 tokens 的无效 attribution payload，高频使用场景下积累显著；改为白名单后可在服务端层面自动规避这部分浪费。\n\n## 一、需求说明\n\n### 1.1 背景\n\n`CLAUDE_CODE_ATTRIBUTION_HEADER` 是 ywcoder-cli 中用于控制 API 请求 attribution header 的环境变量。该 header 以 `x-anthropic-billing-header` 的形式嵌入 system prompt，包含以下信息：\n\n- `cc_version`：客户端版本 + 基于用户第一条消息的 fingerprint（3 位 hex）\n- `cc_entrypoint`：入口点（如 `cli`、`vscode` 等）\n- `cch=00000`：客户端认证占位符（仅在构建时启用 `NATIVE_CLIENT_ATTESTATION` 时出现）\n- `cc_workload`：工作负载类型（如 cron 任务）\n\n### 1.2 现有行为\n\n**代码位置**：`src/constants/system.ts:55-60`\n\n```typescript\nfunction isAttributionHeaderEnabled(): boolean {\n  if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_ATTRIBUTION_HEADER)) {\n    return false\n  }\n  return getFeatureValue_CACHED_MAY_BE_STALE('tengu_attribution_header', true)\n}\n```\n\n- **默认状态**：启用（`true`）\n- **控制方式**：通过环境变量 `CLAUDE_CODE_ATTRIBUTION_HEADER` 或 GrowthBook 开关 `tengu_attribution_header`\n- **禁用方式**：设置为 `false`、`0`、`no`、`off`\n\n### 1.3 问题分析\n\n#### 对 Anthropic Claude API（无影响）\n\nAnthropic 接口使用显式的 `cache_control` 标记。`splitSysPromptPrefix()`（`src/utils/api.ts:321`）将 attribution header 放在第一个 block，并设置 `cacheScope: null`：\n\n```typescript\n// src/utils/api.ts:349-352\nif (attributionHeader) {\n  result.push({ text: attributionHeader, cacheScope: null })\n}\n```\n\n`cacheScope: null` 意味着该 block **不参与 prompt caching**。后面的工具定义、项目规则等静态内容仍正常缓存。因此即使 fingerprint 变化，也只会影响这个不缓存的 block，**不会 bust 后面缓存块的命中**。\n\n#### 对 OpenAI 接口（有影响，但比之前评估的小）\n\nOpenAI 使用**自动 prompt caching**（精确前缀匹配，只有前缀完全相同的 token 序列才会命中；且要求重复前缀长度 ≥ 1024 tokens 才生效，费用降低约 50%）。\n\n但经进一步分析，**同一 session 内的主对话请求 fingerprint 是稳定的**，因为 `computeFingerprintFromMessages()` 取的是 session 第一条用户消息（详见附录 D）。因此：\n\n- **主请求**：同一 session 内 system prompt 前缀不变，OpenAI 的自动缓存**可以正常命中**\n- **sideQuery（内部分类器请求）**：使用独立的 fingerprint，system prompt 通常较短（多数不到 1024 tokens），OpenAI 缓存本来就不会生效\n- **跨 session**：新建窗口本来就没有缓存\n\n**真正的成本消耗**：attribution header 本身占用的 token。\n\n```\nx-anthropic-billing-header: cc_version=99.0.0.7c9; cc_entrypoint=cli;\n```\n\n这段文本约 **60-70 个字符**，按 tokenizer 折算大约 **15-20 tokens**。每轮对话发一次，累积消耗：\n\n| 对话轮数 | 多付 Token | 多付费用（GPT-4o） |\n|---------|-----------|------------------|\n| 100 轮 | ~1,500-2,000 | ~$0.0037-$0.005 |\n| 1,000 轮 | ~15,000-20,000 | ~$0.037-$0.05 |\n| 10,000 轮 | ~150,000-200,000 | ~$0.37-$0.50 |\n\n此外，该 header 对 OpenAI 服务端**没有任何功能价值**（OpenAI 不认识这个字段），是纯粹的无效 payload。\n\n---\n\n## 二、修改方案\n\n### 方案 A：全局默认禁用（改动 1 行）\n\n**修改位置**：`src/constants/system.ts:59`\n\n```typescript\n// 原代码\nreturn getFeatureValue_CACHED_MAY_BE_STALE('tengu_attribution_header', true)\n\n// 改为\nreturn getFeatureValue_CACHED_MAY_BE_STALE('tengu_attribution_header', false)\n```\n\n**优点**：\n- 改动最小，逻辑简单\n\n**缺点**：\n- Anthropic 官方接口也会失去 attribution header\n- 影响 Anthropic 的版本追踪、QoS 路由和客户端认证\n\n**适用场景**：不推荐使用，影响面太大。\n\n---\n\n### 方案 B：Provider-Aware 自动禁用（改动 4 行，推荐）\n\n**修改位置**：`src/constants/system.ts`\n\n`getAPIProvider()` 已在 `src/constants/system.ts:7` 导入，**无需新增 import**。\n\n```typescript\nfunction isAttributionHeaderEnabled(): boolean {\n  if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_ATTRIBUTION_HEADER)) {\n    return false\n  }\n  // 白名单：只有 Anthropic 托管的 provider 才启用 attribution header\n  // OpenAI / Ollama / GitHub Models / Gemini / Codex 等一律禁用\n  const provider = getAPIProvider()\n  if (\n    provider !== 'firstParty' &&\n    provider !== 'bedrock' &&\n    provider !== 'vertex'\n  ) {\n    return false\n  }\n  return getFeatureValue_CACHED_MAY_BE_STALE('tengu_attribution_header', true)\n}\n```\n\n**行为矩阵**：\n\n| 接口类型 | getAPIProvider() 返回值 | 底层模型 | Attribution Header |\n|---------|------------------------|---------|-------------------|\n| Anthropic 官方（api.anthropic.com） | `firstParty` | Claude | 发送 |\n| Bedrock | `bedrock` | Claude | 发送 |\n| Vertex | `vertex` | Claude | 发送 |\n| OpenAI / Azure OpenAI | `openai` | GPT | 不发 |\n| Ollama / 本地模型 | `openai` | 本地模型 | 不发 |\n| GitHub Models | `github` | 多种 | 不发 |\n| Gemini | `gemini` | Gemini | 不发 |\n| Codex | `codex` | Codex | 不发 |\n\n**优点**：\n- 对 Anthropic 用户完全无影响\n- 对 OpenAI 用户移除无用 payload，减少 token 消耗\n- 白名单逻辑单一清晰，新增 provider 时无需修改这里\n- 改动小，无需新增 import\n\n**缺点**：\n- 需要在 `isAttributionHeaderEnabled()` 中引入 provider 判断\n\n**适用场景**：**推荐采用**。\n\n---\n\n### 方案 C：用户自行配置（零代码改动）\n\n**方式 1**：环境变量\n```bash\nexport CLAUDE_CODE_ATTRIBUTION_HEADER=false\nywcoder\n```\n\n**方式 2**：添加到 shell profile 永久生效\n```bash\necho 'export CLAUDE_CODE_ATTRIBUTION_HEADER=false' >> ~/.zshrc\n```\n\n**优点**：\n- 零代码改动，立即可用\n- 用户自主控制\n\n**缺点**：\n- 需要用户主动发现和学习\n- 不会惠及所有 OpenAI 用户\n\n**适用场景**：作为方案 B 上线前的临时 workaround。\n\n---\n\n## 三、建议\n\n| 场景 | 推荐方案 |\n|------|----------|\n| 只解决当前个人问题 | 方案 C（设环境变量） |\n| 长期优化，惠及所有 OpenAI 用户 | **方案 B（Provider-Aware 自动禁用）** |\n| 彻底关闭该功能 | 方案 A（不推荐） |\n\n**下一步行动**：\n1. 实施方案 B，修改 `src/constants/system.ts`\n2. 运行 `bun test` 确保无回归\n3. 在 CHANGELOG 中记录该优化\n\n---\n\n## 附录\n\n### 附录 A：Prompt Caching（提示词缓存）是怎么被命中的\n\n缓存的是 **system prompt（系统提示词）**，不是 **user input（用户输入）**。\n\n一次 API 请求的结构大致是：\n\n```\n请求 = system prompt（工具定义 + 项目规则 + claude.md 等）\n     + 历史消息（用户/AI 的多轮对话）\n     + 当前用户输入\n```\n\n| 部分 | 多轮之间是否变化 | 是否被缓存 |\n|------|----------------|-----------|\n| system prompt（工具定义、项目规则） | **基本不变** | 缓存的就是这部分 |\n| 历史消息 | 每轮增加 | 不缓存（逐轮递增） |\n| 当前用户输入 | 每轮不同 | 不缓存 |\n\n即使每轮用户输入不同，**system prompt 的前缀是相同的**，缓存命中的是这部分\"前缀\"。\n\n---\n\n### 附录 B：Anthropic 与 OpenAI 的 Prompt Caching 机制差异\n\n| 维度 | Anthropic | OpenAI |\n|------|-----------|--------|\n| **方式** | **显式标记**（手动控制） | **自动检测**（全自动） |\n| **开发者控制** | 可以在任意位置插入 `cache_control` | 无法干预，API 自动决定 |\n| **标记方式** | `{\"type\": \"text\", \"text\": \"...\", \"cache_control\": {\"type\": \"ephemeral\"}}` | 无标记，全靠内容哈希匹配 |\n| **缓存范围** | 可指定 `global`（跨用户）或 `org`（组织内） | 隐式，不可配置 |\n| **生效条件** | 标记即生效 | 精确前缀重复 >= 1024 tokens 才生效 |\n| **多块缓存** | 支持多个独立缓存块 | 只有单一精确前缀匹配 |\n\n**代码层面的体现**：\n\n**Anthropic**（`src/services/api/claude.ts:3233-3257`）：\n\n```typescript\nexport function buildSystemPromptBlocks(\n  systemPrompt: SystemPrompt,\n  enablePromptCaching: boolean,\n  options?: {\n    skipGlobalCacheForSystemPrompt?: boolean\n    querySource?: QuerySource\n  },\n): TextBlockParam[] {\n  return splitSysPromptPrefix(systemPrompt, {\n    skipGlobalCacheForSystemPrompt: options?.skipGlobalCacheForSystemPrompt,\n  }).map(block => {\n    return {\n      type: 'text' as const,\n      text: block.text,\n      ...(enablePromptCaching &&\n        block.cacheScope !== null && {\n          cache_control: getCacheControl({\n            scope: block.cacheScope,\n            querySource: options?.querySource,\n          }),\n        }),\n    }\n  })\n}\n```\n\n**OpenAI**（`src/services/api/openaiShim.ts:108-121`）：\n\n```typescript\nfunction convertSystemPrompt(system: unknown): string {\n  if (!system) return ''\n  if (typeof system === 'string') return system\n  if (Array.isArray(system)) {\n    return system\n      .map((block: { type?: string; text?: string }) =>\n        block.type === 'text' ? block.text ?? '' : '',\n      )\n      .join('\\n\\n')\n  }\n  return String(system)\n}\n```\n\nOpenAI 的 shim 把所有 block 合并成一个字符串，**没有任何 `cache_control` 字段**。\n\n---\n\n### 附录 C：为什么 OpenAI 的调用逻辑里不添加 `cache_control` 标记\n\n**因为 OpenAI 的 API 规格里就没有 `cache_control` 这个字段。**\n\n如果发送一个带有 `cache_control` 的 message block 给 OpenAI，API 会直接报错（`Extra inputs are not permitted`）。\n\n在代码层面，ywcoder 已经把不同 provider 的差异做了适配：\n\n- 发给 Anthropic -> 保留 `cache_control` 标记（`buildSystemPromptBlocks`）\n- 发给 OpenAI -> `openaiShim.ts` 把所有 block 合并成一个字符串，不会带 `cache_control`\n\n这是两个公司的产品设计差异，不是 ywcoder 能决定的。\n\n| | Anthropic | OpenAI |\n|--|-----------|--------|\n| 设计理念 | 显式控制，精细管理 | 自动优化，开发者无感 |\n| 优势 | 可以精确控制哪些内容缓存，多块独立缓存 | 简单，不用改代码就能受益 |\n| 劣势 | 需要 SDK/框架支持，增加了复杂度 | 无法排除动态内容，前缀一变化全部失效 |\n\n---\n\n### 附录 D：Fingerprint 计算逻辑与变化规律\n\n#### 计算逻辑\n\n**代码位置**：`src/utils/fingerprint.ts:56-68`\n\n```typescript\nexport function computeFingerprint(\n  messageText: string,\n  version: string,\n): string {\n  // Extract chars at indices [4, 7, 20], use \"0\" if index not found\n  const indices = [4, 7, 20]\n  const chars = indices.map(i => messageText[i] || '0').join('')\n\n  const fingerprintInput = `${FINGERPRINT_SALT}${chars}${version}`\n\n  // SHA256 hash, return first 3 hex chars\n  const hash = createHash('sha256').update(fingerprintInput).digest('hex')\n  return hash.slice(0, 3)\n}\n```\n\n- `messageText`：第一条用户消息的文本内容\n- `FINGERPRINT_SALT`：硬编码盐值 `'59cf53e54c78'`（`src/utils/fingerprint.ts:8`）\n- `version`：构建版本号（`MACRO.VERSION`）\n\n#### 取字符示例\n\n假设第一条用户消息是 `\"你好，帮我改一下这段代码\"`：\n\n```\nmessageText = \"你好，帮我改一下这段代码\"\n            0  1  2  3  4  5  6  7  8  9  10 11 12 ...\nchar        你 好 ， 帮 我 改 一 下 这 段 代 码\n\nindices [4, 7, 20]:\n  index 4 -> '我'\n  index 7 -> '下'\n  index 20 -> '码'（假设长度够）\n\nchars = \"我\" + \"下\" + \"码\" = \"我下码\"\n\nfingerprintInput = \"59cf53e54c78\" + \"我下码\" + \"99.0.0\"\n                 = \"59cf53e54c78我下码99.0.0\"\n\nSHA256(59cf53e54c78我下码99.0.0)[:3] = ???\n```\n\n#### 为什么取第 4、7、20 位？\n\n这是**故意设计的轻量签名**：\n1. **足够敏感**：普通用户输入变几个字，fingerprint 大概率会变\n2. **足够轻量**：不需要 hash 整段消息（省 CPU）\n3. **不可伪造**：加了硬编码盐值，无法从 fingerprint 反推原文\n\n#### 主请求 vs sideQuery\n\n**主请求**（`src/services/api/claude.ts:1333-1336`）：\n\n```typescript\n// Compute fingerprint from first user message for attribution.\n// Must run BEFORE injecting synthetic messages (e.g. deferred tool names)\n// so the fingerprint reflects the actual user input.\nconst fingerprint = computeFingerprintFromMessages(messagesForAPI)\n```\n\n`computeFingerprintFromMessages` 取的是 `messagesForAPI` 中**第一个非 meta 的 user message**。只要 session 不重建，这个第一条消息永远是固定的，**同一 session 内 fingerprint 不变**。\n\n**sideQuery**（`src/utils/sideQuery.ts:139-144`）：\n\n```typescript\n// Extract first user message text for fingerprint\nconst messageText = extractFirstUserMessageText(messages)\n\n// Compute fingerprint for OAuth attribution\nconst fingerprint = computeFingerprint(messageText, MACRO.VERSION)\nconst attributionHeader = getAttributionHeader(fingerprint)\n```\n\nsideQuery 的 `messages` 是它自己传入的局部消息（通常只有当前轮次的内容），**与主对话的 `messagesForAPI` 完全独立**。因此 sideQuery 的 fingerprint 基于它自己的第一条消息，每轮都可能不同。\n\n#### 变化规律总结\n\n| 请求类型 | fingerprint 来源 | 同一个 session 下是否变化 |\n|---------|-----------------|------------------------|\n| **主对话请求** | `messagesForAPI` 的第一条 user message | **不变** |\n| **sideQuery（内部分类器）** | 传入 sideQuery 的局部 messages | **可能变**（基于当前输入） |\n| **新建窗口 / 新 session** | 新 session 的第一条消息 | **变化** |\n\n---\n\n## 四、修改总结\n\n### 已实施的修改\n\n**文件**：`src/constants/system.ts:55-70`\n\n将 `isAttributionHeaderEnabled()` 从无条件启用改为 **Provider 白名单控制**：\n\n```typescript\nfunction isAttributionHeaderEnabled(): boolean {\n  if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_ATTRIBUTION_HEADER)) {\n    return false\n  }\n  // 白名单：只有 Anthropic 托管的 provider 才启用 attribution header\n  const provider = getAPIProvider()\n  if (\n    provider !== 'firstParty' &&\n    provider !== 'bedrock' &&\n    provider !== 'vertex'\n  ) {\n    return false\n  }\n  return getFeatureValue_CACHED_MAY_BE_STALE('tengu_attribution_header', true)\n}\n```\n\n### 修改要点\n\n| 要点 | 说明 |\n|------|------|\n| **白名单逻辑** | 只有 `firstParty`、`bedrock`、`vertex` 启用，其余一律禁用 |\n| **不使用 `includes`** | 改用 `!==` 链，避免 `string[]` 与联合类型的类型兼容问题 |\n| **不引入新 import** | `getAPIProvider()` 已在 `system.ts:7` 导入 |\n| **用户仍可覆盖** | 环境变量 `CLAUDE_CODE_ATTRIBUTION_HEADER=false` 仍然优先 |\n\n### 验证结果\n\n- `bun run build` — 构建成功\n- `bun test src/utils/model/providers.test.ts` — 11 pass\n- `bun test src/utils/api.test.ts` — 1 pass\n- `bun test src/services/api/client.test.ts` — 1 pass\n- `bun test src/services/api/openaiShim.test.ts` — 31 pass\n"};
+
+    const DOCS = [
+      {
+        id: 'main',
+        title: '需求说明与修改方案',
+        subtitle: 'CLAUDE_CODE_ATTRIBUTION_HEADER 参数优化',
+        status: 'completed',
+        statusLabel: '已完成',
+        content: DOCS_DATA['main']
+      }
+    ];
+
+    let currentDocIndex = 0;
+    let isDark = false;
+
+    function init() {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        isDark = true;
+        document.documentElement.classList.add('dark');
+      }
+      updateThemeIcons();
+      renderSidebar();
+      renderContent(0);
+    }
+
+    function renderSidebar() {
+      const nav = document.getElementById('sidebar-nav');
+      nav.innerHTML = DOCS.map((doc, index) => `
+        <div class="sidebar-item ${index === 0 ? 'active' : ''}" onclick="switchDoc(${index})" data-index="${index}">
+          <div class="font-medium text-sm">${doc.title}</div>
+          <div class="sidebar-subtitle text-xs mt-0.5" style="color: var(--text-muted);">${doc.subtitle}</div>
+          ${doc.status ? `<span class="inline-block mt-1 px-2 py-0.5 text-xs rounded-full ${doc.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'}">${doc.statusLabel}</span>` : ''}
+        </div>
+      `).join('');
+    }
+
+    function switchDoc(index) {
+      currentDocIndex = index;
+      document.querySelectorAll('.sidebar-item').forEach((item, i) => {
+        item.classList.toggle('active', i === index);
+      });
+      renderContent(index);
+      if (window.innerWidth < 1024) {
+        toggleSidebar();
+      }
+    }
+
+    function renderContent(index) {
+      const doc = DOCS[index];
+      const contentArea = document.getElementById('content-area');
+      contentArea.innerHTML = marked.parse(doc.content);
+      contentArea.classList.remove('fade-in');
+      void contentArea.offsetWidth;
+      contentArea.classList.add('fade-in');
+
+      contentArea.querySelectorAll('h2, h3, h4').forEach(h => {
+        const id = 'heading-' + Math.random().toString(36).substr(2, 9);
+        h.id = id;
+        const anchor = document.createElement('a');
+        anchor.href = '#' + id;
+        anchor.className = 'anchor-link';
+        anchor.innerHTML = '#';
+        anchor.onclick = (e) => { e.preventDefault(); scrollToHeading(id); };
+        h.appendChild(anchor);
+      });
+
+      contentArea.querySelectorAll('pre code').forEach(block => {
+        hljs.highlightElement(block);
+      });
+
+      renderTOC();
+    }
+
+    function renderTOC() {
+      const contentArea = document.getElementById('content-area');
+      const headings = contentArea.querySelectorAll('h2, h3, h4');
+      const toc = document.getElementById('toc-content');
+      toc.innerHTML = Array.from(headings).map(h => {
+        const level = h.tagName.toLowerCase();
+        const text = h.textContent.replace('#', '').trim();
+        return `<div class="toc-item ${level}" onclick="scrollToHeading('${h.id}')">${text}</div>`;
+      }).join('');
+    }
+
+    function scrollToHeading(id) {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('mobile-overlay');
+      const isOpen = !sidebar.classList.contains('-translate-x-full');
+      if (isOpen) {
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+      } else {
+        sidebar.classList.remove('-translate-x-full');
+        overlay.classList.remove('hidden');
+      }
+    }
+
+    function toggleTheme() {
+      isDark = !isDark;
+      document.documentElement.classList.toggle('dark', isDark);
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      updateThemeIcons();
+      document.getElementById('hljs-light').disabled = isDark;
+      document.getElementById('hljs-dark').disabled = !isDark;
+    }
+
+    function updateThemeIcons() {
+      document.getElementById('theme-icon-light').classList.toggle('hidden', !isDark);
+      document.getElementById('theme-icon-dark').classList.toggle('hidden', isDark);
+    }
+
+    init();
+  </script>
+</body>
+</html>

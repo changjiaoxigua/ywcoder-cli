@@ -1,0 +1,159 @@
+src/history.ts:35: * Claude Code parses history for pasted content references to match back to
+src/history.ts:412:  // Skip history when running in a tmux session spawned by Claude Code's Tungsten tool.
+src/main.tsx:4380:  program.command('install [target]').description('Install Claude Code native build. Use [target] to specify version (stable, latest, or specific version)').option('--force', 'Force installation even if already installed').action(async (target: string | undefined, options: {
+src/interactiveHelpers.tsx:214:  // processes but ignored by Claude Code itself (see auth.ts).
+src/ink/components/App.tsx:441:    // Emit suspend event for Claude Code to handle. Mostly just has a notification
+src/ink/components/App.tsx:462:      // Emit resume event for Claude Code to handle
+src/types/ids.ts:7: * A session ID uniquely identifies a Claude Code session.
+src/keybindings/schema.ts:227:      'Claude Code keybindings configuration. Customize keyboard shortcuts by context.',
+src/bootstrap/state.ts:969:    description: 'Cost of the Claude Code session',
+src/keybindings/reservedShortcuts.ts:14: * Shortcuts that cannot be rebound - they are hardcoded in Claude Code.
+src/keybindings/defaultBindings.ts:8: * Default keybindings that match current Claude Code behavior.
+src/bridge/trustedDevice.ts:150:        { display_name: `Claude Code on ${hostname()} · ${process.platform}` },
+src/bridge/envLessBridgeConfig.ts:150:    return `Your version of Claude Code (${MACRO.VERSION}) is too old for Remote Control.\nVersion ${cfg.min_version} or higher is required. Run \`claude update\` to update.`
+src/constants/product.ts:3:// Claude Code Remote session URLs
+src/bridge/bridgeEnabled.ts:169:      return `Your version of Claude Code (${MACRO.VERSION}) is too old for Remote Control.\nVersion ${config.minVersion} or higher is required. Run \`claude update\` to update.`
+src/constants/oauth.ts:109: * Claude Code uses this URL as its client_id instead of Dynamic Client Registration.
+src/utils/teammate.ts:4: * These helpers identify whether this Claude Code instance is running as a
+src/utils/editor.ts:73: * in a separate window and Claude Code stays interactive.
+src/utils/systemPrompt.ts:37: * 4. Default system prompt (the standard Claude Code prompt)
+src/utils/stats.ts:637: * Aggregates stats from all Claude Code sessions across all projects.
+src/utils/sideQuery.ts:54:  /** Skip CLI system prompt prefix (keeps attribution header for OAuth). Default true — side queries are internal classifiers with their own prompt. Set false only for queries that need the full "You are Claude Code…" prefix. */
+src/utils/privacyLevel.ts:4: * Claude Code generates.
+src/utils/autoUpdater.ts:93:It looks like your version of Claude Code (${MACRO.VERSION}) needs an update.
+src/utils/autoUpdater.ts:492:You're running Claude Code in WSL but using the Windows NPM installation from /mnt/c/.
+src/utils/queryHelpers.ts:162:        // Only emit for Claude Code Remote for now
+src/utils/attachments.ts:3542: * Teammates are independent Claude Code sessions running in parallel (swarms),
+src/utils/terminalPanel.ts:10: * Claude Code while the shell keeps running. Next toggle re-attaches to the
+src/utils/terminalPanel.ts:29: * Uses a unique socket per Claude Code instance (based on session ID)
+src/utils/terminalPanel.ts:112:    // Bind Meta+J (toggles back to Claude Code from inside the terminal)
+src/utils/fingerprint.ts:47: * Computes 3-character fingerprint for Claude Code attribution.
+src/utils/managedEnvConstants.ts:97: * These are YwCoder / Claude Code specific settings that don't pose security risks.
+src/utils/tmuxSocket.ts:319:  // Any Claude Code instance spawned on this socket will inherit this env var,
+src/utils/git.ts:432:      message || `Claude Code auto-stash - ${new Date().toISOString()}`
+src/utils/config.ts:382:  firstStartTime?: string // ISO timestamp when Claude Code was first started on this machine
+src/utils/config.ts:405:  // Claude Code usage tracking
+src/utils/envUtils.ts:186: * Conservative check for whether Claude Code is running inside a protected
+src/utils/settings/types.ts:66:        .describe('Default permission mode when Claude Code needs access'),
+src/utils/settings/types.ts:261:        .describe('JSON Schema reference for Claude Code settings'),
+src/utils/settings/types.ts:294:                  .describe("Claude Code's client_id registered at the IdP"),
+src/utils/settings/types.ts:335:        .describe('Environment variables to set for Claude Code sessions'),
+src/utils/settings/types.ts:357:            'Each field defaults to the standard Claude Code attribution if not set.',
+src/utils/settings/types.ts:378:        .describe('Override the default model used by Claude Code'),
+src/utils/hooks.ts:4: * in Claude Code's lifecycle.
+src/utils/settings/validateEditTool.ts:39:      message: `Claude Code settings.json validation failed after edit:\n${afterValidation.error}\n\nFull schema:\n${afterValidation.fullSchema}\nIMPORTANT: Do not update the env unless explicitly instructed to do so.`,
+src/utils/settings/changeDetector.ts:43: * it's assumed to be from Claude Code itself and won't trigger a notification.
+src/utils/settings/settings.ts:853: * Settings changes require Claude Code restart, so cache is valid for entire session.
+src/utils/swarm/backends/PaneBackendExecutor.ts:113:      // Build the command to spawn Claude Code with teammate identity
+src/utils/settings/mdm/settings.ts:2: * MDM (Mobile Device Management) profile enforcement for Claude Code managed settings.
+src/utils/plugins/validatePlugin.ts:235:            `not plugin.json. It's harmless here but unused — Claude Code ` +
+src/utils/plugins/validatePlugin.ts:264:          `Plugin name "${manifest.name}" is not kebab-case. Claude Code accepts ` +
+src/utils/settings/constants.ts:198: * The JSON Schema URL for Claude Code settings
+src/utils/settings/mdm/constants.ts:11:/** macOS preference domain for Claude Code MDM profiles. */
+src/utils/settings/mdm/constants.ts:15: * Windows registry key paths for Claude Code MDM policies.
+src/utils/plugins/schemas.ts:326: * Claude Code behavior at various lifecycle events.
+src/utils/plugins/schemas.ts:1231: * is a cache-dir entry managed by Claude Code and subject to rm/re-clone.
+src/utils/plugins/schemas.ts:1468: * Maintained automatically by Claude Code, not edited by users.
+src/utils/plugins/schemas.ts:1471: * the current schema version, Claude Code will update the file on next startup.
+src/utils/swarm/teammateInit.ts:4: * Handles initialization for Claude Code instances running as teammates in a swarm.
+src/utils/plugins/pluginLoader.ts:4: * This module is responsible for discovering, loading, and validating Claude Code plugins
+src/utils/plugins/marketplaceManager.ts:2: * Marketplace manager for Claude Code plugins
+src/utils/plugins/marketplaceManager.ts:314:    // corrupted user config isn't a Claude Code bug, shouldn't hit the error file.
+src/utils/plugins/marketplaceManager.ts:2144:          `Claude Code version. Run 'claude marketplace remove ${name}' and ` +
+src/utils/secureStorage/keychainPrefetch.ts:7: *   1. "Claude Code-credentials" (OAuth tokens)  — ~32ms
+src/utils/secureStorage/keychainPrefetch.ts:8: *   2. "Claude Code" (legacy API key)            — ~33ms
+src/utils/secureStorage/macOsKeychainHelpers.ts:44:  return `Claude Code${getOauthConfig().OAUTH_FILE_SUFFIX}${serviceSuffix}${dirHash}`
+src/utils/bash/ShellSnapshot.ts:266: * Generates Claude Code specific snapshot content
+src/utils/bash/ShellSnapshot.ts:353:  // Generate the user content and Claude Code content
+src/utils/bash/ShellSnapshot.ts:432:          `Shell config file not found: ${configFile}, creating snapshot with Claude Code defaults only`,
+src/utils/bash/commands.ts:439:# Claude Code Code Bash command prefix detection
+src/utils/bash/commands.ts:441:This document defines risk levels for actions that the Claude Code agent may take. This classification system is part of a broader safety framework and is used to determine when additional user confirmation or oversight may be needed.
+src/utils/permissions/filesystem.ts:231:// Always ask when Claude Code tries to edit its own config files
+src/utils/permissions/filesystem.ts:329: * This is a per-user temporary directory used by Claude Code for all temp files.
+src/utils/permissions/filesystem.ts:618: * - MCP CLI state files (managed internally by Claude Code)
+src/utils/computerUse/common.ts:7: * Sentinel bundle ID for the frontmost gate. Claude Code is a terminal — it has
+src/utils/hooks/hooksSettings.ts:186:      return 'Built-in hooks (registered internally by Claude Code)'
+src/utils/sandbox/sandbox-adapter.ts:84: * Resolve Claude Code-specific path patterns for sandbox-runtime.
+src/utils/sandbox/sandbox-adapter.ts:86: * Claude Code uses special path prefixes in permission rules:
+src/utils/sandbox/sandbox-adapter.ts:167: * Convert Claude Code settings format to SandboxRuntimeConfig format
+src/utils/sandbox/sandbox-adapter.ts:231:  // This blocks settings in the original working directory (where Claude Code started)
+src/utils/hooks/execPromptHook.ts:65:          `You are evaluating a hook in Claude Code.
+src/utils/hooks/execAgentHook.ts:108:        `You are verifying a stop condition in Claude Code. Your task is to verify that the agent completed the given plan. The conversation transcript is available at: ${transcriptPath}\nYou can read this file to analyze the conversation history if needed.
+src/utils/task/TaskOutput.ts:324:      return `<bash output unavailable: output file ${this.path} could not be read (${code}). This usually means another Claude Code process in the same project deleted it during startup cleanup.>`
+src/utils/task/diskOutput.ts:19:// pointing to arbitrary files, causing Claude Code on the host to write to those files.
+src/utils/nativeInstaller/pidLock.ts:4: * This module provides PID-based locking for running Claude Code versions.
+src/utils/telemetry/sessionTracing.ts:2: * Session Tracing for Claude Code using OpenTelemetry (BETA)
+src/utils/telemetry/sessionTracing.ts:5: * to trace Claude Code workflows. Each user interaction creates a root
+src/utils/telemetry/betaSessionTracing.ts:2: * Beta Session Tracing for Claude Code
+src/utils/deepLink/registerProtocol.ts:34:const APP_NAME = 'Claude Code URL Handler'
+src/utils/deepLink/registerProtocol.ts:36:const MACOS_APP_NAME = 'Claude Code URL Handler.app'
+src/utils/deepLink/registerProtocol.ts:111:      <string>Claude Code Deep Link</string>
+src/utils/deepLink/registerProtocol.ts:149:Comment=Handle ${DEEP_LINK_PROTOCOL}:// deep links for Claude Code
+src/utils/deepLink/terminalLauncher.ts:4: * Detects the user's preferred terminal emulator and launches Claude Code
+src/utils/deepLink/terminalLauncher.ts:197: * Launch Claude Code in the detected terminal emulator.
+src/cli/update.ts:34:  // YwCoder build (with the OpenAI shim) with the upstream Claude Code
+src/utils/telemetry/perfettoTracing.ts:2: * Perfetto Tracing for Claude Code (Ant-only)
+src/utils/telemetry/perfettoTracing.ts:19: * 3. Run Claude Code normally
+src/utils/filePersistence/filePersistence.ts:277: * not normal Claude Code CLI users.
+src/screens/REPL.tsx:2692:    // title silently fell through to the "Claude Code" default.
+src/components/permissions/ComputerUseApproval/ComputerUseApproval.tsx:164:    t7 = <Text dimColor={true}>Grant the missing permissions in System Settings, then select "Try again". macOS may require you to restart Claude Code after granting Screen Recording.</Text>;
+src/components/DesktopUpsell/DesktopUpsellStartup.tsx:93:      label: "Open in Claude Code Desktop",
+src/components/DesktopUpsell/DesktopUpsellStartup.tsx:123:    t6 = <Box marginBottom={1}><Text>Same Claude Code with visual diffs, live app preview, parallel sessions, and more.</Text></Box>;
+src/components/DesktopUpsell/DesktopUpsellStartup.tsx:138:    t8 = <PermissionDialog title="Try Claude Code Desktop"><Box flexDirection="column" paddingX={2} paddingY={1}>{t6}<Select options={options} onChange={handleSelect} onCancel={t7} /></Box></PermissionDialog>;
+src/components/permissions/rules/PermissionRuleList.tsx:391:        allow: "Claude Code won't ask before using allowed tools.",
+src/components/permissions/rules/PermissionRuleList.tsx:392:        ask: "Claude Code will always ask for confirmation before using these tools.",
+src/components/permissions/rules/PermissionRuleList.tsx:393:        deny: "Claude Code will always reject requests to use denied tools."
+src/components/permissions/rules/PermissionRuleList.tsx:1101:    t28 = <Text>Claude Code can read files in the workspace, and make edits when auto-accept edits is on.</Text>;
+src/components/permissions/rules/AddWorkspaceDirectory.tsx:43:    t0 = <Text dimColor={true}>Claude Code will be able to read files in this directory and make edits when auto-accept edits is on.</Text>;
+src/components/mcp/ElicitationDialog.tsx:257:  useNotifyAfterTimeout('Claude Code needs your input', 'elicitation_dialog');
+src/components/mcp/ElicitationDialog.tsx:1007:  useNotifyAfterTimeout('Claude Code needs your input', 'elicitation_url_dialog');
+src/components/design-system/LoadingState.tsx:45: *   subtitle="Fetching your Claude Code sessions..."
+src/components/LogoV2/WelcomeV2.tsx:12:      t0 = <AppleTerminalWelcomeV2 theme={theme} welcomeMessage="Welcome to Claude Code" />;
+src/hooks/useVoice.ts:504:              'No audio detected from microphone. Check that the correct input device is selected and that Claude Code has microphone access.',
+src/components/permissions/rules/RemoveWorkspaceDirectory.tsx:71:    t4 = <Text>Claude Code will no longer have access to files in this directory.</Text>;
+src/hooks/useDiffInIDE.ts:63:    () => `✻ [Claude Code] ${basename(filePath)} (${sha}) ⧉`,
+src/entrypoints/sandboxTypes.ts:2: * Sandbox types for the Claude Code Agent SDK
+src/entrypoints/agentSdkTypes.ts:2: * Main entrypoint for Claude Code Agent SDK types.
+src/hooks/notifs/useCanSwitchToExistingSubscription.tsx:33:    jsx: <Text color="suggestion">Use your existing Claude {subscriptionType} plan with Claude Code<Text color="text" dimColor={true}>{" "}· /login to activate</Text></Text>,
+src/entrypoints/cli.tsx:12:// OpenClaude: polyfill globalThis.File for Node < 20.
+src/entrypoints/cli.tsx:40:// OpenClaude: polyfill globalThis.crypto for Node < 19.
+src/entrypoints/cli.tsx:51:// OpenClaude: disable experimental API betas by default.
+src/commands/review.ts:6:// user triggers, so the description carries "Claude Code on the web" + URL.
+src/entrypoints/mcp.ts:1:// OpenClaude: disable experimental API betas by default.
+src/skills/bundled/scheduleRemoteAgents.ts:176:You are helping the user schedule, update, list, or run **remote** Claude Code agents. These are NOT local cron jobs — each trigger spawns a fully isolated remote session (CCR) in Anthropic's cloud infrastructure on a cron schedule. The agent runs in a sandboxed environment with its own git checkout, tools, and optional MCP connections.
+src/skills/bundled/scheduleRemoteAgents.ts:330:      'When the user wants to schedule a recurring remote agent, set up automated tasks, create a cron job for Claude Code, or manage their scheduled agents/triggers.',
+src/skills/bundled/updateConfig.ts:112:Hooks run commands at specific points in Claude Code's lifecycle.
+src/skills/bundled/updateConfig.ts:309:Modify Claude Code configuration by updating settings.json files.
+src/skills/bundled/updateConfig.ts:448:    // 'Use this skill to configure the Claude Code harness via settings.json. Automated behaviors ("from now on when X", "each time X", "whenever X", "before/after X") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions ("allow X", "add permission", "move permission to"), env vars ("set X=Y"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: "allow npm commands", "add bq permission to global settings", "move permission to user settings", "set DEBUG=true", "when claude stops show X". For simple settings like theme/model, use Config tool.'
+src/services/rateLimitMessages.ts:282:      return '/upgrade to keep using Claude Code'
+src/services/voice.ts:265:        'Voice mode requires microphone access, but no audio device is available in this environment.\n\nTo use voice mode, run Claude Code locally instead.',
+src/services/voice.ts:285:    'Voice mode could not access an audio device in WSL.\n\nWSL2 with WSLg (Windows 11) provides audio via PulseAudio — if you are on Windows 10 or WSL1, run Claude Code in native Windows instead.'
+src/services/voiceStreamSTT.ts:6:// OAuth credentials as Claude Code.  The endpoint uses conversation_engine
+src/services/voiceStreamSTT.ts:99:  // voice_stream uses the same OAuth as Claude Code — available when the
+src/services/lsp/manager.ts:18: * Initialized during Claude Code startup.
+src/services/lsp/manager.ts:60: * asynchronously during Claude Code startup. Use getInitializationStatus() to
+src/services/lsp/manager.ts:138: * This function is called during Claude Code startup. It synchronously creates
+src/services/lsp/manager.ts:258: * This should be called during Claude Code shutdown. Stops all running LSP servers
+src/services/mcp/useManageMCPConnections.ts:857:  // Two-phase loading: Claude Code configs first (fast), then claude.ai configs (may be slow)
+src/services/mcp/useManageMCPConnections.ts:875:      // Phase 1: Load Claude Code configs. Plugin MCP servers that duplicate a
+src/services/mcp/useManageMCPConnections.ts:889:      // Start connecting to Claude Code servers (don't wait - runs concurrently with Phase 2)
+src/services/mcp/config.ts:1063: * Get Claude Code MCP configurations (excludes claude.ai servers from the
+src/services/mcp/config.ts:1069: * @returns Claude Code server configurations with appropriate scopes
+src/services/mcp/SdkControlTransport.ts:5: * to communicate with the Claude Code CLI process through control messages.
+src/services/settingsSync/index.ts:4: * Syncs user settings and memory files across Claude Code environments.
+src/services/tips/tipRegistry.ts:386:      // 'Paste images into Claude Code using control+v (not cmd+v!)'
+src/services/tips/tipRegistry.ts:480:      'Run Claude Code locally or remotely using the Claude desktop app: clau.de/desktop',
+src/services/tips/tipRegistry.ts:489:      return `Continue your session in Claude Code Desktop with ${blue('/desktop')}`
+src/services/tips/tipRegistry.ts:506:      '/mobile to use Claude Code from the Claude app on your phone',
+src/services/PromptSuggestion/promptSuggestion.ts:258:const SUGGESTION_PROMPT = `[SUGGESTION MODE: Suggest what the user might naturally type next into Claude Code.]
+src/services/api/firstTokenDate.ts:9: * Fetch the user's first Claude Code token date and store in config.
+src/services/api/firstTokenDate.ts:10: * This is called after successful login to cache when they started using Claude Code.
+src/services/api/filesApi.ts:5: * Used by the Claude Code agent to download file attachments at session startup.
+src/services/api/withRetry.ts:349:        // TODO: Revisit if the isNonCustomOpusModel check should still exist, or if isNonCustomOpusModel is a stale artifact of when Claude Code was hardcoded on Opus.
+src/services/analytics/config.ts:20:  // Open Claude does not send product telemetry.
+src/services/api/claude.ts:3316: * Query a specific model through the Claude Code infrastructure.
+src/services/mcp/auth.ts:368: * Per RFC 7009, public clients (like Claude Code) should authenticate by including
+src/services/mcp/auth.ts:1146:              `<h1>Authentication Successful</h1><p>You can close this window. Return to Claude Code.</p>`,
+src/services/mcp/auth.ts:1420:      client_name: `Claude Code (${this.serverName})`,
+src/services/api/openaiShim.ts:2: * OpenAI-compatible API shim for Claude Code.
+src/services/api/openaiShim.ts:225:    // Claude Code wraps messages in { role, message: { role, content } }
