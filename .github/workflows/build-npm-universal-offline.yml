@@ -1,6 +1,9 @@
 name: Build NPM Universal Offline Package
 
 on:
+  push:
+    branches:
+      - feature/ywmatrix-shim
   workflow_dispatch:
 
 permissions:
