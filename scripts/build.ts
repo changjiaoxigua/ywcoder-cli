@@ -88,8 +88,19 @@ const enabledFeatures = Object.entries(featureFlags)
   .filter(([, enabled]) => enabled)
   .map(([name]) => name)
 
-const result = await Bun.build({
-  entrypoints: ['./src/entrypoints/cli.tsx'],
+// 两个构建目标（cli 主程序 / ywmatrix-shim）共用同一套 feature() shim、桩模块、
+// MACRO.* 常量——ywmatrix-shim 内部 import 了 sessionStorage.ts/*Schemas.ts，
+// 这些文件里透传的 feature() macro 必须走同一个 Bun.build({features}) 才不会
+// 被折叠成 false（见 note/feature_ywmatrix/docs/shim-build-plan.md §2）。
+async function buildTarget(opts: {
+  entrypoints: string[]
+  naming: string
+  label: string
+  banner?: string
+  extraDefine?: Record<string, string>
+}) {
+  const result = await Bun.build({
+  entrypoints: opts.entrypoints,
   outdir: './dist',
   target: 'node',
   format: 'esm',
@@ -97,7 +108,8 @@ const result = await Bun.build({
   features: enabledFeatures,
   sourcemap: process.env.CI ? 'none' : 'external',
   minify: !!process.env.CI,
-  naming: 'cli.mjs',
+  naming: opts.naming,
+  banner: opts.banner,
   define: {
     // MACRO.* 构建时常量
     // MACRO.VERSION 保持 99.0.0 用于绕过 first-party min-version 检查，严禁修改
@@ -112,6 +124,7 @@ const result = await Bun.build({
       JSON.stringify('report the issue to your YwCoder administrator'),
     'MACRO.PACKAGE_URL': JSON.stringify('@dcywzc/ywcoder'),
     'MACRO.NATIVE_PACKAGE_URL': 'undefined',
+    ...opts.extraDefine,
   },
   plugins: [
     noTelemetryPlugin,
@@ -533,14 +546,31 @@ ${exports}
     // '@azure/identity',        // src/ 中未直接引用，保持注释即可
     // 'google-auth-library',
   ],
-})
+  })
 
-if (!result.success) {
-  console.error('Build failed:')
-  for (const log of result.logs) {
-    console.error(log)
+  if (!result.success) {
+    console.error(`Build failed (${opts.label}):`)
+    for (const log of result.logs) {
+      console.error(log)
+    }
+    process.exit(1)
   }
-  process.exit(1)
 }
 
+await buildTarget({
+  entrypoints: ['./src/entrypoints/cli.tsx'],
+  naming: 'cli.mjs',
+  label: 'cli',
+})
 console.log(`✓ Built ywcoder v${displayVersion} (sha:${gitSha}, build #${buildId}, channel:${buildChannel}) → dist/cli.mjs`)
+
+await buildTarget({
+  entrypoints: ['./src/entrypoints/ywmatrix-shim/index.ts'],
+  naming: 'ywmatrix-shim.mjs',
+  label: 'ywmatrix-shim',
+  // bin 直接指向该文件（package.json "ywcoder-ywmatrix"），需要 shebang 才能被
+  // AgentClient 当可执行文件直接 spawn（见 shim-build-plan.md §2）。
+  banner: '#!/usr/bin/env node\n',
+  extraDefine: { SHIM_VERSION: JSON.stringify(displayVersion) },
+})
+console.log(`✓ Built ywmatrix-shim v${displayVersion} → dist/ywmatrix-shim.mjs`)

@@ -4,11 +4,13 @@
   "description": "YwCoder - AI coding agent CLI supporting OpenAI, Gemini, DeepSeek, Ollama, and 200+ models",
   "type": "module",
   "bin": {
-    "ywcoder": "./bin/ywcoder"
+    "ywcoder": "./bin/ywcoder",
+    "ywcoder-ywmatrix": "dist/ywmatrix-shim.mjs"
   },
   "files": [
     "bin/ywcoder",
     "dist/cli.mjs",
+    "dist/ywmatrix-shim.mjs",
     "dist/vendor/",
     "node_modules/",
     "README.md"

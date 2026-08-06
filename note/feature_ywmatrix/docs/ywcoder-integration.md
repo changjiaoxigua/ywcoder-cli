@@ -18,26 +18,38 @@ ywcoder 内置 Claude Agent SDK 的 `--output-format stream-json` 无头模式�
 ## 1. 总体架构
 
 ```text
-网关 ──WS──► AgentClient(Go,stdio适配器) ──stdin/stdout JSONL(管控台协议)──► ywmatrix-shim
-                                                                              │  spawn 子进程
-                                                                              │  stdin/stdout JSONL(SDK stream-json)
-                                                                              ▼
+网关 ──WS──► AgentClient(通用 Stdio JSONL 适配器) ──stdin/stdout JSONL(本地-agent 协议)──► ywmatrix-shim
+   (管控台侧，Node)   外连/心跳/重连/spawn 托管                                        │  spawn 子进程
+                                                                                     │  stdin/stdout JSONL(SDK stream-json)
+                                                                                     ▼
                                                             ywcoder -p --output-format stream-json ...
 ```
 
-- **shim 对上**：说管控台的 JSON-RPC（`lifecycle.* / task.* / stream.chunk`），是 AgentClient 眼里的「本地 Agent」。
-- **shim 对下**：扮演 SDK client，用 stream-json 与 ywcoder 双向通信；负责两套协议的纯映射。
-- shim 维护：`session_id`、`task_id ↔ can_use_tool.request_id ↔ confirm_id` 关联表、每个 pending 权限请求的超时定时器。
-- shim 建议用 Node 写（可 import [controlSchemas.ts](../../../src/entrypoints/sdk/controlSchemas.ts) / [coreSchemas.ts](../../../src/entrypoints/sdk/coreSchemas.ts) 做类型校验），或由管控台团队在 AgentClient 内实现同等翻译。
+**职责划分（已定）：**
+- **AgentClient**（管控台侧，Node，**通用 Stdio JSONL 适配器**，为适配多种 agent 而通用）：负责外连网关、心跳、重连，并 **spawn + 托管**本地 agent，通过 stdio 说 protocol.md 的本地-agent 协议（`lifecycle.* / task.* / stream.chunk`）。连接层不是我们的事。
+- **shim**（ywcoder 侧，**随 ywcoder 打包交付**）：就是 AgentClient spawn 的那个「本地 agent」。
+  - 对上：说本地-agent 协议（`lifecycle.* / task.* / stream.chunk`）。
+  - 对下：扮演 SDK client，用 stream-json 与 ywcoder 子进程双向通信；负责两套协议的纯映射。
+  - 维护：`session_id`、`task_id ↔ can_use_tool.request_id ↔ confirm_id` 关联表、每个 pending 权限请求的超时定时器。
+  - 用 Node 写，可 import [controlSchemas.ts](../../../src/entrypoints/sdk/controlSchemas.ts) / [coreSchemas.ts](../../../src/entrypoints/sdk/coreSchemas.ts) 做类型校验。
+
+**打包（已定）**：shim 是 **ywcoder 交付物的一部分**（作为 ywcoder-cli 包里的一个附带入口，如 `dist/shim.mjs` 或 bin `ywcoder-ywmatrix`），**ywcoder 运行时零改动**（不碰 `cli.mjs`/`main.tsx`）。用户终端安装：ywcoder（含 shim）+ AgentClient，共两件，无新增运行时（Node 本就为 ywcoder 装）。
 
 ## 2. 启动参数
 
-AgentClient 的 stdio 适配器把 shim 当本地 Agent 拉起：
+AgentClient（通用 stdio 适配器）把 shim 当本地 Agent 拉起（已与 AgentClient 团队定，见 §17-A）：
+```json
+{
+  "command": "ywcoder-ywmatrix",
+  "args": ["--workdir", "/path/to/project", "--permission-mode", "default"],
+  "cwd": "/path/to/project"
+}
 ```
-client -adapter stdio -token user:zhangsan -gateway ws://... \
-  -local-agent "node /opt/ywmatrix/shim.mjs"
-```
-shim 内部拉起 ywcoder（完整档）：
+- AgentClient 保持通用：只透传 `command/args/cwd`，不解释 args 含义。
+- shim 的 args：`--workdir`（shim 据此设 ywcoder 的 cwd 与 `--add-dir`）、`--permission-mode`（用 ywcoder 真实取值 `default/acceptEdits/bypassPermissions`）。
+- env 整体继承 AgentClient；需 AgentClient **以正确用户身份启动**，保证 `HOME/USER/PATH` 正确（供 ywcoder 读本地配置/凭证，见 §17-B）。
+
+shim 内部据 args 用 ywcoder **真实 flag** 拉起（`--permission-mode default` 时 shim **自动补 `--permission-prompt-tool stdio`** 并启用控制面）：
 ```
 ywcoder -p \
   --input-format stream-json \
@@ -66,10 +78,13 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 ```text
 1. shim → ywcoder   control_request{subtype:'initialize'}          （shim 主动先发）
 2. ywcoder → shim   control_response{subtype:'success', response:{commands,agents,models,output_style,account,...}}
-3. ywcoder → shim   {type:'system', subtype:'init', session_id, cwd, tools, model, permissionMode, ...}
-                    ↑ 真实 session_id 从这里取（不在 initialize response 里）
-4. shim → ywcoder   {type:'user', ...}                              （此后才能发任务）
+                    ↑ 收到 success 即 READY，可发用户消息（不要等 system/init，否则死锁）
+3. shim → ywcoder   {type:'user', ...}
+4. ywcoder → shim   {type:'system', subtype:'init', session_id, ...}（处理第一条 user 时才产出，仅回显校验 session_id）
+5. ywcoder → shim   assistant / tool_use / tool_result / result ...
 ```
+
+> ⚠️ **实测修正**：`system/init` **不是** initialize 后主动推送，而是 ywcoder 处理**第一条用户消息**时才产出（[QueryEngine.ts:541](../../../src/QueryEngine.ts#L541)，在 `submitMessage` 生成器内 yield）。因此 **ready 判据是 `control_response{success}`，不是 system/init**——等 system/init 才发消息会死锁。`session_id` 由 shim 经 `--session-id` 主动设定（§9.2），system/init 里的 session_id **仅作回显校验**，不是唯一来源。
 
 - 数据方向：读 ywcoder stdout 的 SDKMessage → 翻成管控台 `stream.chunk`；管控台 `task.create` → 翻成 stdin 的 user message。
 - 控制方向：ywcoder 需要权限时发 `control_request{can_use_tool}` → shim 翻成 `confirm_required`；网页 `task.respond` → shim 回 `control_response`。
@@ -80,7 +95,7 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 
 | ywcoder 输出（SDKMessage） | 判定 | 管控台输出 |
 |---|---|---|
-| `{type:'system',subtype:'init',session_id,...}` | 握手后首条数据消息 | shim 记录 `session_id`；触发 `lifecycle.register`（见 §7）；不直接转发 |
+| `{type:'system',subtype:'init',session_id,...}` | 处理**第一条 user 后**才产出（非握手期，见 §3） | 仅回显校验 `session_id`；不作 ready 判据、不转发。**schema 校验从宽**：ywcoder 的 `SDKSystemMessageSchema` 可能与运行时漂移（如 `apiKeySource` 枚举缺 `none`），校验失败只告警、不丢消息 |
 | `{type:'stream_event',event:{...content_block_delta,delta:{type:'text_delta',text}}}` | 文本增量（需开 partial） | `stream.chunk type:"text"`, `content:[{type:"text",text}]`, `done:false` |
 | `{...delta:{type:'thinking_delta',thinking}}` | 思考增量（需开 partial） | `stream.chunk type:"thinking"`, `content:[{type:"text",text:thinking}]` |
 | `{...delta:{type:'input_json_delta',partial_json}}` | 工具入参增量 | 忽略；用完整 tool_use（下行）即可 |
@@ -103,16 +118,18 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
   "parent_tool_use_id":null }
 ```
 
+每条 `task.create` **必带 `session_id` + `task_id`**（并发多会话靠它路由，见 §9）。
+
 | 管控台字段 | shim 处理 |
 |---|---|
-| `content` | 上面 user message 的 `message.content` |
-| `task_id` | shim 侧维护「当前活动 task_id」，回填到所有输出与控制关联 |
-| `session_id` | 来自 `system/init.session_id`；跨连接续接用 `--resume <id>`（见 §9） |
-| `context_id` | 多会话隔离见 §9；MVP 可等同 session |
-| `history` | 通常无需——同一 stream-json 会话已保上下文；如需可展开为多条 user message |
+| `content` | 对应 session 的 ywcoder 子进程 stdin，写 user message 的 `message.content` |
+| `session_id` | **路由键**（见 §9.2）：首条 task **不带 session_id** → shim mint 一个 UUID、`--session-id` 启动、并回填到 ack/输出供管控台采纳；后续带该 id → 路由到存活子进程或 `--resume` |
+| `task_id` | 回填到该 session 所有输出与控制关联；同一 session 内多个 task 串行 |
+| `context_id` | 多会话分组见 §9；MVP 可等同 session |
+| `history` | 通常无需——同一 ywcoder 会话已保上下文 |
 | `type:chat` | 新 user message；`type:respond` → §6.2 走控制面 |
 | `model` | 启动参数，或运行时 `control_request{set_model}` |
-| `timeout` | shim 起定时器，超时发 `control_request{interrupt}` + `event.error(-32001)` |
+| `timeout` | **不在 shim 处理**：任务超时由网关/AgentClient 侧统一控制（`-task-timeout`，见 §17-H，建议调至 30~60min） |
 
 ## 6. 字段级映射 —— 控制面（control protocol ↔ 管控台）
 
@@ -129,7 +146,7 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
   "response":{ "commands":[...], "agents":[...], "models":[...],
                "output_style":"...", "available_output_styles":[...], "account":{...} } }}
 ```
-收到 success 后 shim 进入 idle，等待管控台 `task.create`。真实 `session_id` 从随后的 `system/init` 取。
+**收到 success 即 READY**（可发用户消息），进入 idle 等 `task.create`。**不要等 `system/init`**——它要处理第一条用户消息时才产出（见 §3）。`session_id` 由 shim 经 `--session-id` 设定（§9.2），system/init 仅回显校验。
 
 ### 6.2 权限确认：`can_use_tool` ↔ `confirm_required` ↔ `task.respond`
 
@@ -173,7 +190,9 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 
 ### 6.3 取消：`task.cancel` → `interrupt`
 
-管控台 `task.cancel` → shim 发 `{type:'control_request',request_id:'<new>',request:{subtype:'interrupt'}}`（ywcoder 内部处理，中断当前轮）。
+管控台 `task.cancel`（带 `session_id`/`task_id`）→ shim 对**对应 session 的 ywcoder 子进程**发 `{type:'control_request',request_id:'<new>',request:{subtype:'interrupt'}}`（ywcoder 内部中断当前轮；必要时 kill 子进程）。
+
+> ⚠️ **已知缺口（需 AgentClient 侧修）**：当前 stdio 模式下,用户点「停止」时 AgentClient 只关闭本地 chunk 队列,**不会把取消传到 shim**——shim 与 ywcoder 子进程仍在跑,继续烧 API/token 且后续输出被静默丢弃。修法：AgentClient 停止时**补发一行 `task.cancel` 给 shim**（对齐 HTTP 模式的 abort 语义），shim 再按上面转成 `interrupt`。这条不修则「停止」是假的（见 §17-H）。
 
 ## 7. lifecycle / capabilities（shim 面向管控台补齐）
 
@@ -202,25 +221,66 @@ Bash 的判定由共享子系统完成（[bashCommandHelpers.ts](../../../src/to
 - **简单档（受控内网 / MVP）**：`--permission-mode acceptEdits` 或 `bypassPermissions`，shim 不实现控制面，纯做输出翻译。
 - **完整档**：`--permission-mode default --permission-prompt-tool stdio`，shim 实现 §6.2 控制面，网页二次确认。partial 可选。
 
+**档位如何指定（已定）：**
+- 通过 shim 的 **`--permission-mode` 参数**指定，取 ywcoder 真实值 `default`/`acceptEdits`/`bypassPermissions`；由 AgentClient 在 `args` 里透传（AgentClient 只转发、不解释，故通用性不破，见 §2）。
+- shim 据此派生：`default` → 追加 `--permission-prompt-tool stdio` + 启用控制面（完整档）；`acceptEdits`/`bypassPermissions` → 不启用控制面（简单档）。
+- **默认/建议值**：MVP 用 `bypassPermissions`/`acceptEdits`（先跑通）；**生产建议 `default`**——危险操作弹网页确认更安全。
+- ⚠️ **注意**：`bypassPermissions` 会**关掉全部权限门**，此时 §8.3「依赖 ywcoder 权限控制」不成立（无控制可依赖）。要靠 ywcoder 拦危险命令,必须用 `default`。
+- （可选）运行时动态切：SDK 控制面的 `set_permission_mode` control_request。
+
 ### 8.3 shim/管控台侧硬约束（安全关键）
 
 1. **必须自建 Bash 命令安全策略，并慎重对待 allow**。ywcoder 默认权限对只读放行，对网络/子 shell、以及写/删除类命令（`rm`、`rm -rf`、重定向写盘等，按目标路径判定）会触发 `can_use_tool`。已实测 `rm`/`rm -rf` 确实触发确认，**且 shim 回 allow 后文件/目录被真实且不可逆删除**。因此：`confirm_required` 到网页时必须如实呈现命令与危险级别（allow 即真执行，无二次兜底）；远程被驱动场景建议在 shim/管控台层再叠加独立命令白/黑名单做纵深防御；**不能仅依赖模型自律**（模型可能自我克制、也可能直接执行）。
-2. **必须自实现确认超时**。ywcoder 对 pending 的 `can_use_tool` **没有默认超时**（无人应答会永久挂起、既不出 result 也不执行）。shim 应对每个 `confirm_required` 设超时（如 30s），到期自动回 `deny` 或按策略处理。
+2. **超时不由 shim 持有短计时器**。任务时长超时归网关（`-task-timeout`，见 §17-H）；confirm 确认**不设 shim 短超时**——人在回路本就该等人（尤其手机端/异步），快速自动 deny 会误杀正常操作。ywcoder 对 pending `can_use_tool` 虽无默认超时，但"永久挂起"已被 **网关 task-timeout + 手动取消**兜住（到点砍任务 → `task.cancel` → shim `interrupt`），有明确上界。若确需 confirm 级上限，设**长的、可配置的（分钟级），默认 deny**，而非 30s。前提：网关 task-timeout 生效 + stdio 取消缺口已修（§6.3）。
 3. **allow 不回传 `updatedPermissions`**（见 §6.2）。
 4. **续接不保留权限**：`--resume` 后每次工具调用仍重新确认（见 §9），不会因上次 allow 而免确认——设计上安全，但需预期确认频次。
 
-## 9. 会话与上下文
+### 9.1 并发与会话路由（已定）
 
-| 能力 | 行为（实测） |
+- AgentClient 只 spawn **一个 shim 实例**，所有 `task.create` 都发给它；每条**必带 `session_id` + `task_id`**。
+- shim 维护 `session_id → ywcoder 子进程` 映射：
+  - **同一 `session_id`** 的多个 task 路由到**同一个 ywcoder 子进程内串行**；
+  - **不同 `session_id`** 各起**独立 ywcoder 子进程**，互不干扰。
+- 上对 AgentClient 是**一条多路复用的 stdio**：每行输出必带 `session_id`+`task_id`、**整行原子写**，供 AgentClient demux。
+
+### 9.2 session_id 对齐（关键，已定）
+
+**模型：ywcoder 侧拥有 session_id，管控台采纳**（stdio 模式经 `task.create`，不走页面 `session.create`）。
+
+- **第一条 `task.create` 不带 `session_id`** → shim **mint 一个 UUID**、以 `ywcoder --session-id <uuid>` 启动、并在 **ack 与所有输出中回填该 `session_id`** → 管控台采纳，后续 task.create 都带它。
+  - 好处：id 由我方产、**保证 UUID**、立即可回传（不依赖 system/init 时序）；网关的 `{task_id}-session` 兜底（`gateway.ts:839`，非 UUID）**因此永不触发**。
+- **后续 `task.create` 带该 UUID** → 路由到同一**存活子进程**直接发消息；子进程已回收 → `ywcoder --resume <uuid>`（是 ywcoder 自己的 id，直接可用）。
+
+```js
+// 会话路由键 = task.create.session_id（任意字符串都能当 key）
+if (!session_id) {                      // 首条：建会话
+  const uuid = mintUuid()
+  spawn ywcoder --session-id <uuid>     // 保证 UUID
+  回填 uuid 到 ack + 所有输出            // 管控台采纳
+} else if (有存活子进程[session_id]) {
+  send user message                      // 同会话续发
+} else if (isUuid(session_id) && sessionIdExists(session_id)) {
+  spawn ywcoder --resume <session_id>    // 子进程回收后续接
+} else if (isUuid(session_id)) {
+  spawn ywcoder --session-id <session_id> // 采纳一个 UUID（含 shim 重启后首见）
+} else {
+  spawn ywcoder                          // 防御：非 UUID（不该出现）→ 一次性，不续接
+}
+```
+
+`--session-id` **已实测确认**（[main.tsx:995](../../../src/main.tsx#L995)）：传入 `--session-id <UUID>` 后 `system/init.session_id` 如实回显；已存在时 `--resume <UUID>` 正常续接。约束：**必须合法 UUID**（[main.tsx:1285](../../../src/main.tsx#L1285) 硬校验）；**id 本地不能已存在**（[main.tsx:1292](../../../src/main.tsx#L1292) `sessionIdExists` = 查 `<projectDir>/<id>.jsonl`，故存在时走 `--resume`）；**不与 `--resume`/`--continue` 混用**（[main.tsx:1276](../../../src/main.tsx#L1276)）。
+
+> 因 id 由我方生成且恒为 UUID，**无需持久化映射、无需"确认管控台 id 为 UUID"**。只要 shim 首条任务必回传一个 UUID，就不会落到网关非 UUID 兜底。
+
+### 9.3 续接（实测）
+
+| 能力 | 行为 |
 |---|---|
-| `session_id` 来源 | `system/init.session_id`（非 initialize response） |
-| 同进程续接 | 同一子进程内多轮 user message 天然维持上下文 |
-| 跨进程续接 | kill 原进程 → `--resume <session_id>` 起新进程 → **需重新走 initialize 握手** → session_id 与历史一致 |
-| `--resume` 入参 | 支持 `<session_id>`，也支持 `<jsonl 文件路径>`（可跨目录续接） |
-| 多会话并发 | 一个 shim 同时管理多个独立 ywcoder 子进程，session 互相隔离 |
-| 续接后权限状态 | **不保留**，每次工具调用重新确认 |
+| 跨进程续接 | kill 原子进程 → `--resume <session_id>` 起新子进程 → 重走 initialize 握手 → 历史恢复、id 一致 |
+| `--resume` 入参 | 支持 `<session_id>`，也支持 `<jsonl 文件路径>`（跨目录续接） |
+| 续接后权限状态 | **不保留**，每次工具调用重新确认（设计上安全，需预期确认频次） |
 
-`context_id` → 用「多个独立子进程 / `--resume` 续接」实现分组隔离；`task_id` → shim 关联表键，回填所有输出与 `confirm_id`。
+`context_id` → 多会话分组，用多子进程/`--resume` 实现；`task_id` → 回填所有输出与 `confirm_id`。
 
 ## 10. 错误码映射
 
@@ -228,7 +288,7 @@ Bash 的判定由共享子系统完成（[bashCommandHelpers.ts](../../../src/to
 |---|---|
 | shim 收到非法 JSON / 未知 method | JSON-RPC `-32700` / `-32601` |
 | `task.respond`/`cancel` 的 task_id 不存在 | `-32000` |
-| 确认超时（shim 定时器） | 按策略 `deny` 或 `interrupt` + `event.error`/`-32001` |
+| 任务超时（网关 `-task-timeout`，shim 不设计时器） | 网关发 done+error=timeout → `task.cancel` 到 shim → 对应 ywcoder 子进程 `interrupt` |
 | 用户仅拒绝确认 | `control_response{deny}`，模型继续；ywcoder 产出 `is_error:true` 的 tool_result |
 | 用户中断任务 | `control_response{deny,interrupt:true}` → ywcoder `result{subtype:error_during_execution}` |
 | 工具执行失败（tool_result.is_error） | `stream.chunk type:"result"` 携带错误文本 |
@@ -241,25 +301,19 @@ Bash 的判定由共享子系统完成（[bashCommandHelpers.ts](../../../src/to
 - **开 partial**：以 `stream_event` 增量渲染流式效果，**忽略随后的完整 `assistant`**（避免重复）；工具调用仍以完整 `assistant` 的 `tool_use` 为准。
 - **不开 partial（推荐 MVP）**：只处理完整 `assistant` 消息，逻辑最简。
 
-## 12. 备选方案
+## 12. 备选方案（均未采用，仅存档）
 
-- **`--sdk-url ws://...`**：ywcoder 可把 stream-json I/O 直连 WebSocket（会自动启用 stdio 权限控制面），省掉 stdio 桥接；但对端仍是 SDK schema，翻译层只是从 shim 挪到该 WS 端点。管控台若愿在网关侧翻译可考虑。
-- **AgentClient 内置翻译（Go）**：把 §4~§6 映射写进 AgentClient 的「ywcoder/SDK 适配器」，省掉独立 shim 进程；需管控台团队配合。
+- **AgentClient 内置翻译**：把 §4~§6 映射写进 AgentClient。**不采用**——AgentClient 决定做**通用 Stdio JSONL 适配器**以适配多种 agent，不能塞 ywcoder 专用逻辑；翻译因此归 ywcoder 侧（shim）。
+- **ywcoder `--sdk-url` 外连 + 心跳**：ywcoder/shim 自己外连网关、维持心跳。**不采用**——等于重造 AgentClient 已有的连接/心跳/重连层，运维职责外扩，且上行要改说网关协议。
+- 当前方案：**AgentClient 通用 stdio 适配器 spawn shim，shim 随 ywcoder 打包**（见 §1）。
 
 ## 13. 分阶段实施与估时
 
-**简单档 MVP（约 2~3 天）**——ywcoder 零改动
-1. shim 骨架：spawn、按行读写 JSONL、stdout 原子写 —— 0.5d
-2. initialize 握手 + `session_id` 抓取 + lifecycle/register —— 0.5d
-3. 输出翻译 §4（text/action/result/completed）+ 输入翻译 §5 —— 1d
-4. 固定 `acceptEdits`/`bypassPermissions`，对接 demo 网关联调 —— 1d
+里程碑与验收清单以 [shim-build-plan.md](shim-build-plan.md) 为准，概览：
 
-**完整档（+3~4 天）**
-5. 控制面：initialize 之外的 `can_use_tool ↔ confirm_required ↔ task.respond`（allow/deny/deny+interrupt）—— 1.5d
-6. shim 硬约束：确认超时、丢弃 updatedPermissions、Bash 独立命令策略 —— 1d
-7. `task.cancel`/interrupt、thinking、partial 去重、`--resume` 多会话隔离 —— 1~1.5d
-
-**生产强化**：Token 透传、多进程池与路由、审计日志、跨平台打包（见 §14）、`stream.artifact`/`block_required`（高级）。
+- **简单档 MVP（约 2~3 天）**：M1 下行封装（`ywcoderSession.ts`）→ M2 上行协议 + mock（`protocol.ts`/`mock-agentclient.ts`）→ M3 组装冒烟（`index.ts`）。
+- **完整档（+3~4 天）**：M4 权限控制面 `can_use_tool ↔ confirm_required ↔ task.respond`（allow/deny/deny+interrupt）+ 硬约束（`updatedInput:{}`、不回传 updatedPermissions、confirm 不设短超时、Bash 独立命令策略）。
+- **生产强化**：Token 透传、多进程池与路由、审计日志、跨平台打包（见 §14）、`stream.artifact`/`block_required`（高级）。
 
 ## 14. 风险
 
@@ -296,3 +350,18 @@ Bash 的判定由共享子系统完成（[bashCommandHelpers.ts](../../../src/to
 - Bash 权限子系统：[bashCommandHelpers.ts](../../../src/tools/BashTool/bashCommandHelpers.ts)、[modeValidation.ts](../../../src/tools/BashTool/modeValidation.ts)、[bashSecurity.ts](../../../src/tools/BashTool/bashSecurity.ts)
 
 **实测覆盖**（脚本与日志见 `/Users/sijia/code/2026/test/ywmatrix-verify/`）：Read/Bash/Write/Glob 工具流程、initialize 握手、default/default+stdio/acceptEdits/bypassPermissions 权限矩阵、危险 Bash（curl/子 shell 触发确认；`rm`/`rm -rf` 工作目录内外均触发确认、allow 后真实删除）、`can_use_tool` 无超时、deny vs deny+interrupt、同进程/跨进程/JSONL 续接、多会话并发、续接不保留权限、partial 增量输出。
+
+## 17. 契约外需与管控台对齐的确认项
+
+protocol.md 只规定「消息怎么长」；以下是它未覆盖、接入落地必须敲定的事项。多数已与 AgentClient 团队谈定：
+
+| 项 | 结论 | 状态 |
+|---|---|---|
+| A. 启动约定 | shim 以 bin `ywcoder-ywmatrix` 分发；AgentClient 通用透传 `command/args/cwd`，args = `["--workdir", <dir>, "--permission-mode", <mode>]`；AgentClient 长驻 spawn 一个 shim 并托管/重拉；shim 据 args 用 ywcoder 真实 flag 拉起、自解析同包 ywcoder；env 整体继承，AgentClient 须以正确用户身份启动（`HOME/USER/PATH` 正确）。见 §2 | ✅ 已定 |
+| B. Provider 凭证 | 走 **ywcoder 本地配置文件**，管控台不额外下发。前提：spawn 时用户上下文/`HOME` 正确 | ✅ 已定 |
+| C. task_id/session_id | 按 local-agent-interface.md，每条 `task.create` 带 `session_id`+`task_id`。见 F 的 id 对齐 | ✅ 已定 |
+| D. 并发模型 | AgentClient 只 spawn 一个 shim,所有 task 发给它;shim 按 `session_id` 路由:同 session 串行于一个 ywcoder 子进程,不同 session 起多个子进程。见 §9.1 | ✅ 已定 |
+| E. 命令安全策略 | 管控台**不做**命令黑白名单;shim 层可选做额外过滤,默认依赖 ywcoder 权限控制。⚠️ 「依赖 ywcoder 控制」要求用 `--permission-mode default`(bypass 无控制),见 §8 | ✅ 已定 |
+| F. session_id 对齐与续接 | **ywcoder 侧产 id、管控台采纳**：首条 task.create 不带 session_id → shim mint UUID、`--session-id` 启动、回填供管控台采纳；后续带该 id 路由/`--resume`。id 恒为 UUID，无需持久化映射、无需确认管控台 id 格式。见 §9.2 | ✅ 已定 |
+| G. agent_id / 能力标签 | `agent_id` 由 AgentClient 定(如 `ywcoder`;多机需带 hostname 防撞);`capabilities` 由我方给默认 `{type:"chat",name:"coding"}` | ✅ 已定 |
+| H. 心跳/超时/取消 | 心跳全归 AgentClient(30s `system.heartbeat` + WS ping/pong,shim 不管)。**任务超时**:网关 `-task-timeout` 默认 5min **太短,协商调至 30~60min 固定值**(不做 task 级 timeout)。**⚠️ stdio 取消缺口必须修**:AgentClient 停止时补发 `task.cancel` 给 shim,shim 转 `interrupt`(见 §6.3),否则「停止」是假的。confirm 无人应答超时由 shim 自实现(§8.3) | ⚠️ 超时/取消待改 |
