@@ -1,9 +1,8 @@
 # ywmatrix-shim 构建计划（交执行 agent）
 
 > 配套设计与字段映射见 [ywcoder-integration.md](ywcoder-integration.md)。本文只讲「怎么建、建到哪、怎么验收」。
-> 本计划针对**简单档 MVP**（不含权限控制面）。完整档在里程碑 M4，另起。
->
-> **状态（2026-08）**：**M1~M3 简单档已实现并端到端验证通过**（mock 真调模型 PASS）。执行结果与偏差见 §7。M4 未做。
+> **状态（2026-08）**：**M1~M3 简单档 + M4 完整档（权限控制面）均已实现并端到端验证通过**（mock 真调模型 PASS）。
+> M1~M3 执行结果见 §7，M4 见 §8。
 
 ## 0. 前置设定（已定）
 
@@ -60,18 +59,19 @@
   - [x] stdout 洁净；异常/子进程退出→`event.error`
   - [ ] 多轮上下文保持（同 session 二轮，mock 单轮已过；建议补测）
 
-### M4 — 完整档（后续，权限控制面）
-- 启动改 `--permission-mode default --permission-prompt-tool stdio`
+### M4 — 完整档（权限控制面）✅
+- `--permission-mode default` 时 shim 自动追加 `--permission-prompt-tool stdio`（`ywcoderSession.buildArgs`）
 - 实现 `can_use_tool`↔`confirm_required`↔`task.respond`（allow/deny/deny+interrupt，[§6.2](ywcoder-integration.md)）
 - **硬约束**：allow 回 `updatedInput:{}`、**绝不回传 updatedPermissions**、confirm **不设 shim 短超时**（靠网关 task-timeout + 取消兜底）、Bash 独立命令策略（[§8.3](ywcoder-integration.md)）
-- mock 扩展：模拟网页 allow/deny/超时
+- mock 扩展：`--scenario read|allow|deny|cancel|cancel-task|all`
+- **验收**（mock 真调模型全 PASS，见 §8）
 
 ## 4. 给执行 agent 的硬约束（务必遵守）
 
 1. **ywcoder 运行时零改动**：只在 `src/entrypoints/ywmatrix-shim/` 目录内工作（另加 scripts/build.ts 一个构建目标 + package.json 一个 bin），不碰 `cli.mjs`/`main.tsx` 运行时。
 2. **stdout 洁净**：shim 对 AgentClient 的 stdout 只允许协议 JSONL，所有日志走 stderr。
 3. **不代执行工具**：收 `tool_use` 只翻译成 `action`，工具由 ywcoder 自己跑。
-4. **简单档不接控制面**：M1~M3 用 `acceptEdits`，不处理 `can_use_tool`（M4 才做）。
+4. **档位由 `--permission-mode` 决定**：`acceptEdits`/`bypassPermissions` = 简单档，不接控制面；`default` = 完整档，shim 自动补 `--permission-prompt-tool stdio` 并处理 `can_use_tool`（M4，见 §8）。
 5. **字段以 [ywcoder-integration.md](ywcoder-integration.md) §4/§5/§6 为准**，schema 用 ywcoder 的 zod（`src/entrypoints/sdk/*Schemas.ts`）校验。
 6. 复用 `ywmatrix-verify/verify*.mjs` 的骨架，别重造 spawn/读写轮子。
 
@@ -101,6 +101,32 @@
 4. **cwd 符号链接**：cwd 一致性守卫原用 `resolve` 比较，macOS `/tmp`→`/private/tmp` 符号链接会误判。改用 `realpathSync` 比较。
 5. **`--dev` 模式 SHIM_VERSION**：构建 define 注入的 `SHIM_VERSION` 在 `--dev` 跑源码时未定义。改用 `typeof` 守卫回退 `0.0.0-dev`（构建产物仍取注入值）。
 
-**mock 用法**：`bun run src/entrypoints/ywmatrix-shim/mock-agentclient.ts <workdir>`（跑构建产物，推荐）或加 `--dev`（跑源码）。需 provider 凭证（真调模型）。
+**mock 用法**：`bun run src/entrypoints/ywmatrix-shim/mock-agentclient.ts <workdir> [--scenario read|allow|deny|cancel|cancel-task|all]`（默认 `all`，跑构建产物，需先 `bun run build`）；加 `--dev` 改跑源码。需 provider 凭证（真调模型）。
 
-**遗留**：M4 完整档（can_use_tool 控制面）未做；同 session 多轮上下文建议补一条 mock 断言；真实 AgentClient 联调待其交付。
+**遗留**：同 session 多轮上下文建议补一条 mock 断言；真实 AgentClient 联调待其交付。
+
+## 8. 执行结果与偏差（M4 完整档实测）
+
+**交付**（均在既有文件上增量改，未新建协议层，ywcoder 运行时仍零改动）：
+- `ywcoderSession.ts`：`default` 档自动补 `--permission-prompt-tool stdio`；`control_request{can_use_tool}` → 事件 `permission_required`；`control_cancel_request` → `permission_cancelled`；新增 `respondPermission(requestId, decision)` 写 `control_response`；`completed` 事件带上 `permission_denials`。
+- `protocol.ts`：`confirm_required` chunk 构造 + `level` 推断 + 入参摘要；`task.respond` 参数校验；`normalizeConfirmResponse`（回复语义归一，见 [§6.2](ywcoder-integration.md)）。
+- `index.ts`：`confirm_id → {sessionId, taskId}` 映射（无超时定时器）；`task.respond` / `task.create{type:'respond'}` 路由到对应子进程；任务结束/取消/子进程退出时清理映射。
+- `mock-agentclient.ts`：场景化改造，`--scenario read|allow|deny|cancel|cancel-task|all`，每场景独立子目录 + 独立 shim 进程。
+- `protocol.test.ts`：回复语义映射表与 `level` 推断的纯函数单测（8 例）。
+
+**验证**：`bun run build`、`bun run smoke`、`bun test src/entrypoints/ywmatrix-shim/protocol.test.ts` 通过；mock 真调模型 5 场景全 **PASS**，全程 stdout 洁净：
+
+| 场景 | 触发 | 回复 | 实测结果 |
+|---|---|---|---|
+| `read` | 简单档 acceptEdits 读文件 | — | 无 confirm，text/action/result/completed 正常（M1~M3 回归） |
+| `allow` | Write 触发 `confirm_required`(level=warning) | `确认` | 文件真实创建、`result{success}` → `task.completed` |
+| `deny` | 同上 | `拒绝` | 文件未创建，模型继续对话并完成，`metadata.permission_denials` 有 1 条记录 |
+| `cancel` | 同上 | `{decision:'cancel'}` | deny+interrupt → `result{error_during_execution}` → `event.error`，文件未创建 |
+| `cancel-task` | 确认待决期间发 `task.cancel` | — | shim 转 `interrupt` → 待决 `can_use_tool` 被 abort（tool_result 为 `AbortError`）→ `event.error`，文件未创建（[§6.3](ywcoder-integration.md) 取消与控制面并存） |
+
+**实现中发现并修正的偏差**：
+1. **裸 `cancel` 的歧义**：初版把自由文本与结构化回复用同一张词表，导致 `{decision:'cancel'}` 被当成「只拒绝本次工具」。改为分开处理——自由文本的裸「取消/cancel」按 deny（网页「取消」按钮多半只是不做这个操作），结构化 `decision:'cancel'` 才是中止任务。语义表已落 [§6.2](ywcoder-integration.md)，**待与 AgentClient 确认按钮实际回传的字面值**。
+2. **其它 control_request subtype 必须显式回 error**：ywcoder 的 `pendingRequests` 没有自超时，静默忽略 `hook_callback`/`mcp_message` 会让它一直挂着。
+3. **`control_cancel_request` 需要处理**：ywcoder abort 待决权限请求后会发这条，shim 不清理映射会泄漏（且后续 `task.respond` 回的 control_response 无人认领）。
+
+**遗留/待确认**：网页侧「确认/取消」按钮的实际回传值；权限请求被 ywcoder 撤销后，管控台如何收回已展示的确认框（协议无对应消息）。

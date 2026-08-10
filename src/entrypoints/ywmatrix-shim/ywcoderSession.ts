@@ -49,10 +49,39 @@ export type YwcoderSessionEvent =
       result: string
       usage: unknown
       totalCostUsd: number
+      /** 本轮被拒绝的工具调用（result.permission_denials），完整档下用于回执确认结果。 */
+      permissionDenials: unknown[]
       sessionId: string
     }
   | { kind: 'error'; message: string; sessionId: string | null }
   | { kind: 'exit'; code: number | null; signal: NodeJS.Signals | null }
+  /**
+   * M4 完整档：ywcoder 发来 `control_request{can_use_tool}`，等待权限裁决（§6.2）。
+   * 注意：这里刻意**不透传** `permission_suggestions`——它是「永久加白名单」建议，
+   * 回传即被 ywcoder 持久化落盘（§6.2 硬约束 2），shim 一律丢弃。
+   */
+  | {
+      kind: 'permission_required'
+      requestId: string
+      toolName: string
+      toolUseId: string
+      input: Record<string, unknown>
+      blockedPath?: string
+      decisionReason?: string
+      title?: string
+      description?: string
+    }
+  /** ywcoder 侧撤销了一条待决权限请求（如 interrupt 触发 abort），shim 只需清理映射。 */
+  | { kind: 'permission_cancelled'; requestId: string }
+
+/** 权限裁决（管控台 task.respond → §6.2 的三种 control_response 语义）。 */
+export type PermissionRespondDecision =
+  /** 允许本次工具：回 `{behavior:'allow', updatedInput:{}}`。 */
+  | { kind: 'allow' }
+  /** 仅拒绝本次工具，模型继续对话。 */
+  | { kind: 'deny'; message: string }
+  /** 拒绝并中断整个任务（deny + interrupt:true）。 */
+  | { kind: 'cancel'; message: string }
 
 export interface YwcoderSessionOptions {
   /** 工作目录：ywcoder 子进程的 cwd 与 --add-dir 均取此值。 */
@@ -125,6 +154,13 @@ export class YwcoderSession {
       '--add-dir',
       this.opts.workdir,
     ]
+    // 完整档（§2/§8.2）：default 档必须补 --permission-prompt-tool stdio，这是让工具
+    // 权限走 can_use_tool 控制面的**必要条件**——不加则由本地按 permission-mode 判定，
+    // 需批准的工具直接返回 is_error 的 tool_result，网页永远收不到确认。
+    // acceptEdits/bypassPermissions 是简单档，不接控制面。
+    if (this.opts.permissionMode === 'default') {
+      args.push('--permission-prompt-tool', 'stdio')
+    }
     // ephemeral：不传 --session-id/--resume，由 ywcoder 自动生成内部 id。
     if (mode === 'resume') args.push('--resume', this.opts.sessionId)
     else if (mode === 'create') args.push('--session-id', this.opts.sessionId)
@@ -233,6 +269,20 @@ export class YwcoderSession {
         )
         return
       }
+      case 'control_request': {
+        this.handleControlRequest(msg)
+        return
+      }
+      case 'control_cancel_request': {
+        // ywcoder 侧撤销了一条待决 control_request（如 interrupt 触发 abort，
+        // 见 structuredIO.ts sendRequest 的 aborted 分支）。此后再回 control_response
+        // 已无意义，交给上层清理 confirm_id 映射。
+        this.opts.onEvent({
+          kind: 'permission_cancelled',
+          requestId: String(msg.request_id ?? ''),
+        })
+        return
+      }
       case 'system': {
         if (msg.subtype !== 'init') return
         // 实测（非文档描述的时序）：system/init 并非紧跟 control_response 之后
@@ -264,6 +314,47 @@ export class YwcoderSession {
         // stream_event（partial）等其他消息类型：MVP 不开 partial，忽略（§11）。
         return
     }
+  }
+
+  /**
+   * ywcoder → shim 的 control_request（§6.2）。只支持 can_use_tool；其余 subtype
+   * （hook_callback/mcp_message 等）必须显式回 error——ywcoder 的 pendingRequests
+   * 没有自超时，静默不理会让它一直挂着。
+   */
+  private handleControlRequest(msg: Record<string, unknown>): void {
+    const requestId = String(msg.request_id ?? '')
+    const request = (msg.request as Record<string, unknown> | undefined) ?? {}
+    if (request.subtype !== 'can_use_tool') {
+      this.log(
+        `不支持的 control_request subtype=${String(request.subtype)}，回 error 避免 ywcoder 挂起`,
+      )
+      this.send({
+        type: 'control_response',
+        response: {
+          subtype: 'error',
+          request_id: requestId,
+          error: `ywmatrix-shim 不支持的 control_request subtype: ${String(request.subtype)}`,
+        },
+      })
+      return
+    }
+    // permission_suggestions 在此被刻意丢弃（§6.2 硬约束 2），不进入事件、不回传。
+    this.opts.onEvent({
+      kind: 'permission_required',
+      requestId,
+      toolName: (request.tool_name as string) ?? 'Tool',
+      toolUseId: (request.tool_use_id as string) ?? '',
+      input: (request.input as Record<string, unknown>) ?? {},
+      blockedPath:
+        typeof request.blocked_path === 'string' ? request.blocked_path : undefined,
+      decisionReason:
+        typeof request.decision_reason === 'string'
+          ? request.decision_reason
+          : undefined,
+      title: typeof request.title === 'string' ? request.title : undefined,
+      description:
+        typeof request.description === 'string' ? request.description : undefined,
+    })
   }
 
   private handleAssistantMessage(msg: Record<string, unknown>): void {
@@ -317,6 +408,7 @@ export class YwcoderSession {
         result: (msg.result as string) ?? '',
         usage: msg.usage,
         totalCostUsd: (msg.total_cost_usd as number) ?? 0,
+        permissionDenials: (msg.permission_denials as unknown[] | undefined) ?? [],
         sessionId: sessionId ?? this.sessionId,
       })
       return
@@ -335,6 +427,29 @@ export class YwcoderSession {
       type: 'user',
       message: { role: 'user', content },
       parent_tool_use_id: null,
+    })
+  }
+
+  /**
+   * 管控台 task.respond → 回一条 control_response 给待决的 can_use_tool（§6.2）。
+   *
+   * 硬约束（ywcoder-integration.md §6.2/§8.3）：
+   * - allow 的 `updatedInput` 必填；一律回空对象 `{}` 表示「用原始入参」
+   *   （见 PermissionPromptToolResultSchema.ts 的 updatedInput 空对象回退逻辑）。
+   * - 绝不回传 `updatedPermissions`：那会被 ywcoder 持久化落盘，让「本次允许」
+   *   静默变成「永久允许」。
+   */
+  respondPermission(requestId: string, decision: PermissionRespondDecision): void {
+    const response =
+      decision.kind === 'allow'
+        ? { behavior: 'allow', updatedInput: {} }
+        : decision.kind === 'deny'
+          ? { behavior: 'deny', message: decision.message }
+          : { behavior: 'deny', message: decision.message, interrupt: true }
+    this.log(`权限裁决 request_id=${requestId} → ${decision.kind}`)
+    this.send({
+      type: 'control_response',
+      response: { subtype: 'success', request_id: requestId, response },
     })
   }
 

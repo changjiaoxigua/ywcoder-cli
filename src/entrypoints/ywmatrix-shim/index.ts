@@ -5,8 +5,9 @@
  * 启动方式（见 shim-build-plan.md §2）：
  *   ywcoder-ywmatrix --workdir <dir> --permission-mode <default|acceptEdits|bypassPermissions|...>
  *
- * 简单档 MVP：不接 can_use_tool 控制面（M4 才做），--permission-mode 建议用
- * acceptEdits/bypassPermissions。
+ * 档位由 --permission-mode 决定（§8.2）：`default` 走完整档（ywcoderSession 自动补
+ * --permission-prompt-tool stdio，权限经 can_use_tool ↔ confirm_required ↔
+ * task.respond 到网页确认）；acceptEdits/bypassPermissions 走简单档，无控制面。
  */
 import { createInterface } from 'node:readline'
 import { randomUUID } from 'node:crypto'
@@ -24,14 +25,17 @@ import {
   buildInitializeResult,
   buildPingResult,
   buildRegisterNotification,
+  buildResult,
   buildStatusNotification,
   buildTaskCancelResult,
   buildTaskCreateAck,
+  normalizeConfirmResponse,
   parseIncoming,
   translateYwcoderEvent,
   writeMessage,
   type TaskCancelParams,
   type TaskCreateParams,
+  type TaskRespondParams,
 } from './protocol.js'
 
 function log(msg: string): void {
@@ -65,10 +69,12 @@ function parseArgs(argv: string[]): CliArgs {
     process.exit(1)
   }
   if (permissionMode === 'default') {
-    // M4（can_use_tool 控制面）尚未实现：default 模式下需要确认的工具会直接
-    // 收到 is_error 的 tool_result，而不会弹出网页确认（见 ywcoder-integration.md §8.2/§8.3）。
+    // 完整档：ywcoderSession 会自动补 --permission-prompt-tool stdio，需确认的工具
+    // 走 can_use_tool 控制面到网页（见 ywcoder-integration.md §6.2/§8.2）。
+    log('完整档已启用: --permission-mode default，工具权限走网页确认（can_use_tool 控制面）')
+  } else {
     log(
-      '警告: --permission-mode default 但简单档未实现 can_use_tool 控制面，危险操作将直接失败而非弹确认，建议 acceptEdits/bypassPermissions',
+      `简单档: --permission-mode ${permissionMode}，不启用 can_use_tool 控制面（不会弹网页确认）`,
     )
   }
   return {
@@ -83,9 +89,18 @@ interface SessionEntry {
   activeTaskId: string | null
 }
 
+/** 待网页裁决的权限请求（confirm_id 即 ywcoder can_use_tool 的 request_id）。 */
+interface PendingConfirm {
+  sessionId: string
+  taskId: string
+}
+
 class Shim {
   private sessions = new Map<string, SessionEntry>()
   private taskToSession = new Map<string, string>()
+  // confirm_id → 所属 session/task，供 task.respond 路由回对应 ywcoder 子进程（§6.2）。
+  // 刻意不带超时定时器：confirm 不设 shim 短超时（§8.3 硬约束 2）。
+  private pendingConfirms = new Map<string, PendingConfirm>()
 
   constructor(private args: CliArgs) {}
 
@@ -123,29 +138,30 @@ class Shim {
         this.handleTaskCancel(msg.id, msg.params)
         return
       case 'task.respond':
-        // 简单档不实现控制面，没有待确认项可回复。
-        if (msg.id !== null) {
-          writeMessage(
-            buildError(
-              msg.id,
-              JsonRpcErrorCode.CapabilityNotSupported,
-              '简单档不支持 task.respond（未启用 can_use_tool 控制面）',
-            ),
-          )
-        }
+        this.handleTaskRespond(msg.id, msg.params)
         return
     }
   }
 
   private handleTaskCreate(id: string | number, params: TaskCreateParams): void {
     if (params.type === 'respond') {
-      writeMessage(
-        buildError(
-          id,
-          JsonRpcErrorCode.CapabilityNotSupported,
-          '简单档不支持 type=respond（未启用 can_use_tool 控制面）',
-        ),
-      )
+      // §5：type=respond 等价于 task.respond，走控制面而非新起一轮对话。
+      if (!params.confirm_id) {
+        writeMessage(
+          buildError(
+            id,
+            JsonRpcErrorCode.InvalidParams,
+            'type=respond 必须带 confirm_id',
+          ),
+        )
+        return
+      }
+      this.handleTaskRespond(id, {
+        task_id: params.task_id,
+        session_id: params.session_id,
+        confirm_id: params.confirm_id,
+        response: params.content,
+      })
       return
     }
 
@@ -207,6 +223,49 @@ class Shim {
     entry.session.sendUser(next.content)
   }
 
+  /** 管控台对 confirm_required 的回复 → 路由回对应 ywcoder 子进程（§6.2）。 */
+  private handleTaskRespond(
+    id: string | number | null,
+    params: TaskRespondParams,
+  ): void {
+    const pending = this.pendingConfirms.get(params.confirm_id)
+    const entry = pending ? this.sessions.get(pending.sessionId) : undefined
+    if (!pending || !entry?.session) {
+      // 已被撤销（ywcoder control_cancel_request）、已回复过，或 id 不存在（§10）。
+      log(`task.respond 未找到待决确认 confirm_id=${params.confirm_id}`)
+      if (id !== null) {
+        writeMessage(
+          buildError(id, JsonRpcErrorCode.TaskNotFound, 'Confirm not found'),
+        )
+      }
+      return
+    }
+
+    const decision = normalizeConfirmResponse(params.response)
+    this.pendingConfirms.delete(params.confirm_id)
+    entry.session.respondPermission(params.confirm_id, decision)
+    if (id !== null) {
+      writeMessage(
+        buildResult(id, {
+          task_id: pending.taskId,
+          session_id: pending.sessionId,
+          confirm_id: params.confirm_id,
+          status: 'accepted',
+          decision: decision.kind,
+        }),
+      )
+    }
+  }
+
+  /** 清理某 session（可限定 task）下所有待决确认，避免映射泄漏。 */
+  private clearPendingConfirms(sessionId: string, taskId?: string): void {
+    for (const [confirmId, pending] of this.pendingConfirms) {
+      if (pending.sessionId !== sessionId) continue
+      if (taskId && pending.taskId !== taskId) continue
+      this.pendingConfirms.delete(confirmId)
+    }
+  }
+
   private handleSessionEvent(sessionId: string, event: YwcoderSessionEvent): void {
     const entry = this.sessions.get(sessionId)
     const taskId = entry?.activeTaskId ?? null
@@ -226,8 +285,18 @@ class Shim {
           }),
         )
       }
-      if (event.kind === 'exit') this.sessions.delete(sessionId)
+      if (event.kind === 'exit') {
+        this.clearPendingConfirms(sessionId)
+        this.sessions.delete(sessionId)
+      }
       return
+    }
+
+    // 权限请求的映射登记必须先于 confirm_required 发出，否则网页秒回时会找不到。
+    if (event.kind === 'permission_required') {
+      this.pendingConfirms.set(event.requestId, { sessionId, taskId })
+    } else if (event.kind === 'permission_cancelled') {
+      this.pendingConfirms.delete(event.requestId)
     }
 
     for (const msg of translateYwcoderEvent(event, { taskId, sessionId })) {
@@ -235,6 +304,8 @@ class Shim {
     }
 
     if (event.kind === 'completed' || event.kind === 'error') {
+      // 本轮结束：残留的待决确认（如 deny+interrupt 中止时）不再可回复。
+      this.clearPendingConfirms(sessionId, taskId)
       writeMessage(
         buildStatusNotification(
           event.kind === 'completed' ? 'idle' : 'error',
@@ -250,6 +321,7 @@ class Shim {
     }
 
     if (event.kind === 'exit') {
+      this.clearPendingConfirms(sessionId)
       this.sessions.delete(sessionId)
     }
   }
@@ -263,7 +335,9 @@ class Shim {
     }
 
     if (entry.activeTaskId === params.task_id) {
-      // 当前正在跑的任务：转 interrupt（§6.3）。
+      // 当前正在跑的任务：转 interrupt（§6.3）。与控制面并存——若此刻有待决确认，
+      // ywcoder 会 abort 它并回 control_cancel_request，这里先行摘除映射。
+      this.clearPendingConfirms(sessionId as string, params.task_id)
       entry.session?.interrupt()
     } else {
       // 还在队列里排队、尚未喂给 ywcoder：直接摘除，不影响正在跑的其它任务。

@@ -164,8 +164,12 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
   "task_id":"...","session_id":"...",
   "type":"confirm_required","confirm_id":"<rid>",
   "title":"执行 Bash", "content":[{"type":"text","text":"<input 摘要>"}],
-  "level":"dangerous", "timeout":<shim 自设> }}
+  "level":"dangerous" }}
 ```
+- `confirm_id` **就是** ywcoder 的 `request_id`（原样透传，回复时直接用于 `control_response`）。
+- `title` 取请求里的 `title`，缺省 `执行 <tool_name>`；`content` = 入参摘要（Bash 给完整命令、Write 给路径+内容、其余 JSON 摘要，超长截断）+ `description`/`blocked_path`/`decision_reason`。
+- `level` 由 shim 推断：`blocked_path` 存在 → `dangerous`；Bash 命中危险特征（`rm/sudo/dd/mkfs/chmod/chown/curl/wget/ssh/scp/nc/shutdown/reboot`）→ `dangerous`，其余 Bash → `warning`；Write/Edit/MultiEdit/NotebookEdit、WebFetch/WebSearch → `warning`；其余 → `info`。**这是给人看的危险提示，不是安全策略**（真正判定在 ywcoder 侧，见 §8.3）。
+- **不带 `timeout` 字段**：confirm 不设 shim 短超时（§8.3 硬约束 2）。
 **管控台 → shim**：`task.respond`
 ```json
 { "jsonrpc":"2.0","id":"...","method":"task.respond","params":{
@@ -183,6 +187,32 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 { "type":"control_response","response":{ "subtype":"success","request_id":"<rid>",
   "response":{ "behavior":"deny", "message":"用户取消任务", "interrupt":true } }}
 ```
+
+**⚠️ `response` → 三种语义的映射约定（shim 已实现，待与 AgentClient 最终确认）**
+
+协议只规定 `response` 是「字符串或结构化对象」（[protocol.md](protocol.md) §7.7），没规定取值。shim 的归一规则：
+
+| 管控台回复 `response`（去空白、不分大小写） | 裁决 | 发给 ywcoder |
+|---|---|---|
+| `确认`/`确定`/`允许`/`同意`/`批准`/`是`/`yes`/`ok`/`allow`/`approve`/`confirm`/`accept` | allow | ① `{behavior:'allow',updatedInput:{}}` |
+| `拒绝`/`不允许`/`否`/`跳过`/`no`/`deny`/`reject`/`decline`/`skip` | deny | ② `{behavior:'deny',message:<原文>}` |
+| **裸** `取消`/`cancel` | deny（**不中止任务**） | ② |
+| `取消任务`/`中止`/`中断`/`终止`/`停止`/`abort`/`interrupt`/`stop`/`terminate` | cancel | ③ `{behavior:'deny',message,interrupt:true}` |
+| 结构化 `{decision\|action\|behavior\|result\|choice: "allow"\|"deny"\|"cancel", message\|reason?}` | 同字面 | 同上（结构化的 `cancel` **就是**中止任务） |
+| 其它任意文本 / 无裁决字段的对象 | deny | ②，**原文作为拒绝理由**回传给模型 |
+
+两条刻意的取舍：
+1. **裸「取消」只拒绝本次工具，不中止任务**——网页确认框的「取消」按钮通常表达「别做这个操作」；要中止整轮请用「取消任务」、结构化 `{decision:'cancel'}` 或 `task.cancel`（§6.3）。
+2. **无法识别的回复一律 deny**，绝不因歧义放行。
+
+> ⏳ 需 AgentClient 确认：网页「确认/取消」按钮实际回传什么字面值，以及是否愿意改用结构化 `{decision, message}`（推荐，无歧义）。若字面值与上表不符，只需改 shim 的词表（`protocol.ts` 的 `ALLOW_WORDS/DENY_WORDS/ABORT_WORDS`）。
+
+**其它已实现的控制面行为：**
+- `task.create{type:'respond', confirm_id, content}` 等价于 `task.respond`（§5），走同一条裁决路径。
+- `task.respond` 的 `confirm_id` 不存在/已回复/已被撤销 → JSON-RPC `-32000`（§10）。
+- ywcoder 撤销待决权限请求（`control_cancel_request`，如 `interrupt` 触发 abort）→ shim 清理 `confirm_id` 映射；协议上无对应消息，网页侧的悬挂确认框由管控台自行处理（**待确认**）。
+- ywcoder 发来的**其它** `control_request` subtype（`hook_callback`/`mcp_message` 等）→ shim 回 `control_response{subtype:'error'}`；不能静默忽略，ywcoder 的 pending 请求没有自超时。
+- `result.permission_denials` 透传进 `task.completed.metadata.permission_denials`，供管控台核对「拒绝确实生效」。
 
 **allow 的两条硬约束（务必遵守）：**
 1. `updatedInput` **必填**（stdio 路径的 schema 要求）。传空对象 `{}` 表示「用原始入参」；除非管控台要改写入参，一律回 `{}`。
@@ -287,7 +317,7 @@ if (!session_id) {                      // 首条：建会话
 | 情况 | 输出 |
 |---|---|
 | shim 收到非法 JSON / 未知 method | JSON-RPC `-32700` / `-32601` |
-| `task.respond`/`cancel` 的 task_id 不存在 | `-32000` |
+| `task.cancel` 的 task_id 不存在 / `task.respond` 的 confirm_id 不存在（含已回复、已被撤销） | `-32000` |
 | 任务超时（网关 `-task-timeout`，shim 不设计时器） | 网关发 done+error=timeout → `task.cancel` 到 shim → 对应 ywcoder 子进程 `interrupt` |
 | 用户仅拒绝确认 | `control_response{deny}`，模型继续；ywcoder 产出 `is_error:true` 的 tool_result |
 | 用户中断任务 | `control_response{deny,interrupt:true}` → ywcoder `result{subtype:error_during_execution}` |
