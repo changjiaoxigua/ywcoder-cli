@@ -263,6 +263,10 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 
 - **通知形式**：v2 §6.3 定为通知类（**不带 `id`**），此时 shim 不回 `result`，任务不存在也不回 `-32000`（只记 stderr 日志）；兼容带 `id` 的请求形式时才回。
 - **取消排队中的任务**（同 session 尚未轮到、还没喂给 ywcoder）：直接从队列摘除，并补发 `event.error{code:"TASK_CANCELLED"}` 收尾——它不会有 `result` 事件，通知形式又不回 `result`，不出声则该 `task_id` 在管控台侧一直悬着。
+- **interrupt 收尾看门狗**：发出 interrupt 后 **10s** 内若没收到 `result`，shim 强杀子进程解卡（SIGTERM → 再 5s → SIGKILL）。这是唯一会让 session 永久卡死的路径：`activeTaskId` 不清则后续任务全堵在队列里，且再发 `task.cancel` 也无效。
+  - **不违反「审批不设超时」（§8.3 硬约束 2）**：那条禁的是 confirm 级超时（人在回路，必须等人）；interrupt 是机器对机器的操作，实测秒级返回。
+  - **强杀可恢复**：会话已落盘，下一条 `task.create` 走 `--resume` 原样恢复上下文，最坏后果只是重启一个子进程。
+  - **SIGKILL 升级是必需的**（实测）：用 `SIGSTOP` 冻结子进程模拟「不响应 interrupt」时，SIGTERM 完全无效（信号挂起不投递），10s 触发 SIGTERM 无反应、15s 升级 SIGKILL 才真正解卡，随后 `--resume` 起新子进程继续服务。
 - **与控制面并存**：若此刻有待决确认，shim 先补发 `confirm_cancelled{reason:'task_cancelled'}` 关框，再转 `interrupt`；ywcoder 随即 abort 该 `can_use_tool`（工具结果为 `AbortError`）并回 `control_cancel_request`（因映射已摘除，不会重复撤销）。已实测。
 
 > ⚠️ **已知缺口（需 AgentClient 侧修）**：当前 stdio 模式下,用户点「停止」时 AgentClient 只关闭本地 chunk 队列,**不会把取消传到 shim**——shim 与 ywcoder 子进程仍在跑,继续烧 API/token 且后续输出被静默丢弃。修法：AgentClient 停止时**补发一行 `task.cancel` 给 shim**（对齐 HTTP 模式的 abort 语义），shim 再按上面转成 `interrupt`。这条不修则「停止」是假的（见 §17-H）。
@@ -305,6 +309,7 @@ Bash 的判定由共享子系统完成（[bashCommandHelpers.ts](../../../src/to
 
 1. **必须自建 Bash 命令安全策略，并慎重对待 allow**。ywcoder 默认权限对只读放行，对网络/子 shell、以及写/删除类命令（`rm`、`rm -rf`、重定向写盘等，按目标路径判定）会触发 `can_use_tool`。已实测 `rm`/`rm -rf` 确实触发确认，**且 shim 回 allow 后文件/目录被真实且不可逆删除**。因此：`confirm_required` 到网页时必须如实呈现命令与危险级别（allow 即真执行，无二次兜底）；远程被驱动场景建议在 shim/管控台层再叠加独立命令白/黑名单做纵深防御；**不能仅依赖模型自律**（模型可能自我克制、也可能直接执行）。
 2. **超时不由 shim 持有短计时器**。任务时长超时归网关（`-task-timeout`，见 §17-H）；confirm 确认**不设 shim 短超时**——人在回路本就该等人（尤其手机端/异步），快速自动 deny 会误杀正常操作。ywcoder 对 pending `can_use_tool` 虽无默认超时，但"永久挂起"已被 **网关 task-timeout + 手动取消**兜住（到点砍任务 → `task.cancel` → shim `interrupt`），有明确上界。若确需 confirm 级上限，设**长的、可配置的（分钟级），默认 deny**，而非 30s。前提：网关 task-timeout 生效 + stdio 取消缺口已修（§6.3）。
+   > 例外（唯一的 shim 侧计时器）：**interrupt 收尾看门狗 10s**（§6.3）。它计的是「机器对机器」的响应，不是人的决策时间，两者不冲突。
 3. **allow 不回传 `updatedPermissions`**（见 §6.2）。
 4. **续接不保留权限**：`--resume` 后每次工具调用仍重新确认（见 §9），不会因上次 allow 而免确认——设计上安全，但需预期确认频次。
 

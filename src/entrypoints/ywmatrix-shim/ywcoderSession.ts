@@ -28,6 +28,22 @@ type LaunchMode = 'create' | 'resume' | 'ephemeral'
 // ywmatrix-shim 构建目标）。
 const CLI_ENTRY = join(dirname(fileURLToPath(import.meta.url)), 'cli.mjs')
 
+/**
+ * interrupt 后等 ywcoder 产出 result 收尾的上限，超时即强杀子进程解卡。
+ *
+ * 这**不违反**「审批不设超时」的硬约束（ywcoder-integration.md §8.3）：那条禁的是
+ * confirm 级超时（人在回路，必须等人）；interrupt 是机器对机器的操作，实测都在秒级
+ * 内返回 `result{error_during_execution}`。不设这个上限的话，ywcoder 万一不响应，
+ * 该 session 的 activeTaskId 就永远挂着、后续任务全堵在队列里，且再发 task.cancel
+ * 也无效——这是唯一会让 session 永久卡死的路径。
+ *
+ * 强杀是可恢复的：会话已按 `<projectDir>/<id>.jsonl` 落盘，下一条 task.create 会以
+ * `--resume` 原样恢复上下文，最坏后果只是重启一个子进程。
+ */
+const INTERRUPT_GRACE_MS = 10_000
+/** SIGTERM 后仍不退出则升级到 SIGKILL——否则「保证解卡」这个目的本身就不成立。 */
+const SIGKILL_ESCALATION_MS = 5_000
+
 export type YwcoderSessionEvent =
   | { kind: 'text'; text: string }
   | { kind: 'thinking'; text: string }
@@ -113,6 +129,9 @@ export class YwcoderSession {
   private recentStderr: string[] = []
   /** 子进程是否仍可写 stdin（退出后写会 EPIPE）。 */
   private alive = false
+  /** interrupt 看门狗与 SIGKILL 升级计时器（见 INTERRUPT_GRACE_MS）。 */
+  private interruptTimer: NodeJS.Timeout | null = null
+  private killTimer: NodeJS.Timeout | null = null
 
   private constructor(opts: YwcoderSessionOptions) {
     this.opts = opts
@@ -209,6 +228,7 @@ export class YwcoderSession {
 
     this.child.on('exit', (code, signal) => {
       this.alive = false
+      this.clearWatchdogs()
       if (!this.readySettled) {
         this.settleReadyError(
           new Error(
@@ -411,6 +431,8 @@ export class YwcoderSession {
   }
 
   private handleResultMessage(msg: Record<string, unknown>): void {
+    // 本轮已收尾（含 interrupt 导致的 error_during_execution）→ 撤销看门狗。
+    this.clearWatchdogs()
     const subtype = msg.subtype as string
     const sessionId = (msg.session_id as string) ?? null
     if (subtype === 'success') {
@@ -464,16 +486,52 @@ export class YwcoderSession {
     })
   }
 
-  /** 管控台 task.cancel → 转 interrupt（§6.3）。 */
+  /** 管控台 task.cancel → 转 interrupt（§6.3），并启动收尾看门狗。 */
   interrupt(): void {
     this.send({
       type: 'control_request',
       request_id: `interrupt-${Date.now()}-${shortId()}`,
       request: { subtype: 'interrupt' },
     })
+    this.armInterruptWatchdog()
+  }
+
+  /**
+   * interrupt 发出后若迟迟收不到 result，强杀子进程解卡（SIGTERM → SIGKILL 升级）。
+   * 子进程退出会触发既有收尾：活动任务与排队任务各发 event.error、待决确认按
+   * agent_exited 撤销、session 移除；下一条 task.create 以 --resume 恢复上下文。
+   */
+  private armInterruptWatchdog(): void {
+    if (this.interruptTimer) return // 已在监视中，不重复计时
+    this.interruptTimer = setTimeout(() => {
+      this.interruptTimer = null
+      if (!this.alive) return
+      this.log(
+        `interrupt 后 ${INTERRUPT_GRACE_MS}ms 仍无 result，强杀子进程解卡（会话已落盘，后续任务将 --resume 恢复）`,
+      )
+      this.child.kill('SIGTERM')
+      this.killTimer = setTimeout(() => {
+        this.killTimer = null
+        if (!this.alive) return
+        this.log('SIGTERM 后仍未退出，升级为 SIGKILL')
+        this.child.kill('SIGKILL')
+      }, SIGKILL_ESCALATION_MS)
+    }, INTERRUPT_GRACE_MS)
+  }
+
+  private clearWatchdogs(): void {
+    if (this.interruptTimer) {
+      clearTimeout(this.interruptTimer)
+      this.interruptTimer = null
+    }
+    if (this.killTimer) {
+      clearTimeout(this.killTimer)
+      this.killTimer = null
+    }
   }
 
   kill(): void {
+    this.clearWatchdogs()
     if (!this.child.killed) this.child.kill('SIGTERM')
   }
 
