@@ -89,7 +89,7 @@
 
 ## 5. 对齐状态（详见 [ywcoder-integration.md §17](ywcoder-integration.md)）
 
-**已与 AgentClient 团队谈定**：启动约定（command/args:`--workdir`+`--permission-mode`/cwd）、凭证走 ywcoder 本地配置、并发路由（一个 shim + `session_id`→子进程）、命令安全策略（管控台不做黑白名单）、**session_id 谁先给出 UUID 就用谁的**（管控台下发则原样采用，不下发则 shim mint 并回传；ack 里的 id 即权威，见 [§9.2](ywcoder-integration.md)）、agent_id 由 AgentClient 定。
+**已与 AgentClient 团队谈定**：启动约定（command/args:`--workdir`+`--permission-mode`/cwd）、凭证走 ywcoder 本地配置、并发路由（一个 shim + `session_id`→子进程）、命令安全策略（管控台不做黑白名单）、**session_id 由网关生成、shim 原样采纳**（网关 `session.create` 时 `randomUUID()` 落库，浏览器每条 task 都带；「shim 在 ack 回填」方案已明确不采纳，见 [§9.2](ywcoder-integration.md)）、agent_id 由 AgentClient 定。
 
 **仍需处理/确认**：
 1. **任务超时**：网关 `-task-timeout` 默认 5min 太短，已协商调至 **30~60min 固定值**（不做 task 级 timeout）——落实到网关+client 配置。

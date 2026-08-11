@@ -176,12 +176,17 @@ class Shim {
       return
     }
 
-    // 会话 id 由 ywcoder 侧拥有、管控台采纳（§9.2）：首条 task.create 不带 session_id
-    // 时，shim 生成一个 UUID 作为会话 id，并在 ack 回传供管控台后续沿用。
-    const sessionId =
-      params.session_id && params.session_id.length > 0
-        ? params.session_id
-        : randomUUID()
+    // 会话 id 由网关生成（`session.create` 时 randomUUID，落库后浏览器每条 task 都带），
+    // shim **原样采纳**，不自行生成（§9.2）。下面的 mint 只是防御性兜底：按约定
+    // session_id 必到，缺失说明上游链路有问题，故告警——且 AgentClient 不消费 ack 里的
+    // session_id，mint 出来的 id 它并不知道，只能保证本进程内路由自洽。
+    let sessionId = params.session_id ?? ''
+    if (sessionId.length === 0) {
+      sessionId = randomUUID()
+      log(
+        `警告: task.create(task_id=${params.task_id}) 未带 session_id（与管控台约定不符），临时 mint ${sessionId}`,
+      )
+    }
 
     // 立即确认收到（local-agent-interface.md §6.1），并回传 session_id；结果随后经 stream.chunk 流式返回。
     writeMessage(buildTaskCreateAck(id, params.task_id, sessionId))

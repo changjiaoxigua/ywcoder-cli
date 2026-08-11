@@ -323,12 +323,18 @@ Bash 的判定由共享子系统完成（[bashCommandHelpers.ts](../../../src/to
 
 ### 9.2 session_id 对齐（关键，已定）
 
-**模型：谁先给出 UUID 就用谁的，`task.create` 的 ack 回传的 id 即权威 id**（stdio 模式经 `task.create`，不走页面 `session.create`）。两种入口都支持：
+**模型（已定，2026-08-11 与 AgentClient 团队最终确认）：网关生成 id，shim 原样采纳。**
+早期「shim 在 ack 回填、管控台采纳」的方案**已被明确不采纳**——AgentClient 不消费 ack 里的 `session_id`，shim 若自行生成只会造成「真相分裂」（网关一套 id、子进程另一套）。
 
-- **管控台下发 UUID（AgentClient 现行行为）** → shim **原样采用**，不另 mint；ack 原样回传，据本地是否已有该会话决定 `--session-id`（新建）还是 `--resume`（续接）。
-- **首条 `task.create` 不带 `session_id`（早期约定，仍支持）** → shim **mint 一个 UUID**、以 `--session-id <uuid>` 启动、并在 **ack 与所有输出中回填** → 管控台采纳，后续 task.create 都带它。
-  - 好处：不依赖 system/init 时序即可回传；网关的 `{task_id}-session` 兜底（`gateway.ts:839`，非 UUID）**因此永不触发**。
+管控台侧链路：前端「新会话」→ 浏览器调 `session.create` → 网关 `crypto.randomUUID()` 生成并落库 → 浏览器此后每条 `task.create` 都携带该 id → 网关透传 client → adapter → shim。因 `randomUUID()` 恒为**小写合法 UUID**，格式与大小写风险天然消解；网关 `{task_id}-session` 兜底是死代码，永不触发。
+
+shim 侧行为：
+
+- **`task.create` 带 UUID（常态）** → **原样采用**，据本地是否已有该会话决定 `--session-id`（新建）还是 `--resume`（续接）；ack 仍回传该 id（对方不消费，仅作回显/诊断）。
 - **同一 UUID 的后续 `task.create`** → 路由到同一**存活子进程**直接发消息；子进程已回收 → `--resume <uuid>`。
+- **未带 `session_id`（不该出现）** → 防御性 mint 一个 UUID 并**打告警日志**：按约定该字段必到，缺失说明上游链路有问题；且对方不消费 ack，mint 出的 id 它并不知道，只能保证本进程内路由自洽。
+
+> ⚠️ 对方文档把这条链路写成「shim → ywcoder `--resume <uuid>`」，实际要分两种：**本地尚无该会话时必须用 `--session-id`**，对不存在的会话用 `--resume` 会被 ywcoder 拒绝。这个分支由 shim 内部处理，不需要管控台侧感知。
 
 **实测的四个分支**（探针直接观察 shim 拉起 ywcoder 的实际命令行）：
 
@@ -339,11 +345,11 @@ Bash 的判定由共享子系统完成（[bashCommandHelpers.ts](../../../src/to
 | 合法 UUID、但换了 `--workdir` | `create` | `--session-id <id>` | 视为新会话（会话文件按工作目录分桶） |
 | 非 UUID（如 `task-123-session`） | `ephemeral` | 都不传 | 一次性会话，**不可续接** |
 
-**⚠️ 对管控台侧的三条要求：**
+**⚠️ 对管控台侧的三条要求**（前两条已由网关用 `crypto.randomUUID()` 天然满足，第三条仍需其保证）：
 
-1. **必须是合法 UUID**（8-4-4-4-12 hex）。非 UUID 只能退化为一次性会话，**静默丢失续接**——子进程回收后上下文即消失。
-2. **UUID 固定用小写**。大写能正常启动，但 `sessionIdExists` 查的是文件名 `<id>.jsonl`：macOS 大小写不敏感会"碰巧"命中，**Linux 上同一 id 的大小写变体会被判成两个会话**（该续接的变成新建）。跨平台行为不一致。
-3. **`session_id` 与 `workdir` 配套**。同一 id 换工作目录 = 全新会话；若允许会话中途切换工作目录，上下文会静默丢失。
+1. ✅ **必须是合法 UUID**（8-4-4-4-12 hex）。非 UUID 只能退化为一次性会话，**静默丢失续接**——子进程回收后上下文即消失。
+2. ✅ **UUID 固定用小写**（`randomUUID()` 恒为小写）。大写能正常启动，但 `sessionIdExists` 查的是文件名 `<id>.jsonl`：macOS 大小写不敏感会"碰巧"命中，**Linux 上同一 id 的大小写变体会被判成两个会话**（该续接的变成新建）。若将来改用其它来源的 id（如从外部系统导入），需重新确认这一点。
+3. ⏳ **`session_id` 与 `workdir` 配套**（对方回复未涉及）。会话文件按工作目录分桶存，同一 id 换 `--workdir` = 全新会话；网关按 session 落库、用户隔天回来续聊时，必须把任务路由回**同一台机器的同一个工作目录**，否则上下文静默丢失。
 
 > 一致性保障：shim 的 `validateUuid` / `sessionIdExists` 与 ywcoder 自身校验**是同一个函数**，projectDir 也都由 `realpath(cwd)` 推导（shim 强制 `cwd == --workdir`），故不会出现「shim 判 create、ywcoder 却拒绝启动」的分叉。万一竞态撞上 `already in use`，`YwcoderSession.spawn` 会自动改用 `--resume` 重试一次。
 
@@ -459,6 +465,6 @@ protocol.md 只规定「消息怎么长」；以下是它未覆盖、接入落�
 | C. task_id/session_id | 按 local-agent-interface.md，每条 `task.create` 带 `session_id`+`task_id`。见 F 的 id 对齐 | ✅ 已定 |
 | D. 并发模型 | AgentClient 只 spawn 一个 shim,所有 task 发给它;shim 按 `session_id` 路由:同 session 串行于一个 ywcoder 子进程,不同 session 起多个子进程。见 §9.1 | ✅ 已定 |
 | E. 命令安全策略 | 管控台**不做**命令黑白名单;shim 层可选做额外过滤,默认依赖 ywcoder 权限控制。⚠️ 「依赖 ywcoder 控制」要求用 `--permission-mode default`(bypass 无控制),见 §8 | ✅ 已定 |
-| F. session_id 对齐与续接 | **谁先给出 UUID 就用谁的，ack 回传的 id 即权威**：管控台下发 UUID（AgentClient 现行）→ 原样采用；不下发 → shim mint 并回填。据本地是否已有该会话走 `--session-id`/`--resume`，非 UUID 退化为一次性会话。无需持久化映射。见 §9.2 | ✅ 已定；⚠️ 因管控台已改为主动下发 id，需其保证「小写 UUID + 与 workdir 配套」（§9.2 三条要求） |
+| F. session_id 对齐与续接 | **网关生成、shim 原样采纳**（2026-08-11 最终确认，「shim 在 ack 回填」方案已明确不采纳）。网关 `session.create` 用 `randomUUID()` 生成并落库，浏览器每条 task 都带；shim 据本地是否已有该会话走 `--session-id`/`--resume`。见 §9.2 | ✅ 已定；⏳ 仅剩「同一 session 必须路由回同一机器同一 workdir」需对方确认 |
 | G. agent_id / 能力标签 | `agent_id` 由 AgentClient 定(如 `ywcoder`;多机需带 hostname 防撞);`capabilities` 由我方给默认 `{type:"chat",name:"coding"}` | ✅ 已定 |
 | H. 心跳/超时/取消 | 心跳全归 AgentClient(30s `system.heartbeat` + WS ping/pong,shim 不管)。**任务超时**:网关 `-task-timeout` 默认 5min **太短,协商调至 30~60min 固定值**(不做 task 级 timeout)。**⚠️ stdio 取消缺口必须修**:AgentClient 停止时补发 `task.cancel` 给 shim,shim 转 `interrupt`(见 §6.3),否则「停止」是假的。confirm 无人应答超时由 shim 自实现(§8.3) | ⚠️ 超时/取消待改 |
