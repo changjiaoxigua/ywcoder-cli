@@ -52,6 +52,18 @@ describe('inferConfirmLevel', () => {
     }
   })
 
+  test('覆盖写重定向 / 管道里的删除 → dangerous', () => {
+    for (const command of ['echo x > /etc/hosts', 'cat list | xargs rm', 'go build >out.log']) {
+      expect(inferConfirmLevel('Bash', { command }, {})).toBe('dangerous')
+    }
+  })
+
+  test('描述符重定向与含危险词的子串不误判', () => {
+    // 2>&1 不是覆盖写；npm/npm run 里的 "rm" 不是 rm 命令。
+    expect(inferConfirmLevel('Bash', { command: 'ls -la 2>&1' }, {})).toBe('warning')
+    expect(inferConfirmLevel('Bash', { command: 'npm run build' }, {})).toBe('warning')
+  })
+
   test('普通 Bash → warning，写工具 → warning，其它 → info', () => {
     expect(inferConfirmLevel('Bash', { command: 'ls -la' }, {})).toBe('warning')
     expect(inferConfirmLevel('Write', { file_path: '/tmp/a.txt' }, {})).toBe('warning')

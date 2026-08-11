@@ -15,6 +15,8 @@
  *          task.completed.metadata.permission_denials 有记录
  *   cancel 完整档：写文件触发 confirm_required → 回 {decision:'cancel'} → deny+interrupt，
  *          本轮以 event.error（error_during_execution）中止
+ *   cancel-task 完整档：确认待决期间发通知形式 task.cancel → 收到一条
+ *          confirm_cancelled{reason:'task_cancelled'} → 本轮中止（取消与控制面并存）
  *   all    依次跑上面全部（默认）
  *
  * 每个场景各跑一个独立 shim 子进程与独立工作子目录，互不干扰。需 provider 凭证（真调模型）。
@@ -29,16 +31,23 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 function usage(): never {
   process.stderr.write(
-    '用法: mock-agentclient.ts <workdir> [--dev] [--scenario read|allow|deny|cancel|all]\n',
+    '用法: mock-agentclient.ts <workdir> [--dev] [--scenario read|allow|deny|cancel|cancel-task|all]\n',
   )
   process.exit(1)
 }
 
 const argv = process.argv.slice(2)
-const workdirArg = argv.find(a => !a.startsWith('--'))
 const devMode = argv.includes('--dev')
-const scenarioIdx = argv.indexOf('--scenario')
-const scenarioArg = scenarioIdx === -1 ? 'all' : (argv[scenarioIdx + 1] ?? 'all')
+// 逐个扫描而非 find(非 flag)：`--scenario deny <workdir>` 里的 `deny` 是选项值，
+// 不能被当成 workdir（否则会在 <cwd>/deny 下真跑模型）。
+let workdirArg: string | undefined
+let scenarioArg = 'all'
+for (let i = 0; i < argv.length; i++) {
+  const arg = argv[i] as string
+  if (arg === '--scenario') scenarioArg = argv[++i] ?? 'all'
+  else if (arg === '--dev') continue
+  else if (!arg.startsWith('--')) workdirArg ??= arg
+}
 if (!workdirArg) usage()
 const rootWorkdir = resolve(workdirArg)
 

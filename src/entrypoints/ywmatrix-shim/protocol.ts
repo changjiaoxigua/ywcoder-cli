@@ -380,11 +380,12 @@ const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit'])
 /** 外发网络类工具。 */
 const NETWORK_TOOLS = new Set(['WebFetch', 'WebSearch'])
 /**
- * 危险 Bash 特征：删除/覆盖写/提权/外发网络。仅用于给网页标危险级别，
- * **不是**安全策略——真正的权限判定在 ywcoder 侧（§8.3）。
+ * 危险 Bash 特征：删除/提权/外发网络（前半段），以及覆盖写重定向（后半段，
+ * 要求 `>` 前有空白，从而放过 `2>&1` 这类描述符重定向）。
+ * 仅用于给网页标危险级别，**不是**安全策略——真正的权限判定在 ywcoder 侧（§8.3）。
  */
 const DANGEROUS_BASH_PATTERN =
-  /(^|[\s;&|`(])(sudo|rm|rmdir|dd|mkfs\S*|shutdown|reboot|chmod|chown|curl|wget|scp|ssh|nc)\s/
+  /(^|[\s;&|`(])(sudo|rm|rmdir|dd|mkfs\S*|shutdown|reboot|chmod|chown|curl|wget|scp|ssh|nc)\b|\s>>?\s*[^\s&]/
 
 /** 依据工具与请求上下文推断确认危险级别（§8.1 权限触发规则）。 */
 export function inferConfirmLevel(
@@ -503,9 +504,12 @@ const ABORT_WORDS = new Set([
   'abort', 'abort_task', 'cancel_task', 'interrupt', 'stop', 'terminate',
 ])
 /**
- * 裸「取消 / cancel」只在**自由文本**里有歧义（网页确认框的「取消」按钮通常只是
- * 「别做这个操作」），故按 deny 处理；结构化 `{decision:'cancel'}` 是明确的裁决值，
- * 按中止整个任务处理。
+ * 结构化 `{decision:'cancel'}` = 中止整个任务（已与 AgentClient 确认，等同 §6.3 的
+ * `task.cancel`，只是入口在确认框上；前端「×/关闭」按钮约定映射为 `deny`）。
+ *
+ * 但**自由文本**里的裸「取消 / cancel」仍按 deny 处理：那是 v2 §6.2.1 的旧版兼容
+ * 路径，来自尚未遵循上述前端约定的客户端，其「取消」多半就是「别做这个操作」。
+ * 宁可少拦一步，也不因一个模糊字符串杀掉整轮任务。
  */
 const AMBIGUOUS_CANCEL_WORDS = new Set(['取消', 'cancel'])
 
@@ -520,9 +524,10 @@ const AMBIGUOUS_CANCEL_WORDS = new Set(['取消', 'cancel'])
  * | 结构化 `{decision:'allow'\|'deny'\|'cancel',message?}` | 同上 | 同上 |
  * | 其它任意文本 | deny（原文作为拒绝理由） | `{behavior:'deny',message:<原文>}` |
  *
- * 两点约定（⚠️ 待与 AgentClient 最终确认，见 ywcoder-integration.md §6.2）：
- * 1. **裸「取消」= 只拒绝本次工具**，不中止任务——网页确认框上的「取消」按钮通常
- *    是「别做这个操作」；要中止整个任务请用「取消任务」或 task.cancel。
+ * 两点约定（已与 AgentClient 确认，见 ywcoder-integration.md §6.2）：
+ * 1. **结构化 `cancel` = 中止整轮任务**（等同 task.cancel）；前端「×/关闭」按钮发
+ *    `deny`，只有明确的「终止任务」按钮才发 `cancel`。**自由文本**里的裸「取消」
+ *    仍按 deny 处理（旧版兼容路径，见 AMBIGUOUS_CANCEL_WORDS 的说明）。
  * 2. **无法识别的回复一律按 deny 处理**（绝不因歧义放行），原文回传给模型当理由。
  */
 export function normalizeConfirmResponse(

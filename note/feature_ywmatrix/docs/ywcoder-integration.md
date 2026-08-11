@@ -225,14 +225,15 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 | 结构化 `{decision\|action\|behavior\|result\|choice: "allow"\|"deny"\|"cancel", message\|reason?}` | 同字面 | 同上（结构化的 `cancel` **就是**中止任务） |
 | 其它任意文本 / 无裁决字段的对象 | deny | ②，**原文作为拒绝理由**回传给模型 |
 
+**✅ `cancel` 语义已与 AgentClient 敲定（方案 A）**：`decision:'cancel'` = **中止整个任务**，效果等同 §6.3 的 `task.cancel`，只是入口在确认框上。配套的前端约定：**「×」/「关闭」按钮映射为 `deny`**（只拦这一步），只有明确的「终止任务」按钮才发 `cancel`。
+
 两条刻意的取舍：
-1. **裸「取消」只拒绝本次工具，不中止任务**——网页确认框的「取消」按钮通常表达「别做这个操作」；要中止整轮请用「取消任务」、结构化 `{decision:'cancel'}` 或 `task.cancel`（§6.3）。
+1. **自由文本里的裸「取消」仍按 deny 处理**——那是 v2 §6.2.1 的旧版兼容路径（字符串/boolean），来自尚未遵循上述前端约定的客户端，其「取消」多半就是「别做这个操作」。宁可少拦一步，也不因一个模糊字符串杀掉整轮任务。**结构化 `{decision:'cancel'}` 不受此限**，明确即中止。
 2. **无法识别的回复一律 deny**，绝不因歧义放行。
 
-> ⏳ 需 AgentClient 确认：网页「确认/取消」按钮实际回传什么字面值，以及是否愿意改用结构化 `{decision, message}`（推荐，无歧义）。若字面值与上表不符，只需改 shim 的词表（`protocol.ts` 的 `ALLOW_WORDS/DENY_WORDS/ABORT_WORDS`）。
-
 **其它已实现的控制面行为：**
-- `task.create{type:'respond', confirm_id, content}` 等价于 `task.respond`（§5），走同一条裁决路径。
+- `task.create{type:'respond', confirm_id, content}` 等价于 `task.respond`（§5），走同一条裁决路径；result 里的 `task_id` 回请求方自己带的值。
+- **无活动任务时收到 `can_use_tool`**（本轮已收尾但请求迟到等）→ shim 自动回 deny。**必须回**：ywcoder 的 pending 请求没有自超时，静默丢弃会让子进程永久阻塞、该 session 后续任务全部卡死。
 - `task.respond` 的 `confirm_id` 不存在/已回复/已被撤销 → JSON-RPC `-32000`（§10）。
 - **确认框撤销 `confirm_cancelled`**（[local-agent-interface-v2.md](local-agent-interface-v2.md) §8.1.1 已采纳）：待决确认失效时 shim 摘除 `confirm_id` 映射并补发一条通知，网页据此关框。
 
@@ -261,6 +262,7 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 管控台 `task.cancel`（带 `session_id`/`task_id`）→ shim 对**对应 session 的 ywcoder 子进程**发 `{type:'control_request',request_id:'<new>',request:{subtype:'interrupt'}}`（ywcoder 内部中断当前轮；必要时 kill 子进程）。
 
 - **通知形式**：v2 §6.3 定为通知类（**不带 `id`**），此时 shim 不回 `result`，任务不存在也不回 `-32000`（只记 stderr 日志）；兼容带 `id` 的请求形式时才回。
+- **取消排队中的任务**（同 session 尚未轮到、还没喂给 ywcoder）：直接从队列摘除，并补发 `event.error{code:"TASK_CANCELLED"}` 收尾——它不会有 `result` 事件，通知形式又不回 `result`，不出声则该 `task_id` 在管控台侧一直悬着。
 - **与控制面并存**：若此刻有待决确认，shim 先补发 `confirm_cancelled{reason:'task_cancelled'}` 关框，再转 `interrupt`；ywcoder 随即 abort 该 `can_use_tool`（工具结果为 `AbortError`）并回 `control_cancel_request`（因映射已摘除，不会重复撤销）。已实测。
 
 > ⚠️ **已知缺口（需 AgentClient 侧修）**：当前 stdio 模式下,用户点「停止」时 AgentClient 只关闭本地 chunk 队列,**不会把取消传到 shim**——shim 与 ywcoder 子进程仍在跑,继续烧 API/token 且后续输出被静默丢弃。修法：AgentClient 停止时**补发一行 `task.cancel` 给 shim**（对齐 HTTP 模式的 abort 语义），shim 再按上面转成 `interrupt`。这条不修则「停止」是假的（见 §17-H）。

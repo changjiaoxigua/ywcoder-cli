@@ -249,7 +249,9 @@ class Shim {
     if (id !== null) {
       writeMessage(
         buildResult(id, {
-          task_id: pending.taskId,
+          // 回请求方自己带的 task_id（type='respond' 时可能与发起确认的任务不同），
+          // 便于调用方对账；缺省才回落到待决确认所属的任务。
+          task_id: params.task_id ?? pending.taskId,
           session_id: pending.sessionId,
           confirm_id: params.confirm_id,
           status: 'accepted',
@@ -297,6 +299,17 @@ class Shim {
     const taskId = entry?.activeTaskId ?? null
 
     if (!taskId) {
+      if (event.kind === 'permission_required') {
+        // 没有活动任务却收到权限请求（本轮已收尾但工具请求迟到等）：**必须回一条裁决**。
+        // ywcoder 的 pendingRequests 没有自超时，静默丢弃会让子进程永久阻塞、该 session
+        // 后续任务全部卡死。无任务上下文可推给网页确认，只能安全地拒绝。
+        log(`session_id=${sessionId} 无活动任务时收到权限请求，自动拒绝 request_id=${event.requestId}`)
+        entry?.session?.respondPermission(event.requestId, {
+          kind: 'deny',
+          message: '该任务已结束，权限请求无法送达管控台确认',
+        })
+        return
+      }
       // 没有活动任务时的 exit/error（如子进程握手期间崩溃）仍需上报。
       if (event.kind === 'exit' || event.kind === 'error') {
         writeMessage(
@@ -389,6 +402,17 @@ class Shim {
         return
       }
       entry.queue.splice(idx, 1)
+      // 队列任务没进过 ywcoder，不会有 result 事件给它收尾。通知形式的 cancel 又不回
+      // result，若这里不出声，管控台侧这个 task_id 会一直悬着（只能等兜底超时）。
+      // 与「活动任务被 interrupt 后以 event.error 收尾」保持一致。
+      writeMessage(
+        buildEventError({
+          task_id: params.task_id,
+          code: 'TASK_CANCELLED',
+          message: '任务在排队中被取消',
+          recoverable: false,
+        }),
+      )
     }
     this.taskToSession.delete(params.task_id)
     if (id !== null) writeMessage(buildTaskCancelResult(id, params.task_id))
