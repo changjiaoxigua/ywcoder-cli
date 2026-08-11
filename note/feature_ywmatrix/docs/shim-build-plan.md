@@ -54,6 +54,7 @@
 - **验收清单**（mock PASS 覆盖）：
   - [x] 握手时序正确（shim 先发 initialize，**收 control_response 即 ready**）
   - [x] session_id：首条 task 无 id → shim mint UUID 并回传 ack；后续消息 id 一致（**非** 来自 system/init）
+  - [x] session_id：管控台下发 UUID → 原样采用，create/resume/ephemeral 四分支已实测（见 [§9.2](ywcoder-integration.md) 分支表）
   - [x] `tool_use`→`action`、`tool_result`→`result` 映射正确、不重复
   - [x] `result{success}`→`task.completed`，usage 进 metadata
   - [x] stdout 洁净；异常/子进程退出→`event.error`
@@ -88,7 +89,7 @@
 
 ## 5. 对齐状态（详见 [ywcoder-integration.md §17](ywcoder-integration.md)）
 
-**已与 AgentClient 团队谈定**：启动约定（command/args:`--workdir`+`--permission-mode`/cwd）、凭证走 ywcoder 本地配置、并发路由（一个 shim + `session_id`→子进程）、命令安全策略（管控台不做黑白名单）、**session_id 由 ywcoder 侧产、管控台采纳**（首条 task 不带 session_id → shim mint UUID 回传，见 [§9.2](ywcoder-integration.md)）、agent_id 由 AgentClient 定。
+**已与 AgentClient 团队谈定**：启动约定（command/args:`--workdir`+`--permission-mode`/cwd）、凭证走 ywcoder 本地配置、并发路由（一个 shim + `session_id`→子进程）、命令安全策略（管控台不做黑白名单）、**session_id 谁先给出 UUID 就用谁的**（管控台下发则原样采用，不下发则 shim mint 并回传；ack 里的 id 即权威，见 [§9.2](ywcoder-integration.md)）、agent_id 由 AgentClient 定。
 
 **仍需处理/确认**：
 1. **任务超时**：网关 `-task-timeout` 默认 5min 太短，已协商调至 **30~60min 固定值**（不做 task 级 timeout）——落实到网关+client 配置。
