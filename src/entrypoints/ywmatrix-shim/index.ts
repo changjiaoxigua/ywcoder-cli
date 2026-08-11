@@ -20,6 +20,7 @@ import {
 import { YwcoderSession, type YwcoderSessionEvent } from './ywcoderSession.js'
 import {
   JsonRpcErrorCode,
+  buildConfirmCancelledChunk,
   buildError,
   buildEventError,
   buildInitializeResult,
@@ -33,6 +34,7 @@ import {
   parseIncoming,
   translateYwcoderEvent,
   writeMessage,
+  type ConfirmCancelReason,
   type TaskCancelParams,
   type TaskCreateParams,
   type TaskRespondParams,
@@ -257,12 +259,36 @@ class Shim {
     }
   }
 
-  /** 清理某 session（可限定 task）下所有待决确认，避免映射泄漏。 */
-  private clearPendingConfirms(sessionId: string, taskId?: string): void {
+  /**
+   * 撤销一个待决确认：摘除映射并通知网页关框（§8.1.1）。
+   *
+   * 「只有映射确实还在时才发通知」天然去重——task.cancel 会先主动摘除，随后
+   * ywcoder 那条迟到的 control_cancel_request 就不会让同一个框收到两条撤销。
+   */
+  private cancelConfirm(confirmId: string, reason: ConfirmCancelReason): void {
+    const pending = this.pendingConfirms.get(confirmId)
+    if (!pending) return
+    this.pendingConfirms.delete(confirmId)
+    writeMessage(
+      buildConfirmCancelledChunk({
+        task_id: pending.taskId,
+        session_id: pending.sessionId,
+        confirm_id: confirmId,
+        reason,
+      }),
+    )
+  }
+
+  /** 撤销某 session（可限定 task）下所有待决确认，避免网页留下悬挂的确认框。 */
+  private clearPendingConfirms(
+    sessionId: string,
+    taskId: string | undefined,
+    reason: ConfirmCancelReason,
+  ): void {
     for (const [confirmId, pending] of this.pendingConfirms) {
       if (pending.sessionId !== sessionId) continue
       if (taskId && pending.taskId !== taskId) continue
-      this.pendingConfirms.delete(confirmId)
+      this.cancelConfirm(confirmId, reason)
     }
   }
 
@@ -286,7 +312,7 @@ class Shim {
         )
       }
       if (event.kind === 'exit') {
-        this.clearPendingConfirms(sessionId)
+        this.clearPendingConfirms(sessionId, undefined, 'agent_exited')
         this.sessions.delete(sessionId)
       }
       return
@@ -296,7 +322,8 @@ class Shim {
     if (event.kind === 'permission_required') {
       this.pendingConfirms.set(event.requestId, { sessionId, taskId })
     } else if (event.kind === 'permission_cancelled') {
-      this.pendingConfirms.delete(event.requestId)
+      // ywcoder 主动放弃了这条权限请求（同轮其它操作触发中止）。
+      this.cancelConfirm(event.requestId, 'interrupted')
     }
 
     for (const msg of translateYwcoderEvent(event, { taskId, sessionId })) {
@@ -304,8 +331,8 @@ class Shim {
     }
 
     if (event.kind === 'completed' || event.kind === 'error') {
-      // 本轮结束：残留的待决确认（如 deny+interrupt 中止时）不再可回复。
-      this.clearPendingConfirms(sessionId, taskId)
+      // 本轮结束：残留的待决确认（如 deny+interrupt 中止时）不再可回复，通知网页关框。
+      this.clearPendingConfirms(sessionId, taskId, 'interrupted')
       writeMessage(
         buildStatusNotification(
           event.kind === 'completed' ? 'idle' : 'error',
@@ -321,35 +348,50 @@ class Shim {
     }
 
     if (event.kind === 'exit') {
-      this.clearPendingConfirms(sessionId)
+      this.clearPendingConfirms(sessionId, undefined, 'agent_exited')
       this.sessions.delete(sessionId)
     }
   }
 
-  private handleTaskCancel(id: string | number, params: TaskCancelParams): void {
+  /**
+   * 管控台「停止」（§6.3）。按 v2 是通知类（不带 id），此时一律不回 result/error；
+   * 兼容带 id 的请求形式时才回。
+   */
+  private handleTaskCancel(
+    id: string | number | null,
+    params: TaskCancelParams,
+  ): void {
+    const notFound = (): void => {
+      log(`task.cancel 未找到任务 task_id=${params.task_id}`)
+      if (id !== null) {
+        writeMessage(buildError(id, JsonRpcErrorCode.TaskNotFound, 'Task not found'))
+      }
+    }
+
     const sessionId = params.session_id ?? this.taskToSession.get(params.task_id)
     const entry = sessionId ? this.sessions.get(sessionId) : undefined
-    if (!entry) {
-      writeMessage(buildError(id, JsonRpcErrorCode.TaskNotFound, 'Task not found'))
+    if (!entry || !sessionId) {
+      notFound()
       return
     }
 
     if (entry.activeTaskId === params.task_id) {
-      // 当前正在跑的任务：转 interrupt（§6.3）。与控制面并存——若此刻有待决确认，
-      // ywcoder 会 abort 它并回 control_cancel_request，这里先行摘除映射。
-      this.clearPendingConfirms(sessionId as string, params.task_id)
+      // 当前正在跑的任务：转 interrupt（§6.3）。与控制面并存——先撤掉待决确认框
+      // （网页据此关框），再中断 ywcoder；它随后那条 control_cancel_request 因映射
+      // 已摘除而不会重复发通知。
+      this.clearPendingConfirms(sessionId, params.task_id, 'task_cancelled')
       entry.session?.interrupt()
     } else {
       // 还在队列里排队、尚未喂给 ywcoder：直接摘除，不影响正在跑的其它任务。
       const idx = entry.queue.findIndex(t => t.taskId === params.task_id)
       if (idx === -1) {
-        writeMessage(buildError(id, JsonRpcErrorCode.TaskNotFound, 'Task not found'))
+        notFound()
         return
       }
       entry.queue.splice(idx, 1)
     }
     this.taskToSession.delete(params.task_id)
-    writeMessage(buildTaskCancelResult(id, params.task_id))
+    if (id !== null) writeMessage(buildTaskCancelResult(id, params.task_id))
   }
 
   private shutdown(): void {

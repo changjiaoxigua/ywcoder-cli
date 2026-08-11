@@ -2,7 +2,7 @@
 
 > 配套设计与字段映射见 [ywcoder-integration.md](ywcoder-integration.md)。本文只讲「怎么建、建到哪、怎么验收」。
 > **状态（2026-08）**：**M1~M3 简单档 + M4 完整档（权限控制面）均已实现并端到端验证通过**（mock 真调模型 PASS）。
-> M1~M3 执行结果见 §7，M4 见 §8。
+> M1~M3 执行结果见 §7，M4 见 §8。**M5 文件/图片预览：规划中（见 §3 M5 + [ywcoder-integration.md §4.1](ywcoder-integration.md)）。**
 
 ## 0. 前置设定（已定）
 
@@ -65,6 +65,17 @@
 - **硬约束**：allow 回 `updatedInput:{}`、**绝不回传 updatedPermissions**、confirm **不设 shim 短超时**（靠网关 task-timeout + 取消兜底）、Bash 独立命令策略（[§8.3](ywcoder-integration.md)）
 - mock 扩展：`--scenario read|allow|deny|cancel|cancel-task|all`
 - **验收**（mock 真调模型全 PASS，见 §8）
+
+### M5 — 文件/图片预览（typed content 转发，规划中）
+- shim：放开 `normalizeResultContent`（现在只留 text 块），额外转发 tool_result 的 `image`/`resource` 块；`stream.chunk` 的 content 类型从「仅 text」扩到 **text/image/resource**（字段见 [ywcoder-integration.md §4.1](ywcoder-integration.md)）。
+- **大小护栏**：单块原始内容 > **1MB** 不内联，降级为一条 `text` 提示（避免撑爆 WS 流与历史库）。
+- **范围**：纯预览——**不做下载、不做上行上传**（上传 = 后续 M6，依赖 vision 模型）。
+- **格式无关**：docx/xlsx 等靠 agent 侧提取工具把内容抽成 text 再走本管道，**不改 shim**（§4.1）。
+- **验收（mock 场景）**：
+  - agent Read 一张图片 → 收到 `stream.chunk type:"result"` 且 content 含 `image` 块；
+  - Read 一张 > 1MB 图片 → 收到降级 `text` 提示、不内联；
+  - csv/md 文本预览不回归（仍走 text）。
+- **依赖**：管控台能渲染 image/resource（否则转了不显示，见 §4.1）。
 
 ## 4. 给执行 agent 的硬约束（务必遵守）
 

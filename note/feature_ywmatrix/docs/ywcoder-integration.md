@@ -107,7 +107,31 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 
 > **工具由 ywcoder 自己执行**（[query.ts:1379](../../../src/query.ts#L1379) `runTools`，`canUseTool` 仅为权限门）。`assistant{tool_use}` 之后的 `user{tool_result}` 是 **ywcoder 自己产出的观测输出**，shim 收到 `tool_use` 时**只做展示翻译，绝不代为执行工具或注入 tool_result**——否则会破坏 ywcoder 内部工具状态机与 usage/计费统计。完整档下也一样：shim 回 `allow` 后由 ywcoder 执行。官方参考实现见 [sessionRunner.ts:483](../../../src/bridge/sessionRunner.ts#L483)（对 `user` 消息只观测、不注入）。
 >
-> `tool_result.content` 可能是字符串或 content block 数组（含 image/resource），可透传为对应 typed content；MVP 只处理文本。
+> `tool_result.content` 可能是字符串或 content block 数组（text/image/resource）。转发规则见 §4.1。
+
+### 4.1 文件/图片预览（typed content 转发）
+
+**目标**：让管控台能预览 agent 读到/产出的文件与图片——shim 把 tool_result 的内容块按类型转发，管控台按类型渲染。**纯预览、无下载、无上传**（历史续接本就把内容持久化到管控台侧，数据边界已如此，不再做「仅本机」隔离）。
+
+**内容块转发（进 `stream.chunk` 的 content 数组）**：
+
+| tool_result 块 | 转发为 | 用途 | 现状 |
+|---|---|---|---|
+| `text` | `{type:"text",text}` | md/csv/txt 等文本预览 | 已支持 |
+| `image` | `{type:"image",data:<base64>,mimeType}` | 图片/图表内联 | **新增** |
+| `resource` | `{type:"resource",resource:{uri,mimeType,text\|blob}}` | 带文件名/类型的「文件卡片」 | **新增（防御性）** |
+
+> `resource` = 有身份的文件（uri + mimeType + 内容），前端可渲成文件卡片；`text` 只是裸文字；`image` 是二进制图。ywcoder 内置 Read 对文本文件产 `text`、对图片产 `image`，`resource` 多来自 MCP 工具，故按「有则转发」处理。
+
+**大小护栏**：单个 image/resource 原始内容超过阈值（默认 **1MB**）→ **不内联**，降级为一条 `text` 提示（如 `[图片 chart.png 1.8MB 过大，未内联预览]`），避免撑爆 WebSocket 流与历史库（协议 §13：大文件不走 WS）。
+
+**格式支持与 shim 解耦**（关键）：能预览哪些格式取决于 **agent 侧的读取能力**，不是 shim/协议的事——
+- **csv/md/txt**：Read 出即 `text`，现在就能预览，管控台做 md 渲染 / 表格化即可。
+- **docx/xlsx 等二进制**：Read 读不出可读文本，需 **agent 有提取工具/技能**（docx→文本、xlsx→表格）；抽取出的内容是 `text`，顺本管道即出——**新增格式不用回来改 shim**。想还原原版排版（Word 版式）是另一件重活（二进制 + 浏览器 office 渲染器），不在此列。
+
+**前置**：要预览「生成的文件/图表」，需 agent 把它 `Read` 回来（只写盘不 Read 不会进流）。
+
+**管控台侧**：需按 content 块类型渲染（text/md/表格、image 内联、resource 文件卡片），否则 shim 转了也不显示。
 
 ## 5. 字段级映射 —— 输入方向（管控台 task.create → ywcoder stdin）
 
@@ -170,10 +194,10 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 - `title` 取请求里的 `title`，缺省 `执行 <tool_name>`；`content` = 入参摘要（Bash 给完整命令、Write 给路径+内容、其余 JSON 摘要，超长截断）+ `description`/`blocked_path`/`decision_reason`。
 - `level` 由 shim 推断：`blocked_path` 存在 → `dangerous`；Bash 命中危险特征（`rm/sudo/dd/mkfs/chmod/chown/curl/wget/ssh/scp/nc/shutdown/reboot`）→ `dangerous`，其余 Bash → `warning`；Write/Edit/MultiEdit/NotebookEdit、WebFetch/WebSearch → `warning`；其余 → `info`。**这是给人看的危险提示，不是安全策略**（真正判定在 ywcoder 侧，见 §8.3）。
 - **不带 `timeout` 字段**：confirm 不设 shim 短超时（§8.3 硬约束 2）。
-**管控台 → shim**：`task.respond`
+**管控台 → shim**：`task.respond`（v2 §6.2.1 定为结构化对象；字符串/boolean 仍兼容）
 ```json
 { "jsonrpc":"2.0","id":"...","method":"task.respond","params":{
-  "task_id":"...","confirm_id":"<rid>","response":"确认" }}
+  "task_id":"...","confirm_id":"<rid>","response":{"decision":"allow","message":"已核对，放行"} }}
 ```
 **shim → ywcoder**（stdin），三种语义：
 ```json
@@ -210,7 +234,21 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 **其它已实现的控制面行为：**
 - `task.create{type:'respond', confirm_id, content}` 等价于 `task.respond`（§5），走同一条裁决路径。
 - `task.respond` 的 `confirm_id` 不存在/已回复/已被撤销 → JSON-RPC `-32000`（§10）。
-- ywcoder 撤销待决权限请求（`control_cancel_request`，如 `interrupt` 触发 abort）→ shim 清理 `confirm_id` 映射；协议上无对应消息，网页侧的悬挂确认框由管控台自行处理（**待确认**）。
+- **确认框撤销 `confirm_cancelled`**（[local-agent-interface-v2.md](local-agent-interface-v2.md) §8.1.1 已采纳）：待决确认失效时 shim 摘除 `confirm_id` 映射并补发一条通知，网页据此关框。
+
+  ```json
+  {"jsonrpc":"2.0","id":null,"method":"stream.chunk","params":{
+    "task_id":"...","session_id":"...",
+    "type":"confirm_cancelled","confirm_id":"<rid>","reason":"task_cancelled" }}
+  ```
+
+  | `reason` | 触发 |
+  |---|---|
+  | `task_cancelled` | 管控台 `task.cancel`（§6.3），shim 先撤框再转 `interrupt` |
+  | `interrupted` | ywcoder 主动放弃该请求（`control_cancel_request`），或本轮以 completed/error 收尾时仍有残留 |
+  | `agent_exited` | ywcoder 子进程异常退出，来不及通知，shim 兜底补发 |
+
+  **去重**：只有映射确实还在时才发通知——`task.cancel` 先摘除，ywcoder 随后迟到的 `control_cancel_request` 便不会让同一个框收到两条撤销（已实测恰好 1 条）。
 - ywcoder 发来的**其它** `control_request` subtype（`hook_callback`/`mcp_message` 等）→ shim 回 `control_response{subtype:'error'}`；不能静默忽略，ywcoder 的 pending 请求没有自超时。
 - `result.permission_denials` 透传进 `task.completed.metadata.permission_denials`，供管控台核对「拒绝确实生效」。
 
@@ -221,6 +259,9 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 ### 6.3 取消：`task.cancel` → `interrupt`
 
 管控台 `task.cancel`（带 `session_id`/`task_id`）→ shim 对**对应 session 的 ywcoder 子进程**发 `{type:'control_request',request_id:'<new>',request:{subtype:'interrupt'}}`（ywcoder 内部中断当前轮；必要时 kill 子进程）。
+
+- **通知形式**：v2 §6.3 定为通知类（**不带 `id`**），此时 shim 不回 `result`，任务不存在也不回 `-32000`（只记 stderr 日志）；兼容带 `id` 的请求形式时才回。
+- **与控制面并存**：若此刻有待决确认，shim 先补发 `confirm_cancelled{reason:'task_cancelled'}` 关框，再转 `interrupt`；ywcoder 随即 abort 该 `can_use_tool`（工具结果为 `AbortError`）并回 `control_cancel_request`（因映射已摘除，不会重复撤销）。已实测。
 
 > ⚠️ **已知缺口（需 AgentClient 侧修）**：当前 stdio 模式下,用户点「停止」时 AgentClient 只关闭本地 chunk 队列,**不会把取消传到 shim**——shim 与 ywcoder 子进程仍在跑,继续烧 API/token 且后续输出被静默丢弃。修法：AgentClient 停止时**补发一行 `task.cancel` 给 shim**（对齐 HTTP 模式的 abort 语义），shim 再按上面转成 `interrupt`。这条不修则「停止」是假的（见 §17-H）。
 

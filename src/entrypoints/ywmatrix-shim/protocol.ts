@@ -93,7 +93,12 @@ export type IncomingMessage =
   | { method: 'lifecycle.initialized'; id: null }
   | { method: 'lifecycle.ping'; id: string | number; params: { timestamp?: string } }
   | { method: 'task.create'; id: string | number; params: TaskCreateParams }
-  | { method: 'task.cancel'; id: string | number; params: TaskCancelParams }
+  // task.cancel 按 v2 §6.3 是通知类（不带 id），但也兼容带 id 的请求形式。
+  | {
+      method: 'task.cancel'
+      id: string | number | null
+      params: TaskCancelParams
+    }
   | {
       method: 'task.respond'
       id: string | number | null
@@ -171,9 +176,10 @@ export function parseIncoming(line: string): ParseResult | null {
     }
     case 'task.cancel': {
       const parsed = TaskCancelParamsSchema.safeParse(params)
-      if (!parsed.success || id === null) {
+      if (!parsed.success) {
         return { ok: false, id, code: JsonRpcErrorCode.InvalidParams, message: 'Invalid params' }
       }
+      // id 允许为 null：AgentClient 的「停止」按通知发（v2 §6.3），此时不回 result。
       return { ok: true, message: { method, id, params: parsed.data } }
     }
     case 'task.respond': {
@@ -311,16 +317,23 @@ export function buildTaskCancelResult(id: string | number, taskId: string): Outg
 interface StreamChunkParams {
   task_id: string
   session_id: string
-  type: 'text' | 'thinking' | 'action' | 'result' | 'confirm_required'
+  type:
+    | 'text'
+    | 'thinking'
+    | 'action'
+    | 'result'
+    | 'confirm_required'
+    | 'confirm_cancelled'
   content?: TypedContent[]
   name?: string
   arguments?: Record<string, unknown>
   is_error?: boolean
   done?: boolean
-  /** confirm_required 专用：即 ywcoder can_use_tool 的 request_id（§6.2）。 */
+  /** confirm_* 专用：即 ywcoder can_use_tool 的 request_id（§6.2）。 */
   confirm_id?: string
   title?: string
   level?: ConfirmLevel
+  reason?: ConfirmCancelReason
 }
 
 export function buildStreamChunk(params: StreamChunkParams): OutgoingMessage {
@@ -441,6 +454,33 @@ export function buildConfirmRequiredChunk(params: {
     title: params.title,
     level: params.level,
     content: [{ type: 'text', text: params.text }],
+  })
+}
+
+/**
+ * 确认框被撤销的原因（local-agent-interface-v2.md §8.1.1）：
+ * - `task_cancelled`：用户点了停止（管控台发来 task.cancel）
+ * - `interrupted`：同轮其它操作触发中止（ywcoder 主动 abort 该权限请求）
+ * - `agent_exited`：ywcoder 子进程异常退出，来不及通知，由 shim 兜底补发
+ */
+export type ConfirmCancelReason = 'task_cancelled' | 'interrupted' | 'agent_exited'
+
+/**
+ * 撤销一个已推送到网页的确认框。协议里没有「撤销」的请求/响应往返，
+ * 这是通知（`id:null`），网页收到即关框、幂等处理。
+ */
+export function buildConfirmCancelledChunk(params: {
+  task_id: string
+  session_id: string
+  confirm_id: string
+  reason: ConfirmCancelReason
+}): OutgoingMessage {
+  return buildStreamChunk({
+    task_id: params.task_id,
+    session_id: params.session_id,
+    type: 'confirm_cancelled',
+    confirm_id: params.confirm_id,
+    reason: params.reason,
   })
 }
 

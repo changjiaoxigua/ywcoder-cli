@@ -75,6 +75,8 @@ interface ScenarioContext {
   sessionIdConsistent: boolean
   confirmCount: number
   confirmLevels: string[]
+  /** 收到的 confirm_cancelled 的 reason 列表（§8.1.1）。 */
+  cancelledConfirms: string[]
   permissionDenials: unknown[]
 }
 
@@ -161,10 +163,22 @@ const SCENARIOS: Scenario[] = [
     confirmAction: 'cancelTask',
     expectEnd: 'error',
     timeoutMs: 180_000,
-    verify: ctx =>
-      fileWritten(ctx, 'confirm-cancel-task.txt')
-        ? ['task.cancel 后文件仍被创建']
-        : [],
+    verify: ctx => {
+      const fails: string[] = []
+      if (fileWritten(ctx, 'confirm-cancel-task.txt')) {
+        fails.push('task.cancel 后文件仍被创建')
+      }
+      // §8.1.1：待决确认框必须被撤销，且只撤销一次（不因 ywcoder 迟到的
+      // control_cancel_request 重复发）。
+      if (ctx.cancelledConfirms.length !== 1) {
+        fails.push(
+          `期望恰好 1 条 confirm_cancelled，实际 ${ctx.cancelledConfirms.length} 条`,
+        )
+      } else if (ctx.cancelledConfirms[0] !== 'task_cancelled') {
+        fails.push(`confirm_cancelled.reason 期望 task_cancelled，实际 ${ctx.cancelledConfirms[0]}`)
+      }
+      return fails
+    },
   },
 ]
 
@@ -212,6 +226,7 @@ function runScenario(scenario: Scenario): Promise<boolean> {
       sessionIdConsistent: true,
       confirmCount: 0,
       confirmLevels: [],
+      cancelledConfirms: [],
       permissionDenials: [],
     }
 
@@ -253,6 +268,7 @@ function runScenario(scenario: Scenario): Promise<boolean> {
         `[${scenario.name}] 观测: text=${ctx.sawText} action=${ctx.sawAction} result=${ctx.sawResult} ` +
           `completed=${ctx.sawCompleted} error=${ctx.sawErrorEvent} confirm=${ctx.confirmCount}` +
           `${ctx.confirmLevels.length ? `(level=${ctx.confirmLevels.join(',')})` : ''} ` +
+          `撤销=${ctx.cancelledConfirms.length}${ctx.cancelledConfirms.length ? `(${ctx.cancelledConfirms.join(',')})` : ''} ` +
           `denials=${ctx.permissionDenials.length} stdout洁净=${!ctx.sawNonJsonl}`,
       )
       for (const f of fails) console.error(`[${scenario.name}] FAIL: ${f}`)
@@ -309,6 +325,12 @@ function runScenario(scenario: Scenario): Promise<boolean> {
         if (p.type === 'text') ctx.sawText = true
         if (p.type === 'action') ctx.sawAction = true
         if (p.type === 'result') ctx.sawResult = true
+        if (p.type === 'confirm_cancelled') {
+          ctx.cancelledConfirms.push(String(p.reason))
+          console.log(
+            `[${scenario.name}] 收到 confirm_cancelled confirm_id=${p.confirm_id} reason=${p.reason}`,
+          )
+        }
         if (p.type === 'confirm_required') {
           ctx.confirmCount += 1
           ctx.confirmLevels.push(String(p.level))
@@ -316,9 +338,9 @@ function runScenario(scenario: Scenario): Promise<boolean> {
             console.log(
               `[${scenario.name}] 收到 confirm_required confirm_id=${p.confirm_id}，改发 task.cancel（§6.3）`,
             )
+            // 按 v2 §6.3 发通知形式（不带 id），shim 不应回 result/error。
             send({
               jsonrpc: '2.0',
-              id: nextId(),
               method: 'task.cancel',
               params: { task_id: taskId, session_id: adoptedSessionId },
             })
