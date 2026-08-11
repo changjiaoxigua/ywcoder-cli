@@ -384,7 +384,8 @@ if (!session_id) {                      // 入口二：管控台没给 → 我�
 | 用户中断任务 | `control_response{deny,interrupt:true}` → ywcoder `result{subtype:error_during_execution}` |
 | 工具执行失败（tool_result.is_error） | `stream.chunk type:"result"` 携带错误文本 |
 | `result.subtype` 为 error_* | `event.error{code:"LOCAL_AGENT_ERROR"}` |
-| ywcoder 子进程异常退出 | `event.error{recoverable:false}` + 上报 offline |
+| ywcoder 子进程异常退出 / 启动失败 | 对**活动任务与该 session 队列里所有排队任务**逐个发 `event.error{recoverable:false}`（排队任务不会产生 result，不逐个上报则在管控台侧永久悬挂）；同时 `confirm_cancelled{reason:'agent_exited'}` 撤销待决确认 |
+| shim 自身崩溃 / AgentClient 关闭 stdout | 捕获后**先 kill 所有 ywcoder 子进程再退出**——否则子进程成孤儿继续跑、继续烧 token（已实测：不处理时确实留下孤儿） |
 
 ## 11. 增量输出去重
 

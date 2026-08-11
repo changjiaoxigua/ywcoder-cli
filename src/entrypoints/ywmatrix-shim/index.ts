@@ -103,6 +103,7 @@ class Shim {
   // confirm_id → 所属 session/task，供 task.respond 路由回对应 ywcoder 子进程（§6.2）。
   // 刻意不带超时定时器：confirm 不设 shim 短超时（§8.3 硬约束 2）。
   private pendingConfirms = new Map<string, PendingConfirm>()
+  private shuttingDown = false
 
   constructor(private args: CliArgs) {}
 
@@ -112,6 +113,14 @@ class Shim {
     rl.on('close', () => this.shutdown())
     process.on('SIGTERM', () => this.shutdown())
     process.on('SIGINT', () => this.shutdown())
+    // AgentClient 先关掉 stdout 的场景：写入会 EPIPE。无监听者时 Node 抛未捕获异常，
+    // shim 猝死 → ywcoder 子进程变孤儿继续跑、继续烧 token。
+    process.stdout.on('error', () => this.shutdown(0))
+    // 同理兜底任何未预期异常：宁可退出，也不能留下没人管的 ywcoder 子进程。
+    process.on('uncaughtException', err => {
+      log(`未捕获异常，回收子进程后退出: ${err instanceof Error ? err.stack : String(err)}`)
+      this.shutdown(1)
+    })
   }
 
   private handleLine(line: string): void {
@@ -202,16 +211,46 @@ class Shim {
       .catch(err => {
         const message = err instanceof Error ? err.message : String(err)
         log(`session_id=${sessionId} 启动失败: ${message}`)
-        writeMessage(
-          buildEventError({
-            task_id: entry.activeTaskId,
-            code: 'LOCAL_AGENT_ERROR',
-            message,
-            recoverable: false,
-          }),
-        )
+        // 启动失败时 activeTaskId 必为 null（pump 还没跑过），若只按它上报，
+        // 触发这次启动的任务反而没人告诉管控台——必须逐个 task 上报。
+        this.failPendingTasks(entry, message)
         this.sessions.delete(sessionId)
       })
+  }
+
+  /**
+   * 把该 session 里「已接收但永远不会有结果」的任务逐个上报为 event.error：
+   * 排队中尚未喂给 ywcoder 的任务不会产生 result 事件，不上报则管控台侧永久悬挂。
+   */
+  private failPendingTasks(entry: SessionEntry, message: string): void {
+    const doomed = entry.queue.splice(0)
+    if (entry.activeTaskId) {
+      doomed.unshift({ taskId: entry.activeTaskId, content: '' })
+      entry.activeTaskId = null
+    }
+    if (doomed.length === 0) {
+      // 连一个任务都没有（如握手期崩溃）：仍需让管控台知道 agent 出事了。
+      writeMessage(
+        buildEventError({
+          task_id: null,
+          code: 'LOCAL_AGENT_ERROR',
+          message,
+          recoverable: false,
+        }),
+      )
+      return
+    }
+    for (const task of doomed) {
+      writeMessage(
+        buildEventError({
+          task_id: task.taskId,
+          code: 'LOCAL_AGENT_ERROR',
+          message,
+          recoverable: false,
+        }),
+      )
+      this.taskToSession.delete(task.taskId)
+    }
   }
 
   /** 同一 session 内多个 task 串行（§9.1）：当前无活动任务时才把队首任务喂给 ywcoder。 */
@@ -310,19 +349,25 @@ class Shim {
         })
         return
       }
-      // 没有活动任务时的 exit/error（如子进程握手期间崩溃）仍需上报。
+      // 没有活动任务时的 exit/error（如子进程握手期间崩溃）仍需上报；队列里
+      // 排队的任务也随之作废，逐个上报（failPendingTasks 在无任务时会退化为
+      // 一条 task_id:null 的 event.error）。
       if (event.kind === 'exit' || event.kind === 'error') {
-        writeMessage(
-          buildEventError({
-            task_id: null,
-            code: 'LOCAL_AGENT_ERROR',
-            message:
-              event.kind === 'error'
-                ? event.message
-                : `ywcoder 子进程异常退出 code=${event.code} signal=${event.signal}`,
-            recoverable: false,
-          }),
-        )
+        const message =
+          event.kind === 'error'
+            ? event.message
+            : `ywcoder 子进程异常退出 code=${event.code} signal=${event.signal}`
+        if (entry) this.failPendingTasks(entry, message)
+        else {
+          writeMessage(
+            buildEventError({
+              task_id: null,
+              code: 'LOCAL_AGENT_ERROR',
+              message,
+              recoverable: false,
+            }),
+          )
+        }
       }
       if (event.kind === 'exit') {
         this.clearPendingConfirms(sessionId, undefined, 'agent_exited')
@@ -362,6 +407,16 @@ class Shim {
 
     if (event.kind === 'exit') {
       this.clearPendingConfirms(sessionId, undefined, 'agent_exited')
+      this.taskToSession.delete(taskId)
+      if (entry && entry.queue.length > 0) {
+        // 活动任务已由上面的 translate 上报为 event.error；这里补上还在排队、
+        // 永远等不到子进程的那些任务（activeTaskId 先清空，避免重复上报）。
+        entry.activeTaskId = null
+        this.failPendingTasks(
+          entry,
+          `ywcoder 子进程异常退出 code=${event.code} signal=${event.signal}`,
+        )
+      }
       this.sessions.delete(sessionId)
     }
   }
@@ -418,9 +473,11 @@ class Shim {
     if (id !== null) writeMessage(buildTaskCancelResult(id, params.task_id))
   }
 
-  private shutdown(): void {
+  private shutdown(code = 0): void {
+    if (this.shuttingDown) return
+    this.shuttingDown = true
     for (const entry of this.sessions.values()) entry.session?.kill()
-    process.exit(0)
+    process.exit(code)
   }
 }
 

@@ -111,6 +111,8 @@ export class YwcoderSession {
   private readyReject!: (err: Error) => void
   private readySettled = false
   private recentStderr: string[] = []
+  /** 子进程是否仍可写 stdin（退出后写会 EPIPE）。 */
+  private alive = false
 
   private constructor(opts: YwcoderSessionOptions) {
     this.opts = opts
@@ -182,6 +184,14 @@ export class YwcoderSession {
       cwd: this.opts.workdir,
       stdio: ['pipe', 'pipe', 'pipe'],
     })
+    this.alive = true
+
+    // stdin 的 'error'（子进程已退出时写入的 EPIPE）若无监听者，Node 会抛成未捕获
+    // 异常，把整个 shim 连同其它 session 一起带走。这里吞掉并记日志：真正的收尾
+    // 由下面的 'exit' 事件统一上报。
+    this.child.stdin.on('error', err => {
+      this.log(`写 ywcoder stdin 失败(子进程可能已退出): ${err.message}`)
+    })
 
     const stdoutRl = createInterface({ input: this.child.stdout })
     stdoutRl.on('line', line => this.handleLine(line))
@@ -198,6 +208,7 @@ export class YwcoderSession {
     })
 
     this.child.on('exit', (code, signal) => {
+      this.alive = false
       if (!this.readySettled) {
         this.settleReadyError(
           new Error(
@@ -467,6 +478,12 @@ export class YwcoderSession {
   }
 
   private send(obj: unknown): void {
+    if (!this.alive || this.child.stdin.destroyed) {
+      // 子进程已退出：丢弃这条写入。对应任务的收尾由 'exit' 事件负责上报，
+      // 这里不再抛错，避免拖垮 shim 内其它 session。
+      this.log('子进程已退出，丢弃待发送消息')
+      return
+    }
     this.child.stdin.write(`${JSON.stringify(obj)}\n`)
   }
 
