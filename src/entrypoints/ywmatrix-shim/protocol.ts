@@ -209,7 +209,24 @@ export function parseIncoming(line: string): ParseResult | null {
 // shim→AgentClient 消息构造
 // ============================================================================
 
-type TypedContent = { type: 'text'; text: string }
+/**
+ * stream.chunk.content 的内容块（§4.1）。M5 起从「仅 text」扩到 text/image/resource：
+ * - `text`：agent 自己的回答/思考，管控台按 markdown 渲染；
+ * - `image`：图片，base64 + mimeType，管控台内联 `<img>`；
+ * - `resource`：文件（文本类），带 uri + mimeType，管控台按 mimeType 路由渲染。
+ */
+type TypedContent =
+  | { type: 'text'; text: string }
+  | { type: 'image'; data: string; mimeType: string }
+  | { type: 'resource'; resource: ResourceBody }
+
+/** resource 块载体：文本类给 `text`，二进制类（MCP 工具可能给）给 `blob`。 */
+interface ResourceBody {
+  uri: string
+  mimeType?: string
+  text?: string
+  blob?: string
+}
 
 export interface OutgoingMessage {
   jsonrpc: '2.0'
@@ -569,24 +586,255 @@ function fromWord(raw: string, message: string): PermissionRespondDecision {
 // §4 映射：ywcoder 事件 → 管控台 stream.chunk / task.completed / event.error
 // ============================================================================
 
-/** tool_result.content 可能是字符串或 typed content 数组；MVP 只取文本块（§4 note）。 */
-function normalizeResultContent(raw: unknown): TypedContent[] {
-  if (typeof raw === 'string') return [{ type: 'text', text: raw }]
-  if (Array.isArray(raw)) {
-    const out: TypedContent[] = []
-    for (const block of raw) {
-      if (
-        block &&
-        typeof block === 'object' &&
-        (block as Record<string, unknown>).type === 'text' &&
-        typeof (block as Record<string, unknown>).text === 'string'
-      ) {
-        out.push({ type: 'text', text: (block as Record<string, unknown>).text as string })
-      }
-    }
-    return out
+// ----------------------------------------------------------------------------
+// §4.1 文件/图片预览：tool_result 内容块 → typed content（text/image/resource）
+// ----------------------------------------------------------------------------
+
+/** 文件读取类工具：其文本结果包成 resource 块，不发裸 text（§4.1 走 B）。 */
+const FILE_READ_TOOLS = new Set(['Read'])
+
+/** 扩展名 → mimeType（§4.1）。管控台按 mimeType 路由渲染（md→HTML、csv→表格…）。 */
+const MIME_BY_EXT: Record<string, string> = {
+  '.md': 'text/markdown',
+  '.markdown': 'text/markdown',
+  '.csv': 'text/csv',
+  '.json': 'application/json',
+  '.log': 'text/plain',
+  '.txt': 'text/plain',
+  '.html': 'text/html',
+  '.htm': 'text/html',
+  '.xml': 'application/xml',
+  '.yaml': 'application/yaml',
+  '.yml': 'application/yaml',
+}
+
+/**
+ * 按扩展名推 mimeType。未知扩展名回落 `text/plain` 而非 `application/octet-stream`：
+ * 走到这里的一定是**已读成文本**的内容（源码、无扩展名配置等），标成二进制流会让
+ * 管控台连文件卡片里的文本预览都放弃。
+ */
+function inferMimeType(filePath: string): string {
+  const dot = filePath.lastIndexOf('.')
+  const slash = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
+  if (dot <= slash + 1) return 'text/plain' // 无扩展名（含 `.bashrc` 这类纯点开头）
+  return MIME_BY_EXT[filePath.slice(dot).toLowerCase()] ?? 'text/plain'
+}
+
+function basename(filePath: string): string {
+  return filePath.slice(
+    Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\')) + 1,
+  )
+}
+
+/**
+ * 行号前缀：`N\t`（紧凑格式，当前默认）或 `     N→`（宽格式）。
+ * 两种格式对应 src/utils/file.ts 的 `addLineNumbers`；此处刻意不 import 那边的
+ * `stripLineNumberPrefix`——shim 是独立打包的入口，为一个正则拖进主程序的
+ * feature flag 依赖链不划算。格式若变更，两处同步。
+ */
+const LINE_NUMBER_PREFIX = /^ *\d+[→\t]/
+/**
+ * 尾部 <system-reminder> 块（Read 会追加 `\n\n<system-reminder>…</system-reminder>\n`，
+ * 见 FileReadTool.ts 的 CYBER_RISK_MITIGATION_REMINDER）。
+ * 内层用「非 `</system-reminder>`」而不是 `[\s\S]*?`，避免文件正文里恰好含该标签时
+ * 从正文中间开始剥。前面只吃它自己加的那两个换行，多余的换行属于文件内容。
+ */
+const TRAILING_SYSTEM_REMINDER =
+  /\n{0,2}<system-reminder>(?:(?!<\/system-reminder>)[\s\S])*<\/system-reminder>[ \t\n]*$/
+
+/**
+ * 清洗 ywcoder Read 的 tool_result 文本，还原干净文件内容（§4.1 实现坑）。
+ *
+ * Read 给出的**不是**原文：每行带行号前缀，尾部可能附 <system-reminder> 提示块。
+ * 不清洗就包成 resource 交管控台按 md/csv 渲染会错乱。
+ *
+ * 顺序有讲究：先剥行号（尾部 reminder 那几行没有行号，不受影响），再剥 reminder。
+ * 反过来会把最后一行（空行的 `N\t` 前缀）剥成孤零零的行号数字。
+ */
+function cleanReadOutput(text: string): string {
+  const withoutLineNumbers = text
+    .split('\n')
+    .map(line => line.replace(LINE_NUMBER_PREFIX, ''))
+    .join('\n')
+  let out = withoutLineNumbers
+  let prev: string
+  do {
+    prev = out
+    out = out.replace(TRAILING_SYSTEM_REMINDER, '')
+  } while (out !== prev)
+  return out
+}
+
+/**
+ * 单个内容块的内联上限：**2MB**（§4.1，已与管控台定）。
+ * 天花板是网关 `messages.content` 的 MEDIUMTEXT（16MB），2MB 远低于此。
+ */
+const MAX_INLINE_BYTES = 2 * 1024 * 1024
+/** 文本截断预览留给标注文案的余量，保证降级后的块仍不超过阈值。 */
+const TRUNCATE_RESERVE_BYTES = 1024
+
+/** 一位小数、整数不留 `.0`（对齐 §4.1 的文案样例 `2.4MB 超阈值 2MB`）。 */
+function formatSize(bytes: number): string {
+  const scaled = (unit: number, suffix: string): string =>
+    `${(bytes / unit).toFixed(1).replace(/\.0$/, '')}${suffix}`
+  if (bytes >= 1024 * 1024) return scaled(1024 * 1024, 'MB')
+  if (bytes >= 1024) return scaled(1024, 'KB')
+  return `${bytes}B`
+}
+
+/** 块的传输字节数：文本按 utf8，图片/blob 按 base64 字符串本身（即真正上线的负载）。 */
+function blockByteSize(block: TypedContent): number {
+  switch (block.type) {
+    case 'text':
+      return Buffer.byteLength(block.text, 'utf8')
+    case 'image':
+      return Buffer.byteLength(block.data, 'utf8')
+    case 'resource':
+      return Buffer.byteLength(
+        block.resource.text ?? block.resource.blob ?? '',
+        'utf8',
+      )
   }
-  return []
+}
+
+/** 按字节截断，并抹掉结尾被切碎的多字节字符（解码后的 U+FFFD）。 */
+function truncateUtf8(text: string, maxBytes: number): string {
+  const buf = Buffer.from(text, 'utf8')
+  if (buf.length <= maxBytes) return text
+  return buf.subarray(0, maxBytes).toString('utf8').replace(/�+$/, '')
+}
+
+/**
+ * 大小护栏（§4.1）：单块 > 2MB 就**不内联**，降级为一条 text 块提示，
+ * 文案带「文件名 + 实际大小 + 阈值」三要素。
+ * - 文本类（text/resource.text）：截断保留开头 + 标注，用户仍能看前半截；
+ * - 图片/二进制（image/resource.blob）：base64 截半无意义，只发提示。
+ *
+ * 这是**优雅降级**，不是报错：任务照常，原文件仍在员工终端磁盘上。
+ */
+function applySizeGuard(block: TypedContent, name: string): TypedContent {
+  const size = blockByteSize(block)
+  if (size <= MAX_INLINE_BYTES) return block
+
+  const limit = formatSize(MAX_INLINE_BYTES)
+  const actual = formatSize(size)
+  const body =
+    block.type === 'text'
+      ? block.text
+      : block.type === 'resource'
+        ? block.resource.text
+        : undefined
+  if (body === undefined) {
+    const kind = block.type === 'image' ? '图片' : '文件'
+    return {
+      type: 'text',
+      text: `[${kind} ${name} ${actual} 超阈值 ${limit}，未内联预览，原文件在终端]`,
+    }
+  }
+  const kept = truncateUtf8(body, MAX_INLINE_BYTES - TRUNCATE_RESERVE_BYTES)
+  return {
+    type: 'text',
+    text: `${kept}\n\n[文件 ${name} ${actual} 超阈值 ${limit}，已截断预览，原文件在终端]`,
+  }
+}
+
+/** 从 Anthropic（source.data/media_type）或 MCP（data/mimeType）两种形状取图片。 */
+function toImageBlock(b: Record<string, unknown>): TypedContent | null {
+  const source = b.source as Record<string, unknown> | undefined
+  const data =
+    typeof b.data === 'string'
+      ? b.data
+      : typeof source?.data === 'string'
+        ? source.data
+        : null
+  if (data === null) return null
+  const mimeType =
+    (typeof b.mimeType === 'string' ? b.mimeType : undefined) ??
+    (typeof source?.media_type === 'string' ? source.media_type : undefined) ??
+    'image/png'
+  return { type: 'image', data, mimeType }
+}
+
+/**
+ * tool_result.content（字符串或内容块数组）→ 管控台 typed content（§4/§4.1）。
+ *
+ * - 文件读取类工具的**文本**结果 → `resource` 块（清洗 + 按扩展名推 mimeType），
+ *   不发裸 text，否则管控台没有类型上下文只能当 markdown 渲；
+ * - 图片 → `image` 块；同一结果里若既有 image 又有 resource，**优先 image**，
+ *   避免同一张图 base64 与 uri 重复传；
+ * - 其余（agent 回答、非文件工具输出、报错文本）→ 原样 `text` 块。
+ */
+function normalizeResultContent(
+  raw: unknown,
+  ctx: { toolName: string; filePath?: string; isError: boolean },
+): TypedContent[] {
+  const blocks: unknown[] = typeof raw === 'string' ? [{ type: 'text', text: raw }] : Array.isArray(raw) ? raw : []
+  // 报错结果（is_error）里的文本是错误信息、不是文件内容，不包 resource。
+  const asFile =
+    !ctx.isError && ctx.filePath !== undefined && FILE_READ_TOOLS.has(ctx.toolName)
+
+  const out: TypedContent[] = []
+  for (const block of blocks) {
+    if (!block || typeof block !== 'object') continue
+    const b = block as Record<string, unknown>
+    switch (b.type) {
+      case 'text': {
+        if (typeof b.text !== 'string') continue
+        if (!asFile) {
+          out.push({ type: 'text', text: b.text })
+          break
+        }
+        const filePath = ctx.filePath as string
+        const cleaned = cleanReadOutput(b.text)
+        if (cleaned.length === 0) {
+          // 清洗后为空 = 整段都是 <system-reminder>（如「文件为空」告警），
+          // 不是文件内容，原样按 text 发给网页。
+          out.push({ type: 'text', text: b.text })
+          break
+        }
+        out.push({
+          type: 'resource',
+          resource: { uri: filePath, mimeType: inferMimeType(filePath), text: cleaned },
+        })
+        break
+      }
+      case 'image': {
+        const image = toImageBlock(b)
+        if (image) out.push(image)
+        break
+      }
+      case 'resource': {
+        const res = b.resource as Record<string, unknown> | undefined
+        if (!res || typeof res.uri !== 'string') break
+        out.push({
+          type: 'resource',
+          resource: {
+            uri: res.uri,
+            ...(typeof res.mimeType === 'string' ? { mimeType: res.mimeType } : {}),
+            ...(typeof res.text === 'string' ? { text: res.text } : {}),
+            ...(typeof res.blob === 'string' ? { blob: res.blob } : {}),
+          },
+        })
+        break
+      }
+      default:
+        // 未知块类型（如 document）：管控台无渲染分支，丢弃而非乱发。
+        break
+    }
+  }
+
+  // §4.1：image 与 resource 并存时只留 image（同一张图不重复传 base64 + uri）。
+  const deduped = out.some(b => b.type === 'image')
+    ? out.filter(b => b.type !== 'resource')
+    : out
+
+  const displayName = ctx.filePath ? basename(ctx.filePath) : ctx.toolName
+  return deduped.map(b =>
+    applySizeGuard(
+      b,
+      b.type === 'resource' ? basename(b.resource.uri) : displayName,
+    ),
+  )
 }
 
 /** 把一个规范化的 ywcoder 事件翻译为 0..N 条要发给 AgentClient 的消息。 */
@@ -631,7 +879,11 @@ export function translateYwcoderEvent(
           session_id: ctx.sessionId,
           type: 'result',
           name: event.name,
-          content: normalizeResultContent(event.content),
+          content: normalizeResultContent(event.content, {
+            toolName: event.name,
+            filePath: event.filePath,
+            isError: event.isError,
+          }),
           is_error: event.isError,
         }),
       ]

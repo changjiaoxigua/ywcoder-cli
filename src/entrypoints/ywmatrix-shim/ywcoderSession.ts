@@ -59,6 +59,11 @@ export type YwcoderSessionEvent =
       name: string
       content: unknown
       isError: boolean
+      /**
+       * M5：对应 tool_use 的 `arguments.file_path`（若有）。文件读取类结果据此
+       * 推断 mimeType 并包成 resource 块（§4.1）。
+       */
+      filePath?: string
     }
   | {
       kind: 'completed'
@@ -121,7 +126,8 @@ export class YwcoderSession {
   readonly sessionId: string
   private opts: YwcoderSessionOptions
   private child!: ChildProcessWithoutNullStreams
-  private toolNameByUseId = new Map<string, string>()
+  /** tool_use_id → 工具名与文件路径，供 tool_result 回填（M5 起多记 file_path，§4.1）。 */
+  private toolInfoByUseId = new Map<string, { name: string; filePath?: string }>()
   private initRequestId!: string
   private readyResolve!: () => void
   private readyReject!: (err: Error) => void
@@ -401,8 +407,12 @@ export class YwcoderSession {
         const toolUseId = b.id as string
         const name = (b.name as string) ?? 'Tool'
         const input = (b.input as Record<string, unknown>) ?? {}
-        // 工具由 ywcoder 自己执行，这里只记录 id→name 供 tool_result 回填、只做展示翻译。
-        this.toolNameByUseId.set(toolUseId, name)
+        // 工具由 ywcoder 自己执行，这里只记录 id→{name,file_path} 供 tool_result 回填、
+        // 只做展示翻译。
+        this.toolInfoByUseId.set(toolUseId, {
+          name,
+          filePath: typeof input.file_path === 'string' ? input.file_path : undefined,
+        })
         this.opts.onEvent({ kind: 'action', toolUseId, name, input })
       }
     }
@@ -419,13 +429,14 @@ export class YwcoderSession {
       const b = block as Record<string, unknown>
       if (b.type !== 'tool_result') continue
       const toolUseId = b.tool_use_id as string
-      const name = this.toolNameByUseId.get(toolUseId) ?? 'unknown'
+      const info = this.toolInfoByUseId.get(toolUseId)
       this.opts.onEvent({
         kind: 'result',
         toolUseId,
-        name,
+        name: info?.name ?? 'unknown',
         content: b.content,
         isError: Boolean(b.is_error),
+        filePath: info?.filePath,
       })
     }
   }

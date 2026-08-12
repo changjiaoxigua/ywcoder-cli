@@ -1,8 +1,8 @@
 # ywmatrix-shim 构建计划（交执行 agent）
 
 > 配套设计与字段映射见 [ywcoder-integration.md](ywcoder-integration.md)。本文只讲「怎么建、建到哪、怎么验收」。
-> **状态（2026-08）**：**M1~M3 简单档 + M4 完整档（权限控制面）均已实现并端到端验证通过**（mock 真调模型 PASS）。
-> M1~M3 执行结果见 §7，M4 见 §8。**M5 文件/图片预览：规划中（见 §3 M5 + [ywcoder-integration.md §4.1](ywcoder-integration.md)）。**
+> **状态（2026-08）**：**M1~M3 简单档 + M4 完整档（权限控制面）+ M5 文件/图片预览均已实现并端到端验证通过**（mock 真调模型 PASS）。
+> M1~M3 执行结果见 §7，M4 见 §8，M5 见 §9。**M6 上行上传：后续（M6a 文本可先做，M6b 图片待 vision）。**
 
 ## 0. 前置设定（已定）
 
@@ -67,16 +67,27 @@
 - mock 扩展：`--scenario read|allow|deny|cancel|cancel-task|all`
 - **验收**（mock 真调模型全 PASS，见 §8）
 
-### M5 — 文件/图片预览（typed content 转发，规划中）
-- shim：放开 `normalizeResultContent`（现在只留 text 块），额外转发 tool_result 的 `image`/`resource` 块；`stream.chunk` 的 content 类型从「仅 text」扩到 **text/image/resource**（字段见 [ywcoder-integration.md §4.1](ywcoder-integration.md)）。
-- **大小护栏**：单块原始内容 > **1MB** 不内联，降级为一条 `text` 提示（避免撑爆 WS 流与历史库）。
-- **范围**：纯预览——**不做下载、不做上行上传**（上传 = 后续 M6，依赖 vision 模型）。
-- **格式无关**：docx/xlsx 等靠 agent 侧提取工具把内容抽成 text 再走本管道，**不改 shim**（§4.1）。
-- **验收（mock 场景）**：
-  - agent Read 一张图片 → 收到 `stream.chunk type:"result"` 且 content 含 `image` 块；
-  - Read 一张 > 1MB 图片 → 收到降级 `text` 提示、不内联；
-  - csv/md 文本预览不回归（仍走 text）。
-- **依赖**：管控台能渲染 image/resource（否则转了不显示，见 §4.1）。
+### M5 — 文件/图片预览（typed content 转发）✅
+字段与约定以 [ywcoder-integration.md §4.1](ywcoder-integration.md) 为准（已与管控台对齐，见 m5-preview-reply.md）。要点：
+- **放开 `normalizeResultContent`**（现在只留 text 块），`stream.chunk` content 类型扩到 **text/image/resource**。
+- **文件读取（文本类）走 `resource` 块**（带 `uri`+`mimeType`+清洗后 `text`），**不发裸 text**；mimeType 按扩展名推（`.md/.csv/.json/.log/.txt`…），file_path 取自对应 `tool_use.arguments.file_path`（新增维护 `tool_use_id → file_path`）。
+- **⚠️ 必须清洗 Read 输出**：剥掉每行 `N\t` 行号前缀 + 去尾部 `<system-reminder>`，否则管控台按 md/csv 渲染会错乱（§4.1 有实测样例）。
+- **图片走 `image` 块**（base64+mimeType）；若同时有 image 与 resource，**优先 image**。
+- **大小护栏 = 2MB**：单块 > 2MB 不内联，降级为 `text` 提示，文案带**文件名+实际大小+阈值**；对 text/image/resource 都生效；文本可截断+标注，图片/二进制发提示。
+- **范围**：纯预览——**不做下载、不做上传**（上传见 M6）。
+- **格式无关**：docx/xlsx 靠 agent 侧提取工具抽成文本再走本管道，**不改 shim**。
+- **验收（mock 场景，须端到端看渲染，不只验"发了 resource 块"）**——实测见 §9：
+  - [x] Read 一个 md → 收到 `resource` 块，mimeType=`text/markdown`，`text` **无行号前缀、无 system-reminder**（清洗生效，与原文逐字节一致）；
+  - [x] Read 一个 csv → `resource` 块 mimeType=`text/csv`；
+  - [x] Read 一张图片 → `image` 块（base64+mimeType），不重复发 resource；
+  - [x] Read 一个 > 2MB 文件 → 不内联大内容、任务优雅收尾；**但 ywcoder 的 Read 有 256KB 自限，真实读文件够不着 2MB 护栏**，护栏字节级行为改由 `protocol.test.ts` 合成超限块验证（见 §9 偏差 1）；
+  - [x] agent 普通回答仍是 `text` 块（不受影响）。
+- **依赖**：管控台按 mimeType 渲染 resource + image（已实现；csv 表格化本期在做）。
+
+### M6 — 上行上传（后续，拆两档）
+上行管道管控台已通（用户传的文件/图片以 **URL** 到达 agent，非 base64 内联）。
+- **M6a — 上传文本类（csv/json/log 等）**：shim 拉 URL → 抽取文本 → 作为 task 上下文喂模型。**不需要 vision**，可先做。
+- **M6b — 上传图片**：shim fetch URL → base64 → `image` content block → 喂 **vision 模型**。**阻塞在模型能力**（取决于 provider），待 vision 联调。
 
 ## 4. 给执行 agent 的硬约束（务必遵守）
 
@@ -142,3 +153,29 @@
 3. **`control_cancel_request` 需要处理**：ywcoder abort 待决权限请求后会发这条，shim 不清理映射会泄漏（且后续 `task.respond` 回的 control_response 无人认领）。
 
 **遗留/待确认**：网页侧「确认/取消」按钮的实际回传值；权限请求被 ywcoder 撤销后，管控台如何收回已展示的确认框（协议无对应消息）。
+
+## 9. 执行结果与偏差（M5 文件/图片预览实测）
+
+**交付**（均在既有文件上增量改，ywcoder 运行时仍零改动）：
+- `ywcoderSession.ts`：`toolNameByUseId` 升级为 `toolInfoByUseId`（`tool_use_id → {name, file_path}`），`result` 事件带上 `filePath`。
+- `protocol.ts`：`TypedContent` 从「仅 text」扩到 **text/image/resource**；`normalizeResultContent` 重写——文件读取类工具的文本结果清洗后包 `resource`（uri=file_path、mimeType 按扩展名推）、图片转 `image`（兼容 Anthropic `source.data/media_type` 与 MCP `data/mimeType` 两种形状）、image 与 resource 并存时只留 image；新增 `cleanReadOutput`（剥行号前缀 + 尾部 `<system-reminder>`）与 2MB 大小护栏 `applySizeGuard`。
+- `protocol.test.ts`：新增 13 例纯函数单测（清洗逐字节核对、mimeType 推断、图片形状、去重、护栏三要素与截断边界）。
+- `mock-agentclient.ts`：新增 `--scenario preview | preview-big`，`Scenario.setup` 铺装置文件；留存 result 内容块用于断言；超长协议行改为省略打印（预览块可达 MB 级）。
+
+**验证**：`bun run build`、`bun run smoke`、`bun test src/entrypoints/ywmatrix-shim/`（21 例）通过；mock 真调模型端到端 **PASS**：
+
+| 场景 | 实测结果 |
+|---|---|
+| `preview` | Read md → `resource{mimeType:text/markdown}`，`text` 与磁盘原文**逐字节一致**（无行号前缀、无 system-reminder）；Read csv → `resource{mimeType:text/csv}` 同样逐字节一致；Read png → `image{data,mimeType:image/png}`，**未重复发 resource**；agent 回答仍是 `text` 块 |
+| `preview-big` | 3MB 文本：**ywcoder 的 Read 自身先拒**（见下方偏差 1），shim 原样转发其 `is_error` 文本，无大内容内联、任务照常 `completed` |
+| `read`/`allow`/`deny`/`cancel`/`cancel-task` | M1~M4 全部不回归 |
+
+**实现中发现的偏差与决定（均只在 shim 侧处理）**：
+1. **⚠️ 2MB 护栏在当前 ywcoder 上「够不着」**：ywcoder 的 Read 有自己的 **256KB 文件大小上限**（[limits.ts](../../../src/tools/FileReadTool/limits.ts) `maxSizeBytes`，超限直接抛错）、图片按 25000 token 预算压缩（[FileReadTool.ts](../../../src/tools/FileReadTool/FileReadTool.ts) `readImageWithTokenBudget`）。因此**读文件这条路产不出 >2MB 的内容块**，`preview-big` 观测到的是 ywcoder 自己的 `is_error` 提示（优雅降级、任务照常）。护栏仍按定稿实现并保留——它是给未来 MCP 工具/agent 侧提取能力（docx/xlsx 抽文本）兜底的。**其字节级行为改由 `protocol.test.ts` 用合成的超限块验证**（截断保留开头 + 三要素文案 + 降级后块本身不超阈值）。
+2. **`is_error` 的结果不包 resource**：Read 失败时 tool_result 文本是错误信息而非文件内容，包成 resource 会让管控台把报错当 md 渲。
+3. **清洗顺序有讲究**：必须**先剥行号前缀、再剥尾部 `<system-reminder>`**。反过来做，剥 reminder 时前置的 `\s*` 会吃掉最后一行空行的 `N\t`，留下一个孤零零的行号数字。
+4. **两种行号格式都要剥**：`addLineNumbers` 有紧凑（`N\t`，当前默认）与宽（`     N→`）两种格式，均已覆盖。
+5. **未知扩展名回落 `text/plain` 而非 `application/octet-stream`**：走到该分支的内容已经是文本（源码、无扩展名配置），标成二进制流会让管控台连文件卡片里的文本预览都放弃。
+6. **降级文案的阈值写作 `2MB` 而非 `2.0MB`**：对齐 §4.1 的文案样例。
+
+**遗留**：真实 AgentClient 联调待其交付；管控台侧 csv 表格化渲染本期在做（不阻塞 shim）。

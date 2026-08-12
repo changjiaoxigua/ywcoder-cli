@@ -111,27 +111,39 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 
 ### 4.1 文件/图片预览（typed content 转发）
 
-**目标**：让管控台能预览 agent 读到/产出的文件与图片——shim 把 tool_result 的内容块按类型转发，管控台按类型渲染。**纯预览、无下载、无上传**（历史续接本就把内容持久化到管控台侧，数据边界已如此，不再做「仅本机」隔离）。
+**目标**：让管控台能预览 agent 读到/产出的文件与图片——shim 把 tool_result 的内容块按类型转发，管控台按类型渲染。**纯预览、无下载、无上传**（历史续接本就把内容持久化到管控台侧，数据边界已如此，不再做「仅本机」隔离）。**下方所有约定均已与管控台定稿**（见 [m5-preview-alignment.md](m5-preview-alignment.md) / [m5-preview-reply.md](m5-preview-reply.md)）。
 
 **内容块转发（进 `stream.chunk` 的 content 数组）**：
 
-| tool_result 块 | 转发为 | 用途 | 现状 |
-|---|---|---|---|
-| `text` | `{type:"text",text}` | md/csv/txt 等文本预览 | 已支持 |
-| `image` | `{type:"image",data:<base64>,mimeType}` | 图片/图表内联 | **新增** |
-| `resource` | `{type:"resource",resource:{uri,mimeType,text\|blob}}` | 带文件名/类型的「文件卡片」 | **新增（防御性）** |
+| tool_result 内容 | 转发为 | 管控台渲染 |
+|---|---|---|
+| **文件读取（文本类：md/csv/json/log…）** | **`resource` 块**：`{type:"resource",resource:{uri:<文件名/路径>,mimeType,text:<干净内容>}}` | 按 `mimeType` 路由（md→HTML、csv→表格、其余→文件卡片） |
+| **图片** | `image` 块：`{type:"image",data:<base64>,mimeType}` | `<img>` 内联 |
+| agent 自己的回答/thinking（非文件） | `text` 块 | markdown 渲染 |
 
-> `resource` = 有身份的文件（uri + mimeType + 内容），前端可渲成文件卡片；`text` 只是裸文字；`image` 是二进制图。ywcoder 内置 Read 对文本文件产 `text`、对图片产 `image`，`resource` 多来自 MCP 工具，故按「有则转发」处理。
+**为什么文件走 resource 而不是裸 text（走 B，已定）**：裸 `text` 块不带"这是 md 还是 csv"的类型信息，管控台只能当 markdown 渲。`resource` 块带 `mimeType` 消除歧义，且管控台**已实现** resource 按 mimeType 渲染分支，shim 走 B 对管控台零改动。
 
-**大小护栏**：单个 image/resource 原始内容超过阈值（默认 **1MB**）→ **不内联**，降级为一条 `text` 提示（如 `[图片 chart.png 1.8MB 过大，未内联预览]`），避免撑爆 WebSocket 流与历史库（协议 §13：大文件不走 WS）。
+> ⚠️ **实现坑（必须处理）**：ywcoder 的 Read 返回的 tool_result 文本**不是干净文件内容**，而是**每行带 `N\t` 行号前缀 + 尾部可能附 `<system-reminder>`**（本 session mock 实测：`"1\t# 标题\n2\t...\n\n<system-reminder>...</system-reminder>"`）。直接包成 `resource` 交管控台按 md/csv 渲染会**错乱**。**shim 走 B 前必须先清洗**：剥掉每行 `N\t` 行号前缀、去掉尾部 `<system-reminder>` 块，得到干净内容再放进 `resource.text`。验收**必须端到端看渲染结果**，不能只验"发出了 resource 块"。
+
+**mimeType 推断**：shim 按文件扩展名推（`.md`→`text/markdown`、`.csv`→`text/csv`、`.json`→`application/json`、`.log/.txt`→`text/plain`…）。文件路径来自对应 `tool_use` 的 `arguments.file_path`（shim 已维护 `tool_use_id → name`，再加维护 `→ file_path` 即可）。
+
+**大小护栏（阈值 = 2MB，已与管控台定）**：单个内容块原始大小 > **2MB** → **不内联**，降级为一条 `text` 提示，文案带**文件名 + 实际大小 + 阈值**三要素（如 `[文件 report.csv 2.4MB 超阈值 2MB，已截断预览，原文件在终端]`）。
+- 阈值对 **text/image/resource 所有块**生效（不只图片）：csv、docx/xlsx 抽取文本也可能超。
+- 文本超限可**截断 + 标注**（保留前 2MB，用户仍能看开头）；图片/二进制超限只能发**提示**（base64 截半无意义）。
+- 天花板：网关 `messages.content` 为 MEDIUMTEXT（**16MB 上限**），2MB 远低于此，安全（协议 §13：大文件不走 WS）。
+- 超限 = **优雅降级**，不是报错：任务照常、ywcoder 内部有真实内容、文件仍在终端磁盘。
+
+> **实测补充（M5 实现时发现，管控台侧无需改动）**：当前 ywcoder 的 Read 自带 **256KB 文件大小上限**（[limits.ts](../../../src/tools/FileReadTool/limits.ts)，超限直接返回 `is_error` 提示、不产内容），图片则按 25000 token 预算压缩到 ~200KB 级。因此**「读文件」这条路目前产不出 >2MB 的内容块**，2MB 护栏实际是给未来 MCP 工具、以及 agent 侧提取能力（docx/xlsx 抽文本）兜底的安全网。护栏已按定稿实现，字节级行为由 shim 单测覆盖。
+
+**其它约定（已定）**：
+- 图片若同时有 `image` 块（base64）和 `resource` 块（uri），**优先 `image` 块**，避免 base64 重复传输。
+- 纯文本文件统一发 `resource`，**不发裸 `text`**（否则管控台无 mimeType 上下文，只能当 md 渲）。
 
 **格式支持与 shim 解耦**（关键）：能预览哪些格式取决于 **agent 侧的读取能力**，不是 shim/协议的事——
-- **csv/md/txt**：Read 出即 `text`，现在就能预览，管控台做 md 渲染 / 表格化即可。
-- **docx/xlsx 等二进制**：Read 读不出可读文本，需 **agent 有提取工具/技能**（docx→文本、xlsx→表格）；抽取出的内容是 `text`，顺本管道即出——**新增格式不用回来改 shim**。想还原原版排版（Word 版式）是另一件重活（二进制 + 浏览器 office 渲染器），不在此列。
+- **csv/md/txt/json/log**：Read 出即文本，shim 清洗后包 resource，现在就能预览（管控台 csv 表格化本期在做）。
+- **docx/xlsx 等二进制**：Read 读不出可读文本，需 **agent 有提取工具/技能**（docx→文本、xlsx→表格）；抽取出的文本顺本管道即出——**新增格式不用回来改 shim**。还原原版排版是另一件重活，不在此列。
 
 **前置**：要预览「生成的文件/图表」，需 agent 把它 `Read` 回来（只写盘不 Read 不会进流）。
-
-**管控台侧**：需按 content 块类型渲染（text/md/表格、image 内联、resource 文件卡片），否则 shim 转了也不显示。
 
 ## 5. 字段级映射 —— 输入方向（管控台 task.create → ywcoder stdin）
 
