@@ -64,6 +64,8 @@ export type YwcoderSessionEvent =
        * 推断 mimeType 并包成 resource 块（§4.1）。
        */
       filePath?: string
+      /** M5：对应 tool_use 带了 offset/limit，结果只是文件片段而非全文。 */
+      partialRead?: boolean
     }
   | {
       kind: 'completed'
@@ -126,8 +128,11 @@ export class YwcoderSession {
   readonly sessionId: string
   private opts: YwcoderSessionOptions
   private child!: ChildProcessWithoutNullStreams
-  /** tool_use_id → 工具名与文件路径，供 tool_result 回填（M5 起多记 file_path，§4.1）。 */
-  private toolInfoByUseId = new Map<string, { name: string; filePath?: string }>()
+  /** tool_use_id → 工具名与文件读取上下文，供 tool_result 回填（M5，§4.1）。 */
+  private toolInfoByUseId = new Map<
+    string,
+    { name: string; filePath?: string; partialRead?: boolean }
+  >()
   private initRequestId!: string
   private readyResolve!: () => void
   private readyReject!: (err: Error) => void
@@ -412,6 +417,8 @@ export class YwcoderSession {
         this.toolInfoByUseId.set(toolUseId, {
           name,
           filePath: typeof input.file_path === 'string' ? input.file_path : undefined,
+          // 带 offset/limit 的读只取了文件一段，不能当整文件预览（见 protocol.ts）。
+          partialRead: input.offset !== undefined || input.limit !== undefined,
         })
         this.opts.onEvent({ kind: 'action', toolUseId, name, input })
       }
@@ -437,6 +444,7 @@ export class YwcoderSession {
         content: b.content,
         isError: Boolean(b.is_error),
         filePath: info?.filePath,
+        partialRead: info?.partialRead,
       })
     }
   }

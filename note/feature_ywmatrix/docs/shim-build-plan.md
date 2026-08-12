@@ -178,4 +178,16 @@
 5. **未知扩展名回落 `text/plain` 而非 `application/octet-stream`**：走到该分支的内容已经是文本（源码、无扩展名配置），标成二进制流会让管控台连文件卡片里的文本预览都放弃。
 6. **降级文案的阈值写作 `2MB` 而非 `2.0MB`**：对齐 §4.1 的文案样例。
 
-**遗留**：真实 AgentClient 联调待其交付；管控台侧 csv 表格化渲染本期在做（不阻塞 shim）。
+**代码审查（`a8b2dc4` 后）发现并修复的 5 个真实缺陷**——均为「Read 输出的其它真实形态」，全部已复现、修复并加回归单测：
+
+| # | 缺陷 | 后果 | 修法 |
+|---|---|---|---|
+| 1 | 尾部 `<system-reminder>` 用正则从左找起点 | 正文含**未闭合**的 `<system-reminder>`（讲 hook/prompt 的文档就这么写）时，从正文中间一路剥到文件末尾，**静默截断正文** | 改为从末尾倒着认（`lastIndexOf` + 配对校验），见 `stripTrailingSystemReminders` |
+| 2 | 去重逻辑是「只要有 image 就丢掉全部 resource」 | Read 含图输出的 `.ipynb` 时（`mapNotebookCellsToToolResult` 返回 text+image 混合块），**源码全丢只剩一张图** | 去重判据限定在 **`image/*` 的 resource** 上 |
+| 3 | 同一次 Read 的多个 text 块各自生成 resource | 管控台收到多张 uri 相同、各只有一段的卡片 | 合并成**一个** resource |
+| 4 | 桩文本被当文件正文包进 resource | `FILE_UNCHANGED_STUB`（重复读未改动文件）、`PDF file read: …` 被当成文件正文渲染 | 以「**是否有行号前缀**」判定是否文件正文（`looksLikeFileBody`），比硬编码桩文本鲁棒 |
+| 5 | 只剥尾部 reminder，未处理**前置**的 | 读 memdir 记忆文件（>1 天）时 `resource.text` 首行残留 `<system-reminder>This memory is N days old…</system-reminder>` | 新增 `stripLeadingSystemReminders`，并调整清洗顺序 |
+
+**另一处按保守方案处理**：Read 带 `offset/limit` 的**分片读**结果只是文件片段（行号还被剥掉），旧实现会让管控台把 200 行片段当成整个 `app.log` 展示。现改为**分片读不包 resource、按裸 text 发**（绝不谎称是全文）。更好的解是 `resource.uri` 带 fragment（如 `app.log#L5000-5199`）同时保住 mimeType 渲染与准确性，但那是**新的协议语义、需与管控台对齐**，故未自行引入。
+
+**遗留**：真实 AgentClient 联调待其交付；管控台侧 csv 表格化渲染本期在做（不阻塞 shim）；分片读的 uri fragment 方案待与管控台确认；`toolInfoByUseId` 只增不删（改动前的 `toolNameByUseId` 亦然，属既有问题，未一并处理）。

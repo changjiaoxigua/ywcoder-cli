@@ -633,36 +633,74 @@ function basename(filePath: string): string {
  * feature flag 依赖链不划算。格式若变更，两处同步。
  */
 const LINE_NUMBER_PREFIX = /^ *\d+[→\t]/
+
+const REMINDER_OPEN = '<system-reminder>'
+const REMINDER_CLOSE = '</system-reminder>'
+
 /**
- * 尾部 <system-reminder> 块（Read 会追加 `\n\n<system-reminder>…</system-reminder>\n`，
- * 见 FileReadTool.ts 的 CYBER_RISK_MITIGATION_REMINDER）。
- * 内层用「非 `</system-reminder>`」而不是 `[\s\S]*?`，避免文件正文里恰好含该标签时
- * 从正文中间开始剥。前面只吃它自己加的那两个换行，多余的换行属于文件内容。
+ * 剥前置 <system-reminder> 块：读 memdir 记忆文件时 Read 会在正文**前面**插一条
+ * 时效提示（`memoryAge.ts` 的 `memoryFreshnessNote`，>1 天才有）。
  */
-const TRAILING_SYSTEM_REMINDER =
-  /\n{0,2}<system-reminder>(?:(?!<\/system-reminder>)[\s\S])*<\/system-reminder>[ \t\n]*$/
+function stripLeadingSystemReminders(text: string): string {
+  let out = text
+  while (out.startsWith(REMINDER_OPEN)) {
+    const end = out.indexOf(REMINDER_CLOSE)
+    if (end === -1) return out
+    out = out.slice(end + REMINDER_CLOSE.length).replace(/^\n/, '')
+  }
+  return out
+}
+
+/**
+ * 剥尾部 <system-reminder> 块（Read 追加的 CYBER_RISK_MITIGATION_REMINDER 等）。
+ *
+ * 必须从**末尾倒着认**（lastIndexOf），不能用正则从左往右找起点：正文里若有一个
+ * **未闭合**的 `<system-reminder>`（讲 hook/prompt 的文档就会这么写），非贪婪或
+ * tempered 匹配都会从正文中间那个开标签一路剥到文件末尾，把正文静默吃掉。
+ */
+function stripTrailingSystemReminders(text: string): string {
+  let out = text
+  for (;;) {
+    const trimmed = out.replace(/[ \t\n]+$/, '')
+    if (!trimmed.endsWith(REMINDER_CLOSE)) return out
+    const open = trimmed.lastIndexOf(REMINDER_OPEN)
+    if (open === -1) return out
+    // 这一对标签之间不能再夹一个闭合标签，否则说明它们并不配对。
+    const inner = trimmed.slice(
+      open + REMINDER_OPEN.length,
+      trimmed.length - REMINDER_CLOSE.length,
+    )
+    if (inner.includes(REMINDER_CLOSE)) return out
+    // 连同 Read 追加这一块时加的换行一起剥掉（多余的换行属于文件内容，保留）。
+    out = trimmed.slice(0, open).replace(/\n{1,2}$/, '')
+  }
+}
+
+/**
+ * 是否是「真的文件正文」：Read 输出的文件内容**每行必带行号前缀**（addLineNumbers）。
+ * 没有前缀的是桩文本而非文件内容——`FILE_UNCHANGED_STUB`（同一会话重复读未改动的
+ * 文件）、`PDF file read: …`、空文件告警等。这些包成 resource 会让管控台把提示语
+ * 当文件正文渲染出来，故一律按裸 text 发。
+ */
+function looksLikeFileBody(text: string): boolean {
+  return LINE_NUMBER_PREFIX.test(stripLeadingSystemReminders(text))
+}
 
 /**
  * 清洗 ywcoder Read 的 tool_result 文本，还原干净文件内容（§4.1 实现坑）。
  *
- * Read 给出的**不是**原文：每行带行号前缀，尾部可能附 <system-reminder> 提示块。
+ * Read 给出的**不是**原文：正文前后可能各有 <system-reminder> 块，每行带行号前缀。
  * 不清洗就包成 resource 交管控台按 md/csv 渲染会错乱。
  *
- * 顺序有讲究：先剥行号（尾部 reminder 那几行没有行号，不受影响），再剥 reminder。
- * 反过来会把最后一行（空行的 `N\t` 前缀）剥成孤零零的行号数字。
+ * 顺序有讲究：先剥前置 reminder 与行号，最后剥尾部 reminder。若先剥尾部，
+ * 末行（空行）的 `N\t` 前缀会被剩成一个孤零零的行号数字。
  */
 function cleanReadOutput(text: string): string {
-  const withoutLineNumbers = text
+  const withoutLineNumbers = stripLeadingSystemReminders(text)
     .split('\n')
     .map(line => line.replace(LINE_NUMBER_PREFIX, ''))
     .join('\n')
-  let out = withoutLineNumbers
-  let prev: string
-  do {
-    prev = out
-    out = out.replace(TRAILING_SYSTEM_REMINDER, '')
-  } while (out !== prev)
-  return out
+  return stripTrailingSystemReminders(withoutLineNumbers)
 }
 
 /**
@@ -766,36 +804,39 @@ function toImageBlock(b: Record<string, unknown>): TypedContent | null {
  */
 function normalizeResultContent(
   raw: unknown,
-  ctx: { toolName: string; filePath?: string; isError: boolean },
+  ctx: {
+    toolName: string
+    filePath?: string
+    isError: boolean
+    /** Read 带了 offset/limit，结果只是文件片段。 */
+    partialRead?: boolean
+  },
 ): TypedContent[] {
   const blocks: unknown[] = typeof raw === 'string' ? [{ type: 'text', text: raw }] : Array.isArray(raw) ? raw : []
-  // 报错结果（is_error）里的文本是错误信息、不是文件内容，不包 resource。
+  // 只有「完整读取某个文件、且成功」的结果才当文件正文：
+  // - is_error 的文本是错误信息，不是文件内容；
+  // - 带 offset/limit 的分片读只是片段，包成 resource 会让管控台把 200 行片段
+  //   当成整个 app.log 展示（行号还被剥掉了，用户看不出是片段）。
   const asFile =
-    !ctx.isError && ctx.filePath !== undefined && FILE_READ_TOOLS.has(ctx.toolName)
+    !ctx.isError &&
+    !ctx.partialRead &&
+    ctx.filePath !== undefined &&
+    FILE_READ_TOOLS.has(ctx.toolName)
 
   const out: TypedContent[] = []
+  /** 待合并成**一个** resource 的文件正文片段（notebook 的多个 cell 会给多块）。 */
+  const fileBodies: string[] = []
   for (const block of blocks) {
     if (!block || typeof block !== 'object') continue
     const b = block as Record<string, unknown>
     switch (b.type) {
       case 'text': {
         if (typeof b.text !== 'string') continue
-        if (!asFile) {
-          out.push({ type: 'text', text: b.text })
+        if (asFile && looksLikeFileBody(b.text)) {
+          fileBodies.push(cleanReadOutput(b.text))
           break
         }
-        const filePath = ctx.filePath as string
-        const cleaned = cleanReadOutput(b.text)
-        if (cleaned.length === 0) {
-          // 清洗后为空 = 整段都是 <system-reminder>（如「文件为空」告警），
-          // 不是文件内容，原样按 text 发给网页。
-          out.push({ type: 'text', text: b.text })
-          break
-        }
-        out.push({
-          type: 'resource',
-          resource: { uri: filePath, mimeType: inferMimeType(filePath), text: cleaned },
-        })
+        out.push({ type: 'text', text: b.text })
         break
       }
       case 'image': {
@@ -823,9 +864,30 @@ function normalizeResultContent(
     }
   }
 
-  // §4.1：image 与 resource 并存时只留 image（同一张图不重复传 base64 + uri）。
+  // 同一次 Read 的多个正文块合成**一个** resource：否则管控台会收到多张 uri 相同、
+  // 各自只有一段内容的卡片（notebook 每个 cell 一块）。放最前，图片输出跟在后面。
+  if (fileBodies.length > 0) {
+    const filePath = ctx.filePath as string
+    out.unshift({
+      type: 'resource',
+      resource: {
+        uri: filePath,
+        mimeType: inferMimeType(filePath),
+        text: fileBodies.join('\n'),
+      },
+    })
+  }
+
+  // §4.1：同一张图若两条渠道都给了（image 块 + 指向它的 resource 块，MCP 工具可能
+  // 如此），只留 image。判据**限定在 image/\* 的 resource** 上——我们自己从文件正文
+  // 合成的 resource（text/\*、application/\*）不能被图片挤掉，否则 Read 一个含图输出
+  // 的 notebook 会把源码全丢掉，只剩一张图。
   const deduped = out.some(b => b.type === 'image')
-    ? out.filter(b => b.type !== 'resource')
+    ? out.filter(
+        b =>
+          b.type !== 'resource' ||
+          !String(b.resource.mimeType ?? '').startsWith('image/'),
+      )
     : out
 
   const displayName = ctx.filePath ? basename(ctx.filePath) : ctx.toolName
@@ -883,6 +945,7 @@ export function translateYwcoderEvent(
             toolName: event.name,
             filePath: event.filePath,
             isError: event.isError,
+            partialRead: event.partialRead,
           }),
           is_error: event.isError,
         }),

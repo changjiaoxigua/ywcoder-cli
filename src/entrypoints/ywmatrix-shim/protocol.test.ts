@@ -97,6 +97,7 @@ function resultContent(event: {
   content: unknown
   filePath?: string
   isError?: boolean
+  partialRead?: boolean
 }): Array<Record<string, any>> {
   const [msg] = translateYwcoderEvent(
     {
@@ -106,6 +107,7 @@ function resultContent(event: {
       content: event.content,
       isError: event.isError ?? false,
       filePath: event.filePath,
+      partialRead: event.partialRead,
     },
     CTX,
   )
@@ -263,5 +265,88 @@ describe('normalizeResultContent —— 2MB 大小护栏（§4.1）', () => {
     })
     expect(content[0]!.type).toBe('resource')
     expect(content[0]!.resource.text).toBe('y'.repeat(1000))
+  })
+})
+
+describe('normalizeResultContent —— review 回归（真实 Read 输出的几类形态）', () => {
+  test('正文含【未闭合】的 <system-reminder> 开标签，不得从中间剥到末尾', () => {
+    // 讲 hook/prompt 的文档就会这么写。旧实现（tempered token 从左找起点）会把
+    // 从该开标签起的正文全部静默吃掉。
+    const original = '# 说明\n钩子会注入 <system-reminder> 标签\n后面正文\n'
+    const content = resultContent({
+      name: 'Read',
+      filePath: '/w/hooks.md',
+      content: readOutput(original),
+    })
+    expect(content[0]!.resource.text).toBe(original)
+  })
+
+  test('notebook 的 text+image 混合块：正文合并成一个 resource，图片保留', () => {
+    const content = resultContent({
+      name: 'Read',
+      filePath: '/w/nb.ipynb',
+      content: [
+        { type: 'text', text: readOutput('cell 1 源码\n') },
+        { type: 'image', source: { type: 'base64', data: 'IMG', media_type: 'image/png' } },
+        { type: 'text', text: readOutput('cell 2 源码\n') },
+      ],
+    })
+    expect(content).toHaveLength(2)
+    expect(content[0]!.type).toBe('resource')
+    // 多个 cell 合成一份正文，而不是多张同 uri 的卡片。
+    expect(content[0]!.resource.text).toBe('cell 1 源码\n\ncell 2 源码\n')
+    expect(content[1]).toEqual({ type: 'image', data: 'IMG', mimeType: 'image/png' })
+  })
+
+  test('image 只与 image/* 的 resource 去重，不吃掉文本类 resource', () => {
+    const content = resultContent({
+      name: 'Read',
+      filePath: '/w/chart.png',
+      content: [
+        { type: 'image', data: 'AAAA', mimeType: 'image/png' },
+        { type: 'resource', resource: { uri: '/w/chart.png', mimeType: 'image/png' } },
+        { type: 'resource', resource: { uri: '/w/side.csv', mimeType: 'text/csv', text: 'a,b\n' } },
+      ],
+    })
+    expect(content).toEqual([
+      { type: 'image', data: 'AAAA', mimeType: 'image/png' },
+      { type: 'resource', resource: { uri: '/w/side.csv', mimeType: 'text/csv', text: 'a,b\n' } },
+    ])
+  })
+
+  test('桩文本（无行号前缀）不包 resource：unchanged / pdf / 空文件告警', () => {
+    const asText = (content: string, filePath: string): unknown =>
+      resultContent({ name: 'Read', filePath, content })
+    expect(asText('File unchanged since last read. The content from the earlier Read tool_result in this conversation is still current — refer to that instead of re-reading.', '/w/a.md')).toEqual([
+      { type: 'text', text: expect.stringContaining('File unchanged') },
+    ])
+    expect(asText('PDF file read: /w/a.pdf (2.4MB)', '/w/a.pdf')).toEqual([
+      { type: 'text', text: 'PDF file read: /w/a.pdf (2.4MB)' },
+    ])
+    expect(asText('PDF pages extracted: 3 page(s) from /w/a.pdf (2.4MB)', '/w/a.pdf')).toEqual([
+      { type: 'text', text: expect.stringContaining('PDF pages extracted') },
+    ])
+  })
+
+  test('前置的 memoryFreshnessNote（记忆文件时效提示）被剥掉', () => {
+    const content = resultContent({
+      name: 'Read',
+      filePath: '/w/mem.md',
+      content:
+        '<system-reminder>This memory is 30 days old.</system-reminder>\n' +
+        readOutput('记忆正文\n'),
+    })
+    expect(content[0]!.type).toBe('resource')
+    expect(content[0]!.resource.text).toBe('记忆正文\n')
+  })
+
+  test('分片读（带 offset/limit）不包 resource，避免把片段当全文展示', () => {
+    const content = resultContent({
+      name: 'Read',
+      filePath: '/w/app.log',
+      partialRead: true,
+      content: '5000\t日志行 A\n5001\t日志行 B',
+    })
+    expect(content).toEqual([{ type: 'text', text: '5000\t日志行 A\n5001\t日志行 B' }])
   })
 })
