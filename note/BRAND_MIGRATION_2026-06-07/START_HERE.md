@@ -37,7 +37,7 @@
 1. **F2 auth 真机验证**（⚠️ auth 敏感）：存量登录态保留 + 纯新装落 `~/.ywcoder/.config.json`（步骤见 [release/RELEASE_NOTES_2026-06-12.md](release/RELEASE_NOTES_2026-06-12.md) §4.2）
 2. **6 个 🔄 feature 内网验证**（见 [release/FEATURE_VERIFICATION_GUIDE_2026-06-12.md](release/FEATURE_VERIFICATION_GUIDE_2026-06-12.md)）→ 通过后更新该指引与发布说明 §2.5
 3. **内网发布**：`bun run build`（默认即 ON）→ `npm pack`（prepack 自然产出 ON 包）→ 内网测试 → 合并 main
-- ⚠️ **新发现待办**（`note/ISSUE/`，本 PR 不修、单独排期）：[settings 缓存切 CWD 未失效](ISSUE/2026-06-12-settings-cache-stale-on-cwd-switch.md)（既有）、~~[`CLAUDE_CODE_USE_OPENAI` fallback 不完整](ISSUE/2026-06-12-use-openai-flag-fallback-incomplete.md)~~（✅ **2026-06-17 已闭合**，随 GitHub 环境变量去标识一并修复）、[`--migrate-config` 对已迁移用户不幂等](ISSUE/2026-06-12-migrate-config-not-idempotent-on-copy-keep.md)
+- ⚠️ **新发现待办**（`note/ISSUE/`，本 PR 不修、单独排期）：[settings 缓存切 CWD 未失效](ISSUE/2026-06-12-settings-cache-stale-on-cwd-switch.md)（既有）、~~[`CLAUDE_CODE_USE_OPENAI` fallback 不完整](ISSUE/2026-06-12-use-openai-flag-fallback-incomplete.md)~~（✅ **2026-06-17 已闭合**，随 GitHub 环境变量去标识一并修复）、[`--migrate-config` 对已迁移用户不幂等](ISSUE/2026-06-12-migrate-config-not-idempotent-on-copy-keep.md)、[全局去掉 getYwCoderEnv 旧名回退（只读新名）](ISSUE/2026-08-13-drop-claude-code-env-fallback.md)（**2026-08-13 已决策**：不保留旧名兼容；勿混入 ywmatrix-shim 分支）
 - ✅ **GitHub/OpenAI/Gemini 环境变量去标识 + USE_OPENAI fallback 闭合（2026-06-17）**：provider 选择标志 `YWCODER_USE_*` 转正、`CLAUDE_CODE_USE_*` 降为静默回退；读取/写入/清除/team 透传全链路双名对称；用户可见文案（onboard/validation/显示标签）已无 claude。详见 [review_2026-06-14 第 5 项](review_2026-06-14_第一轮审查.md)。内网脚本可只用新名。
 - 备查：HOME 配置目录迁移（`getYwCoderConfigHomeDir` 优先 `~/.ywcoder`、`ywcoder --migrate-config` 手动触发，copy-keep）。
 
