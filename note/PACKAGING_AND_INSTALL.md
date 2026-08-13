@@ -9,7 +9,7 @@
 ### 前提条件
 
 - Node.js >= 18.0.0
-- Bun（安装：`curl -fsSL https://bun.sh/install | bash`）
+- Bun（安装：`curl -fsSL https://bun.sh/install | bash`）<!-- pr-scan:ignore download-exec-chain,shell-eval-remote —— Bun 官方安装命令示例 -->
 
 ### 构建步骤
 

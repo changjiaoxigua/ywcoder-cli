@@ -356,20 +356,48 @@ function findCommandFindings(line: DiffLine): Finding[] {
   return findings
 }
 
+/**
+ * 行级豁免：在误报行尾标注 `pr-scan:ignore`（豁免本行全部规则）或
+ * `pr-scan:ignore <code1,code2>`（只豁免指定规则码）。比文件级排除精确，
+ * 且豁免点随 diff 进入评审视野，可审计。
+ */
+const SUPPRESS_WITH_CODES_REGEX =
+  /\bpr-scan:ignore\s+([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)/i
+const SUPPRESS_ALL_REGEX = /\bpr-scan:ignore\b/
+
+function lineSuppressions(content: string): Set<string> | 'all' | null {
+  const withCodes = content.match(SUPPRESS_WITH_CODES_REGEX)
+  if (withCodes) {
+    return new Set(withCodes[1].split(',').map(code => code.trim().toLowerCase()))
+  }
+  return SUPPRESS_ALL_REGEX.test(content) ? 'all' : null
+}
+
 export function scanAddedLines(lines: DiffLine[]): Finding[] {
   const findings = lines
     .filter(line => !SELF_EXCLUDED_FILES.has(line.file))
-    .flatMap(line => [
-    ...findUrlFindings(line),
-    ...findCommandFindings(line),
-    ...findSensitivePathFindings(line),
-  ])
+    .flatMap(line => {
+      const suppressed = lineSuppressions(line.content)
+      if (suppressed === 'all') return []
+      const lineFindings = [
+        ...findUrlFindings(line),
+        ...findCommandFindings(line),
+        ...findSensitivePathFindings(line),
+      ]
+      return suppressed
+        ? lineFindings.filter(f => !suppressed.has(f.code))
+        : lineFindings
+    })
   return uniqueFindings(findings)
 }
 
 export function getGitDiff(baseRef: string): string {
+  // 大分支 diff 可达数 MB（实测 ywmatrix-shim 分支 ~2.6MB），spawnSync 默认
+  // maxBuffer 仅 1MB，超限会以 ENOBUFS 静默失败，故显式放宽。
+  const maxBuffer = 64 * 1024 * 1024
   const mergeBase = spawnSync('git', ['merge-base', baseRef, 'HEAD'], {
     encoding: 'utf8',
+    maxBuffer,
   })
 
   if (mergeBase.status !== 0) {
@@ -382,11 +410,15 @@ export function getGitDiff(baseRef: string): string {
   const diff = spawnSync(
     'git',
     ['diff', '--unified=0', '--no-ext-diff', `${base}...HEAD`],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', maxBuffer },
   )
 
   if (diff.status !== 0) {
-    throw new Error(`git diff failed: ${diff.stderr.trim() || diff.stdout.trim()}`)
+    // stderr 为空时兜底截断 stdout——失败时 stdout 可能是数 MB 的半截 diff，
+    // 整体带进错误信息会淹没真正的原因。
+    throw new Error(
+      `git diff failed: ${diff.stderr.trim() || diff.stdout.trim().slice(0, 500)}`,
+    )
   }
 
   return diff.stdout

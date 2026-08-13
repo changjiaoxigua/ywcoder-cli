@@ -116,7 +116,7 @@ const PREVIEW_MD = '# 预览验收\n\n- 第一项\n- 第二项\n\n结尾行。\n
 const PREVIEW_CSV = 'name,qty\n甲,1\n乙,2\n'
 /** 1x1 透明 PNG，最小可用图片装置。 */
 const PREVIEW_PNG_BASE64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==' // pr-scan:ignore long-encoded-payload —— 1x1 PNG 测试装置
 /** 单块内联上限（protocol.ts 的 MAX_INLINE_BYTES，此处独立写死用于断言）。 */
 const MAX_INLINE_BYTES = 2 * 1024 * 1024
 
