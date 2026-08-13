@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>内网 Skill 远程安装：实施方案（方案一 · 修订版）</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2328;
+    --muted: #656d76;
+    --border: #d0d7de;
+    --code-bg: #f6f8fa;
+    --accent: #0969da;
+    --table-head-bg: #f6f8fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #c9d1d9;
+      --muted: #8b949e;
+      --border: #30363d;
+      --code-bg: #161b22;
+      --accent: #58a6ff;
+      --table-head-bg: #161b22;
+    }
+  }
+  body {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 40px 24px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", Helvetica, Arial, sans-serif;
+    line-height: 1.7;
+    color: var(--fg);
+    background: var(--bg);
+  }
+  h1, h2, h3, h4 { margin-top: 1.6em; margin-bottom: 0.6em; line-height: 1.3; }
+  h1 { font-size: 2em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+  h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
+  h3 { font-size: 1.25em; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  p { margin: 0.8em 0; }
+  blockquote {
+    margin: 1em 0;
+    padding: 0.6em 1em;
+    color: var(--muted);
+    border-left: 4px solid var(--border);
+    background: var(--code-bg);
+    border-radius: 0 6px 6px 0;
+  }
+  blockquote p { margin: 0.4em 0; }
+  ul, ol { padding-left: 1.8em; }
+  li { margin: 0.3em 0; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.9em;
+    padding: 0.2em 0.4em;
+    background: var(--code-bg);
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+  }
+  pre code { padding: 0; background: transparent; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    font-size: 0.95em;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+  }
+  th { background: var(--table-head-bg); font-weight: 600; }
+  tr:nth-child(even) { background: var(--code-bg); }
+  hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
+  input[type="checkbox"] { margin-right: 0.4em; }
+</style>
+</head>
+<body>
+<h1>内网 Skill 远程安装：实施方案（方案一 · 修订版）</h1>
+<blockquote>
+<p><strong>定位</strong>：本文取代 <code>design.md</code>，是 <code>/skill-install</code> 的实施依据。
+与 <code>design-option2-plugin-http-zip.md</code>（复用 plugin 机制）二选一。</p>
+<p><strong>修订说明</strong>：本版在轻量版基础上收敛了原子性、来源身份、卸载安全与校验边界。
+设计优先级按以下顺序，行数不是目标：</p>
+<ol>
+<li>不丢失已有 skill</li>
+<li>不越界写入或删除</li>
+<li>不绕过组织策略</li>
+<li>失败后可重试、可恢复</li>
+<li>UI 与磁盘最终状态一致</li>
+</ol>
+</blockquote>
+<hr>
+<h2>1. 已确认决策</h2>
+<p>以下决策已定，实现时不再讨论：</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>决策</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>D1</td>
+<td>独立 <code>/skill-install</code> 入口，不改造 plugin/marketplace</td>
+<td>内网只有静态 zip 分发</td>
+</tr>
+<tr>
+<td>D2</td>
+<td>只有 <code>user</code> / <code>project</code> 两个 scope，无 <code>local</code></td>
+<td>settings 有 local 层（<code>settings.local.json</code>），但 <strong>skills 没有对应的目录概念</strong>：加载器只读 managed / <code>~/.ywcoder/skills</code> / cwd 向上各级 <code>.ywcoder/skills</code>（<code>loadSkillsDir.ts:728-730</code>）。<code>getSkillsPath(&#39;localSettings&#39;)</code> 也无对应分支，返回空串（<code>:80-97</code>）</td>
+</tr>
+<tr>
+<td>D3</td>
+<td>每个 skill 目录内一个 <code>.ywcoder-source.json</code>，不做集中安装记录</td>
+<td>消除并发写冲突、多 scope 主键设计、孤儿记录三类问题</td>
+</tr>
+<tr>
+<td>D4</td>
+<td>安装即更新，不实现 <code>--update</code> / <code>--update-all</code></td>
+<td>同一条代码路径</td>
+</tr>
+<tr>
+<td>D5</td>
+<td>更新判定 = <code>version</code> 不同 <strong>或</strong> <code>sha256</code> 不同；不引入 semver 高低比较</td>
+<td>清单里的 <code>1.1</code> 不是合法 semver；sha256 是比 version 更可靠的变更判据（version 可能忘记 bump）</td>
+</tr>
+<tr>
+<td>D6</td>
+<td>原子切换：staging → 校验 → 换出旧目录 → 换入新目录 → 删旧</td>
+<td>失败不得破坏已安装内容</td>
+</tr>
+<tr>
+<td>D7</td>
+<td>staging / backup 位于 skills 根的<strong>兄弟目录</strong>，不在 skills 根内</td>
+<td>skills 根下任何目录都会被 <code>findSkillMarkdownFiles</code> 加载为 skill（无 dot 过滤），且触发 watcher</td>
+</tr>
+<tr>
+<td>D8</td>
+<td>最终目录名只取清单中经校验的 <code>id</code>，不取 zip 内目录名</td>
+<td>保证 slash 命令名可控</td>
+</tr>
+<tr>
+<td>D9</td>
+<td>不读 <code>SKILL.md</code> frontmatter 的 <code>version</code> 作为发布版本</td>
+<td>内容作者所写，不保证存在或与发布版本一致</td>
+</tr>
+<tr>
+<td>D10</td>
+<td>配置只来自 <code>policySettings</code> / <code>userSettings</code>，<strong>不做环境变量</strong></td>
+<td>project/local settings 是仓库内容，不能控制可执行内容的安装源；团队统一要求配置写进 settings 文件。将来要加环境变量是一行的事</td>
+</tr>
+<tr>
+<td>D11</td>
+<td>复用 <code>utils/dxt/zip.ts</code> 的解压与防护、<code>axios</code> 的代理/证书链路</td>
+<td>已有实现更完备</td>
+</tr>
+<tr>
+<td>D12</td>
+<td>成功后调 <code>clearCommandsCache()</code> + <code>resetSentSkillNames()</code>，不调 <code>addSkillDirectories()</code></td>
+<td>后者是项目内动态发现专用，会错标 source 且被 projectSettings 门控</td>
+</tr>
+<tr>
+<td>D13</td>
+<td><code>--remove</code> 只作用于有合法 sidecar 的目录，无 <code>--force</code> 变体；拒绝时<strong>打印实际路径</strong>供手动删除</td>
+<td>避免命令成为任意目录删除入口，同时不挡路</td>
+</tr>
+<tr>
+<td>D14</td>
+<td>不跟随 HTTP 重定向</td>
+<td>静态文件服务无需重定向，禁用可消灭&quot;重定向到非法协议&quot;整类问题</td>
+</tr>
+<tr>
+<td>D15</td>
+<td>不加并发安装锁</td>
+<td>原子 rename 已保证无损坏状态；两会话同装同一 skill 为最后写入者生效</td>
+</tr>
+<tr>
+<td>D16</td>
+<td>headless（<code>-p</code>）下不提供本命令</td>
+<td><code>local-jsx</code> 不在非交互命令列表（<code>main.tsx:2616</code>）；装机脚本直接解压即可</td>
+</tr>
+<tr>
+<td>D17</td>
+<td><strong>直接消费现有 <code>skills.json</code></strong>（顶层数组），服务端零改动</td>
+<td>实际清单字段已够用；清单与 zip 地址均由 hub 根派生（§3.2）</td>
+</tr>
+<tr>
+<td>D18</td>
+<td>zip 结构判定三条规则，兼容存量两种形态</td>
+<td>存量包实测同时存在&quot;单顶层目录&quot;与&quot;根即 SKILL.md&quot;两种，见 §3.3</td>
+</tr>
+<tr>
+<td>D19</td>
+<td>不做 downloadUrl 与 hub 的同源限制与提示</td>
+<td>防护弱、会阻断&quot;清单在 A、文件服务在 B&quot;的部署；当前维护者单一，风险可控</td>
+</tr>
+<tr>
+<td>D20</td>
+<td>settings 字段定名 <code>ywdevhubUrl</code>，语义为 <strong>hub 根地址</strong>；资源类型靠清单路径约定区分（<code>skills.json</code>，将来 <code>tools.json</code>）</td>
+<td>hub 内将来会有 skill 以外的资源（工具更新包等）；信任边界在 hub 级（§9.4），按资源类型拆 key 没有对应的信任差异</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>2. 命令面</h2>
+<pre><code class="language-text">/skill-install                     列出内网 skill，交互选择后安装      ← 主路径
+/skill-install &lt;id&gt;                安装 / 更新（幂等）
+/skill-install &lt;id&gt; --project      装到项目级 skills 目录
+/skill-install &lt;id&gt; --force        覆盖来源未知的同名目录
+/skill-install --remove &lt;id&gt;       卸载（user scope）
+/skill-install --remove &lt;id&gt; --project   卸载（project scope）
+</code></pre>
+<h3>2.1 参数解析</h3>
+<p>实现为<strong>无 React 依赖的纯函数</strong> <code>parseSkillInstallArgs(raw: string)</code>，独立单测。</p>
+<p>必须处理并报出明确错误：</p>
+<ul>
+<li>重复 flag（<code>--project --project</code>）</li>
+<li>未知 flag</li>
+<li><code>--remove</code> 缺参数</li>
+<li>同时出现安装 id 与 <code>--remove</code></li>
+<li><code>--force</code> 与 <code>--remove</code> 同时出现（拒绝，见 D13）</li>
+<li>id 以 <code>-</code> 开头，或含 <code>/</code> <code>\</code> <code>:</code> 等路径字符</li>
+<li>多余的位置参数</li>
+</ul>
+<h3>2.2 scope 解析</h3>
+<ul>
+<li>不带 <code>--project</code> → user scope，目标 <code>getSkillsPath(&#39;userSettings&#39;, &#39;skills&#39;)</code></li>
+<li>带 <code>--project</code> → project scope，目标 <code>getSkillsPath(&#39;projectSettings&#39;, &#39;skills&#39;, cwd)</code></li>
+</ul>
+<p><strong>所有面向用户的输出必须打印 <code>getSkillsPath()</code> 的真实返回值</strong>，不得硬编码 <code>.ywcoder</code> 或 <code>.claude</code>
+——项目配置目录名受编译期 flag <code>MIGRATE_PROJECT_CONFIG</code> 门控（<code>projectConfigDir.ts</code>）。</p>
+<p><code>--remove</code> 的 scope 与安装一样由 <code>--project</code> 决定（缺省 user）；<strong>不做跨 scope 回退</strong>——
+user 找不到时不得自动去 project 找。</p>
+<hr>
+<h2>3. 清单</h2>
+<h3>3.1 直接消费现有 <code>skills.json</code>（服务端零改动）</h3>
+<p>现网清单（<code>yw-devhub/skills.json</code>）是<strong>顶层数组</strong>，字段已够用：</p>
+<pre><code class="language-json">[
+  {
+    &quot;id&quot;: &quot;architecture-diagram&quot;,
+    &quot;name&quot;: &quot;Architecture Diagram Generator&quot;,
+    &quot;description&quot;: &quot;根据文字描述生成系统架构图，输出为独立的 HTML+SVG 文件&quot;,
+    &quot;tags&quot;: [&quot;架构设计&quot;, &quot;可视化&quot;, &quot;文档&quot;],
+    &quot;version&quot;: &quot;1.1&quot;,
+    &quot;updatedAt&quot;: &quot;2026-05-15&quot;,
+    &quot;filename&quot;: &quot;architecture-diagram.zip&quot;,
+    &quot;contact&quot;: &quot;xxx&quot;,
+    &quot;source&quot;: &quot;https://github.com/Cocoon-AI/architecture-diagram-generator&quot;
+  }
+]
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>必需</th>
+<th>用途与校验</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>id</code></td>
+<td>是</td>
+<td>目录名 + slash 命令名。<code>/^[a-z0-9][a-z0-9._-]*$/i</code>，长度 ≤ 64</td>
+</tr>
+<tr>
+<td><code>version</code></td>
+<td>是</td>
+<td>非空，长度 ≤ 64。参与更新判定（D5）与列表展示</td>
+</tr>
+<tr>
+<td><code>filename</code></td>
+<td>是（提供 <code>downloadUrl</code> 时可缺）</td>
+<td>zip 文件名，用于拼接下载地址（§3.2）</td>
+</tr>
+<tr>
+<td><code>sha256</code></td>
+<td>否</td>
+<td><strong>未来字段</strong>，现网暂无。存在则校验完整性并参与更新判定</td>
+</tr>
+<tr>
+<td><code>downloadUrl</code></td>
+<td>否</td>
+<td><strong>未来字段</strong>，存在则覆盖 §3.2 的拼接规则</td>
+</tr>
+<tr>
+<td><code>name</code> <code>description</code> <code>tags</code> <code>updatedAt</code> <code>contact</code> <code>source</code></td>
+<td>否</td>
+<td>仅展示，<strong>不做长度校验，渲染时截断</strong></td>
+</tr>
+</tbody></table>
+<p><strong>清单级校验</strong>：</p>
+<ul>
+<li>响应体 ≤ 2 MB（<code>maxContentLength</code>）</li>
+<li>条目数 ≤ 500，超出截断并警告</li>
+<li><code>id</code> 重复 → <strong>保留第一条并警告</strong>，不拒绝整份清单</li>
+<li>单条字段非法（如 id 不合规、缺 <code>filename</code> 且缺 <code>downloadUrl</code>）→ 该条标记&quot;仅查看&quot;不可选中，
+<strong>不阻断其余条目</strong></li>
+</ul>
+<p>不做 downloadUrl 与 hub 的同源校验或提示（D19）。</p>
+<h3>3.2 清单与下载地址派生</h3>
+<p><code>ywdevhubUrl</code> 是 hub 根地址，清单与 zip 都按固定路径约定从它派生：</p>
+<pre><code>hubRoot       http://10.x.x.x/yw-devhub/
+清单地址      new URL(&#39;skills.json&#39;, hubRoot)         → http://10.x.x.x/yw-devhub/skills.json
+下载地址      new URL(&#39;skills/&#39; + filename, hubRoot)  → http://10.x.x.x/yw-devhub/skills/architecture-diagram.zip
+</code></pre>
+<p>将来其他资源类型走各自的清单约定（如 <code>tools.json</code>），不新增 settings 字段（D20）。</p>
+<p><strong>hubRoot 必须先归一化为以 <code>/</code> 结尾再拼接。</strong> <code>new URL()</code> 会替换掉 base 的最后一段路径：
+<code>http://10.x.x.x/yw-devhub</code>（无尾斜杠）拼 <code>skills.json</code> 会得到 <code>http://10.x.x.x/skills.json</code>，
+静默指到错误位置。</p>
+<p>条目若提供 <code>downloadUrl</code> 则<strong>优先使用</strong>，为将来 zip 换位置留出口子（约 3 行）。</p>
+<p>最终地址无论来自拼接还是 <code>downloadUrl</code>，都必须通过 §9.3 的协议与 userinfo 校验。</p>
+<h3>3.3 zip 结构：三条判定规则</h3>
+<p>存量包实测存在两种形态，客户端两种都要支持：</p>
+<table>
+<thead>
+<tr>
+<th>包</th>
+<th>形态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>architecture-diagram.zip</code></td>
+<td>单顶层目录：<code>architecture-diagram/SKILL.md</code></td>
+</tr>
+<tr>
+<td><code>docx-skill</code> / <code>xlsx-skill</code> / <code>pdf-skill</code> / <code>pptx-skill</code></td>
+<td>根即 <code>SKILL.md</code>，另有 <code>scripts/</code> 等目录</td>
+</tr>
+<tr>
+<td><code>understand-anything.zip</code></td>
+<td>根有 <code>SKILL.md</code>，另有 8 个子目录各带一个 <code>SKILL.md</code>（多 skill 包）</td>
+</tr>
+</tbody></table>
+<p>判定规则，按顺序：</p>
+<ol>
+<li><strong>根目录有 <code>SKILL.md</code></strong> → 整包内容原样放进 <code>&lt;id&gt;/</code></li>
+<li>否则<strong>恰好一个顶层目录且其下有 <code>SKILL.md</code></strong> → 剥掉这层，其内容放进 <code>&lt;id&gt;/</code></li>
+<li>否则报错，错误信息列出实际的顶层条目</li>
+</ol>
+<p><strong>多 skill 包无需特殊处理。</strong> 按规则 1 安装后，加载器会自动按相对路径生成命名空间
+（<code>getSkillCommandName</code> + <code>buildNamespace</code>，<code>loadSkillsDir.ts:611-631</code>）：</p>
+<pre><code>~/.ywcoder/skills/understand-anything/SKILL.md                  → /understand-anything
+~/.ywcoder/skills/understand-anything/understand-chat/SKILL.md  → /understand-anything:understand-chat
+~/.ywcoder/skills/understand-anything/understand-diff/SKILL.md  → /understand-anything:understand-diff
+</code></pre>
+<blockquote>
+<p>备注：<code>understand-anything.zip</code> 根目录的 <code>SKILL.md</code> 与 <code>understand/SKILL.md</code> 字节数相同（45658），
+安装后会得到两个内容相同的 skill。属于打包冗余，不影响功能，如需消除应在上传侧处理。</p>
+</blockquote>
+<p>zip 内其他文件（脚本、资源、<code>.git/</code>、<code>node_modules/</code>）<strong>原样落盘不过滤</strong>：skill 本可携带脚本资源
+（<code>${CLAUDE_SKILL_DIR}</code> 占位符即为此存在，<code>loadSkillsDir.ts:359-366</code>），客户端不该猜哪些该删。
+体积异常由 <code>unzipFile</code> 的上限兜底。</p>
+<hr>
+<h2>4. 配置</h2>
+<pre><code class="language-jsonc">// ~/.ywcoder/settings.json
+{ &quot;ywdevhubUrl&quot;: &quot;http://10.x.x.x/yw-devhub/&quot; }
+</code></pre>
+<p><strong>统一命名</strong>：settings 字段 <code>ywdevhubUrl</code>，值是 <strong>hub 根地址</strong>（不是清单文件地址；清单路径是约定，见 §3.2）。README 中的旧名 <code>YWCODER_INTRANET_SKILLS_INDEX_URL</code> 作废。</p>
+<p><strong>优先级</strong>：<code>policySettings</code> &gt; <code>userSettings</code>。</p>
+<p><strong>不做环境变量</strong>（D10）：团队统一要求配置写进 settings 文件，少一条来源少一处解释成本。
+将来若需要，接一行 <code>getYwCoderEnv(&#39;YWDEVHUB_URL&#39;)</code> 置于最高优先级即可。</p>
+<p><strong>禁止读取 <code>projectSettings</code> / <code>localSettings</code>。</strong> 实现上不能用 <code>getInitialSettings()</code>
+（那是合并结果，含 project/local），必须用 <code>getSettingsForSource(&#39;policySettings&#39;)</code> 与
+<code>getSettingsForSource(&#39;userSettings&#39;)</code> 分别取（<code>settings.ts:314</code>）。</p>
+<p>理由：project/local settings 属于仓库内容。若 clone 来的仓库能指定安装源，等于开放了远程代码执行入口。
+这条同时是&quot;不必每次弹确认框&quot;的前提——信任在配置 hub 地址那一刻建立。</p>
+<p><code>SettingsSchema</code>（<code>types.ts:257</code>）新增可选 <code>ywdevhubUrl: z.string().url().optional()</code>。
+顶层是 <code>.passthrough()</code>（<code>types.ts:1094</code>），不加也能跑，但加了才有类型与校验。</p>
+<p>未配置时的提示需给出完整路径与示例 JSON。</p>
+<hr>
+<h2>5. 目录布局</h2>
+<table>
+<thead>
+<tr>
+<th>用途</th>
+<th>user scope</th>
+<th>project scope</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>安装目标</td>
+<td><code>~/.ywcoder/skills/&lt;id&gt;/</code></td>
+<td><code>&lt;projectConfigDir&gt;/skills/&lt;id&gt;/</code></td>
+</tr>
+<tr>
+<td>staging / backup</td>
+<td><code>~/.ywcoder/skills-staging/</code></td>
+<td><code>&lt;projectConfigDir&gt;/skills-staging/</code></td>
+</tr>
+</tbody></table>
+<p>staging 根是 skills 根的<strong>兄弟目录</strong>，两点原因：</p>
+<ol>
+<li><strong>同一文件系统</strong>，<code>rename()</code> 可用，无 EXDEV。</li>
+<li><strong>不在 skills 根内</strong>——skills 根下的任何目录都会被 <code>findSkillMarkdownFiles</code> 递归加载为 skill
+（<code>loadSkillsDir.ts:476-498</code>，无 dot 前缀过滤），且被 chokidar 监听
+（<code>skillChangeDetector.ts:122-127</code> 仅忽略 <code>.git</code>）。把 staging 放进去会让半成品变成可见 skill
+并在写入过程中反复触发 reload。</li>
+</ol>
+<p>staging 内使用两个路径：<code>&lt;staging&gt;/&lt;id&gt;.new/</code> 与 <code>&lt;staging&gt;/&lt;id&gt;.old/</code>。</p>
+<p><strong>staging 是临时目录，用完即删 —— 连目录本身一起删。</strong> 稳态下磁盘上不存在
+<code>skills-staging/</code>；只有进程被强杀（Ctrl+C、崩溃）才会残留，由下次运行的第一步清理（§6.2）。</p>
+<p>因此 project scope 下它通常不会出现在 <code>git status</code> 里。极端情况下（安装过程中被中断）
+可能残留数秒，内网使用文档可提一句将 <code>skills-staging/</code> 加入 <code>.gitignore</code>，但非必须。</p>
+<hr>
+<h2>6. 安装流程</h2>
+<pre><code> 1. 解析并校验 id                    → 正则 + 长度
+ 2. 策略检查                         → §9.1，不通过直接拒绝
+ 3. 解析目标路径与 staging 路径
+ 4. 路径逃逸校验                     → §9.2（含 realpath）
+ 5. 清理 / 恢复遗留 staging          → §6.2
+ 6. 读取目标目录现状                 → 三态判断（§7）
+ 7. 拉清单                           → 地址派生（§3.2）；5s 超时，≤2MB，校验（§3.1）
+ 8. 覆盖语义判定                     → §7.2，必要时二次确认或要求 --force
+ 9. 下载 zip                         → 60s 超时，≤64MB，maxRedirects=0
+10. sha256 校验（若清单提供）         → 不匹配立即失败，不落盘
+11. unzipFile 到内存                 → 路径穿越 / zip bomb / 体积防护
+12. 结构校验与剥层                   → §3.3
+13. 写入 &lt;staging&gt;/&lt;id&gt;.new/         → 逐文件 + parseZipModes 恢复 +x
+14. 写 sidecar 到 &lt;staging&gt;/&lt;id&gt;.new/
+15. 切换前复核                       → &lt;id&gt;.new/SKILL.md 存在且 sidecar 可解析
+16. 若目标存在：rename(target → &lt;staging&gt;/&lt;id&gt;.old)
+17. rename(&lt;staging&gt;/&lt;id&gt;.new → target)
+      ↳ 失败 → rename(&lt;id&gt;.old → target) 回滚，报错退出
+18. rm -rf &lt;staging&gt;/&lt;id&gt;.old
+19. clearCommandsCache() + resetSentSkillNames()   ← 只在 17 成功后执行
+20. 输出实际路径 / 版本 / 来源
+</code></pre>
+<h3>6.1 关键约束</h3>
+<ul>
+<li>第 19 步<strong>必须</strong>在第 17 步成功之后，失败路径上不得刷新缓存（否则 UI 与磁盘状态不一致）。</li>
+<li>第 16-17 步之间是唯一的不一致窗口（目标目录短暂不存在），毫秒级，且第 17 步失败可回滚。</li>
+<li>任一步失败：已安装的旧版本保持原样；staging 残留由下次运行的第 5 步清理。</li>
+</ul>
+<h3>6.2 遗留恢复规则</h3>
+<p>安装开始时按顺序处理：</p>
+<table>
+<thead>
+<tr>
+<th>磁盘状态</th>
+<th>含义</th>
+<th>处理</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>存在 <code>&lt;id&gt;.new</code></td>
+<td>上次死在写入阶段</td>
+<td>直接 <code>rm -rf</code></td>
+</tr>
+<tr>
+<td>存在 <code>&lt;id&gt;.old</code> 且目标<strong>不存在</strong></td>
+<td>上次死在 16 与 17 之间</td>
+<td><code>rename(&lt;id&gt;.old → target)</code> 恢复，然后继续本次安装</td>
+</tr>
+<tr>
+<td>存在 <code>&lt;id&gt;.old</code> 且目标存在</td>
+<td>上次死在 18（切换已成功）</td>
+<td>直接 <code>rm -rf</code></td>
+</tr>
+</tbody></table>
+<h3>6.3 网络</h3>
+<p>统一用 <code>axios</code>（全局拦截器已处理 <code>HTTP(S)_PROXY</code> / <code>NO_PROXY</code> / mTLS / 自签 CA，<code>utils/proxy.ts:352</code>）。
+不用裸 <code>fetch</code>——undici 不读这些环境变量，这是内网&quot;浏览器能开、CLI 连不上&quot;类报障的主要来源。
+参考实现：<code>officialMarketplaceGcs.ts:107-150</code>。</p>
+<p>请求参数：<code>responseType: &#39;arraybuffer&#39;</code>、<code>maxRedirects: 0</code>、<code>timeout</code>、<code>maxContentLength</code>。
+<code>maxContentLength</code> 同时覆盖 <code>Content-Length</code> 声明与实际接收字节数。</p>
+<p><strong>日志与错误信息只输出 URL 的 origin + pathname</strong>，不输出 query 与 fragment。</p>
+<hr>
+<h2>7. 目录状态与覆盖语义</h2>
+<h3>7.1 三态</h3>
+<p>采用原子切换后，失败不会在正式路径留下半成品，因此状态无二义性：</p>
+<table>
+<thead>
+<tr>
+<th>目录状态</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>不存在</td>
+<td>全新安装</td>
+</tr>
+<tr>
+<td>存在且 sidecar 合法（可解析、<code>schemaVersion</code> 受支持、<code>id</code> 与目录名一致）</td>
+<td>本工具管理</td>
+</tr>
+<tr>
+<td>存在但无 sidecar / sidecar 损坏 / <code>id</code> 不匹配</td>
+<td><strong>来源未知</strong>，由用户或其他工具管理</td>
+</tr>
+</tbody></table>
+<p>&quot;来源未知&quot;不再包含&quot;上次安装中断&quot;这层含义。</p>
+<h3>7.2 覆盖判定</h3>
+<table>
+<thead>
+<tr>
+<th>现状</th>
+<th>version / sha256</th>
+<th>hubUrl</th>
+<th>行为</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>本工具管理</td>
+<td>都相同</td>
+<td>一致</td>
+<td><strong>不写磁盘</strong>，返回&quot;已是最新&quot;（含实际路径与版本）</td>
+</tr>
+<tr>
+<td>本工具管理</td>
+<td>任一不同</td>
+<td>一致</td>
+<td>直接更新</td>
+</tr>
+<tr>
+<td>本工具管理</td>
+<td>任意</td>
+<td><strong>不一致</strong></td>
+<td>提示来源已变化（展示新旧 hubUrl），交互模式需确认；非交互需 <code>--force</code></td>
+</tr>
+<tr>
+<td>来源未知</td>
+<td>—</td>
+<td>—</td>
+<td>交互模式二次确认；非交互需 <code>--force</code></td>
+</tr>
+<tr>
+<td>不存在</td>
+<td>—</td>
+<td>—</td>
+<td>直接安装</td>
+</tr>
+</tbody></table>
+<p>更新判定为 <code>version 不同 || sha256 不同</code>（D5）。清单未提供 <code>sha256</code> 时退化为 version-only 判定
+（现网即此情况）；sidecar 里存过 sha256 而清单这次没给，视为&quot;无法比对&quot;，按 version 判定。</p>
+<p><strong><code>--force</code> 的语义必须在提示中写明</strong>：会永久删除目标目录中的全部本地修改。</p>
+<p><code>--force</code> <strong>不能绕过策略检查</strong>（§9.1）。</p>
+<p>&quot;已是最新&quot;只在本次成功获取清单且来源匹配时才可展示；清单获取失败时不得给出该结论。</p>
+<hr>
+<h2>8. sidecar 规范</h2>
+<h3>8.1 格式</h3>
+<pre><code class="language-json">{
+  &quot;schemaVersion&quot;: 1,
+  &quot;id&quot;: &quot;architecture-diagram&quot;,
+  &quot;version&quot;: &quot;1.1&quot;,
+  &quot;hubUrl&quot;: &quot;http://10.x.x.x/yw-devhub/&quot;,
+  &quot;downloadUrl&quot;: &quot;http://10.x.x.x/yw-devhub/skills/architecture-diagram.zip&quot;,
+  &quot;sha256&quot;: &quot;e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855&quot;,
+  &quot;installedAt&quot;: &quot;2026-08-07T00:00:00.000Z&quot;
+}
+</code></pre>
+<p>文件名：<code>.ywcoder-source.json</code>，位于 skill 目录内。</p>
+<ul>
+<li><code>schemaVersion</code>：当前为 <code>1</code>。读到不支持的值 → 视为<strong>来源未知</strong>，不自动覆盖、不允许 <code>--remove</code>。</li>
+<li><code>hubUrl</code>：安装时实际使用的 hub 根地址（归一化、以 <code>/</code> 结尾后的值）。用于检测来源变化（§7.2）。</li>
+<li><code>downloadUrl</code>：<strong>最终使用的完整地址</strong>（拼接结果或条目覆盖值）。因禁用重定向（D14），
+记录值即最终值，无需额外规范化。</li>
+<li><code>sha256</code>：清单提供时才写入，缺失则省略该字段。参与更新判定（D5）。</li>
+<li><code>installedAt</code>：ISO 8601，本地生成。</li>
+</ul>
+<h3>8.2 由谁生成</h3>
+<p><strong>由安装器在客户端生成</strong>，写在 staging 内，随原子切换一起就位。zip 包不需要携带，
+外网打包流程无需改动。</p>
+<p>不放进 zip：这是客户端事实（从哪个 hub、按哪条清单、何时安装），不该由内容发布方声明。
+不读 <code>SKILL.md</code> frontmatter 的 <code>version</code>（D9）。</p>
+<p>sidecar <strong>不是唯一的完整性依据</strong>：切换前仍需验证 <code>SKILL.md</code> 存在（第 15 步）。</p>
+<h3>8.3 加载器与仓库</h3>
+<p>skill 加载器不会把它当内容：<code>findSkillMarkdownFiles</code> 只收集 <code>isSkillFile()</code> 匹配项，
+正则为 <code>/^skill\.md$/i</code>（<code>loadSkillsDir.ts:572-574</code>）。</p>
+<p>project scope 的 sidecar 会随项目提交进 git。这是有意的——团队成员 clone 后能看出来源与版本，
+<code>/skill-install</code> 也能正确判断状态。需同时告知：<strong>zip 解压出的全部内容同样会进入仓库</strong>，
+项目级安装前应确认这是期望行为。</p>
+<hr>
+<h2>9. 安全</h2>
+<h3>9.1 组织策略</h3>
+<p>安装前检查，不通过<strong>直接拒绝</strong>，<code>--force</code> 不可绕过：</p>
+<pre><code class="language-ts">isRestrictedToPluginOnly(&#39;skills&#39;)          // pluginOnlyPolicy.ts:19-27
+isSettingSourceEnabled(&#39;userSettings&#39; | &#39;projectSettings&#39;)
+</code></pre>
+<p>策略锁定时，user 与 project 两个 scope 均拒绝安装。错误信息需说明：
+组织策略要求 skills 通过 plugin 或受管来源提供，本命令已被禁用。</p>
+<p><code>--remove</code> <strong>允许</strong>删除本工具此前安装的目录（清理不等于加载授权），但同样只作用于
+sidecar 合法的目录。</p>
+<p>对无 sidecar / sidecar 非法的目录，拒绝删除并<strong>打印实际路径</strong>（D13）：</p>
+<pre><code>architecture-diagram 不是由 /skill-install 安装的，未执行删除。
+如需手动删除：/Users/xxx/.ywcoder/skills/architecture-diagram
+</code></pre>
+<h3>9.2 路径逃逸</h3>
+<p>三层校验，缺一不可：</p>
+<ol>
+<li><code>id</code> 正则白名单 + 长度上限（§3.1）</li>
+<li><code>resolve(target).startsWith(resolve(skillsRoot) + sep)</code></li>
+<li><strong>符号链接校验</strong>：对已存在的 skills 根与目标目录取 <code>realpath</code>，再断言包含关系。
+仅做字符串 <code>startsWith</code> 无法处理 <code>~/.ywcoder/skills</code> 或 <code>~/.ywcoder/skills/&lt;id&gt;</code> 本身是
+符号链接的情况。目标路径链上存在指向 skills 根之外的符号链接时，拒绝安装并说明原因。</li>
+</ol>
+<h3>9.3 传输</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>策略</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>协议</td>
+<td><code>https:</code> 默认允许；<code>http:</code> 作为受控内网的兼容能力保留，需在内网文档中说明风险</td>
+</tr>
+<tr>
+<td>禁止</td>
+<td><code>file:</code> <code>data:</code> 及其他一切非 http(s) 协议</td>
+</tr>
+<tr>
+<td>禁止</td>
+<td>URL 携带 userinfo（<code>https://user:pass@host/...</code>）</td>
+</tr>
+<tr>
+<td>重定向</td>
+<td>不跟随（<code>maxRedirects: 0</code>），遇到重定向报错并提示改用最终地址</td>
+</tr>
+<tr>
+<td>体积</td>
+<td>清单 ≤ 2 MB；zip ≤ 64 MB（压缩前）；解压后由 <code>unzipFile</code> 兜底</td>
+</tr>
+<tr>
+<td>完整性</td>
+<td>sha256 匹配失败立即终止，不进入 staging</td>
+</tr>
+<tr>
+<td>日志</td>
+<td>只输出 origin + pathname</td>
+</tr>
+</tbody></table>
+<h3>9.4 内容风险</h3>
+<p>SKILL.md 支持 <code>!`…`</code> 内联 shell（<code>loadSkillsDir.ts:377-399</code>）、frontmatter <code>hooks</code>
+（→ <code>registerSkillHooks</code>，<code>processSlashCommand.tsx:871-877</code>）、<code>allowed-tools</code> 预授权。
+<strong>安装 skill 等价于安装可执行代码。</strong></p>
+<p>sha256 只防传输损坏，不构成对内容的信任背书。真正的信任边界是&quot;谁配置了 <code>ywdevhubUrl</code>&quot;（D10）。
+UI 需在选择前展示来源，并提示该风险（§11）。</p>
+<hr>
+<h2>10. 缓存刷新</h2>
+<p>成功切换后（且仅在成功后）调用：</p>
+<pre><code class="language-ts">clearCommandsCache()   // commands.ts:543，内部含 clearSkillCaches + plugin/skill 各级 memo
+resetSentSkillNames()  // utils/attachments.ts
+</code></pre>
+<p><code>--remove</code> 成功后同样调用；删除失败则不调用。</p>
+<p><strong>不调 <code>addSkillDirectories()</code></strong>（D12）。</p>
+<p>已知边界：<code>skillChangeDetector</code> 的 watcher 在 <code>initialize()</code> 时只监听<strong>当时已存在</strong>的目录
+（<code>skillChangeDetector.ts:172-200</code> 逐个 <code>stat</code>，不存在则跳过），首次创建 <code>~/.ywcoder/skills/</code>
+时不会有 watcher 事件，必须靠命令内主动刷新。若联调发现 slash 菜单未及时更新，
+再考虑从 <code>skillChangeDetector</code> 导出 <code>notifySkillsChanged()</code>（一行，内部 <code>skillsChanged.emit()</code>）。</p>
+<hr>
+<h2>11. UI 规格</h2>
+<p><code>type: &#39;local-jsx&#39;</code>，<code>Dialog</code> + <code>Select</code>。参考实现：
+<code>src/commands/rate-limit-options/rate-limit-options.tsx</code>（209 行的完整最小样例）。</p>
+<h3>11.1 列表状态</h3>
+<p>每条必须落入四类之一：</p>
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>展示</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>未安装</td>
+<td><code>id  v1.1</code></td>
+</tr>
+<tr>
+<td>已安装且版本一致</td>
+<td><code>id  v1.1  (已安装)</code></td>
+</tr>
+<tr>
+<td>已安装但版本不同</td>
+<td><code>id  v1.1  (已安装 v1.0 → 可更新)</code></td>
+</tr>
+<tr>
+<td>同名目录存在但来源未知</td>
+<td><code>id  v1.1  (本地已存在，来源未知)</code></td>
+</tr>
+</tbody></table>
+<p>附加标记：</p>
+<ul>
+<li>条目字段非法、无法拼出下载地址 → <code>(仅查看)</code>，<strong>不可选中</strong></li>
+<li>缺 <code>sha256</code> → <code>(未校验)</code> 风险标记。现网清单暂无 sha256，届时全部条目都会带该标记，
+可考虑改为在 Dialog footer 统一说明一次，避免每行重复噪音</li>
+<li><strong>不显示 downloadUrl 的 host</strong>（D19）</li>
+</ul>
+<h3>11.2 其他</h3>
+<ul>
+<li>Dialog 标题含 hub 地址；footer 提示&quot;skill 可执行 shell 命令&quot;</li>
+<li>选中&quot;来源未知&quot;条目 → 二次确认，文案写明会永久删除本地修改</li>
+<li>检测到来源变化 → 二次确认，展示新旧 hubUrl</li>
+<li>安装完成 → 展示<strong>实际安装路径</strong>、版本、来源 hub</li>
+<li><code>Select</code> 用 <code>visibleOptionCount</code> 滚动 + 数字键直选，<strong>不做实时搜索过滤</strong></li>
+</ul>
+<hr>
+<h2>12. 模块划分与改动清单</h2>
+<h3>12.1 新增文件</h3>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>职责</th>
+<th>约束</th>
+<th>估算行数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/utils/skills/skillInstaller.ts</code></td>
+<td>清单拉取与校验、hubRoot 归一化与地址派生、下载、解压与结构判定、staging、原子切换、恢复、sidecar 读写、已安装扫描</td>
+<td><strong>零 React 依赖</strong></td>
+<td>350–450</td>
+</tr>
+<tr>
+<td><code>src/utils/skills/skillInstallArgs.ts</code></td>
+<td>参数解析纯函数（6 类错误）</td>
+<td>零依赖</td>
+<td>60–90</td>
+</tr>
+<tr>
+<td><code>src/commands/skill-install/index.ts</code></td>
+<td>命令注册（<code>type: &#39;local-jsx&#39;</code>）</td>
+<td>—</td>
+<td>20–30</td>
+</tr>
+<tr>
+<td><code>src/commands/skill-install/skill-install.tsx</code></td>
+<td>Dialog + Select + 四态列表 + 两类二次确认 + 结果展示</td>
+<td>只调用 installer，不含业务判定</td>
+<td>180–250</td>
+</tr>
+<tr>
+<td><code>src/utils/skills/skillInstaller.test.ts</code></td>
+<td>installer 单测（§13.2–13.8 共 47 个用例，需 mock axios、构造 zip、临时目录）</td>
+<td>—</td>
+<td>350–500</td>
+</tr>
+<tr>
+<td><code>src/utils/skills/skillInstallArgs.test.ts</code></td>
+<td>参数解析单测（§13.1 共 6 组）</td>
+<td>—</td>
+<td>50–80</td>
+</tr>
+</tbody></table>
+<h3>12.2 修改文件（共约 3 行）</h3>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>改动</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>src/commands.ts</code></td>
+<td>import + COMMANDS 列表项，2 行（参照 <code>commands.ts:188,325</code> 的注册模式）</td>
+</tr>
+<tr>
+<td><code>src/utils/settings/types.ts</code></td>
+<td><code>ywdevhubUrl: z.string().url().optional()</code>，1 行</td>
+</tr>
+</tbody></table>
+<h3>12.3 复用不改</h3>
+<p><code>utils/dxt/zip.ts</code>（解压防护，226 行）、<code>axios</code> 代理/证书链路（<code>utils/proxy.ts</code>）、
+<code>pluginOnlyPolicy.ts</code>（策略检查）、<code>settings.ts</code> 的分源读取。</p>
+<h3>12.4 规模汇总</h3>
+<ul>
+<li>实现代码：<strong>约 610–850 行</strong>（净新增 4 个文件 + 修改 3 行）</li>
+<li>测试代码：<strong>约 400–580 行</strong></li>
+<li>合计：<strong>约 1000–1400 行</strong></li>
+</ul>
+<p>估算基准：<code>rate-limit-options/index.ts</code> 19 行（注册样板）、<code>rate-limit-options.tsx</code> 209 行
+（Dialog + Select 完整最小样例）、<code>officialMarketplaceGcs.ts</code> 216 行（清单拉取 + 下载参照）。</p>
+<p><strong>这是估算不是目标</strong>；与优先级冲突时以本文开头的五条优先级为准。</p>
+<hr>
+<h2>13. 测试计划</h2>
+<h3>13.1 参数解析（纯函数）</h3>
+<ol>
+<li>重复 flag / 未知 flag / 多余位置参数</li>
+<li><code>--remove</code> 缺参数</li>
+<li>安装 id 与 <code>--remove</code> 同时出现</li>
+<li><code>--force</code> 与 <code>--remove</code> 同时出现</li>
+<li><code>--project</code> <code>--force</code> 的合法组合</li>
+<li>id 以 <code>-</code> 开头、含 <code>/</code> <code>\</code> <code>:</code> <code>..</code></li>
+</ol>
+<h3>13.2 安装核心</h3>
+<ol start="7">
+<li>规则 1（根即 SKILL.md，如 <code>docx-skill</code>）：整包放进 <code>&lt;id&gt;/</code></li>
+<li>规则 2（单顶层目录，如 <code>architecture-diagram</code>）：剥层后放进 <code>&lt;id&gt;/</code></li>
+<li>规则 3：根无 SKILL.md 且顶层多目录 → 报错，文案列出实际顶层条目</li>
+<li>多 skill 包（如 <code>understand-anything</code>）：安装后加载出 <code>&lt;id&gt;</code> 与 <code>&lt;id&gt;:&lt;子目录&gt;</code> 系列，
+命名空间正确</li>
+<li>sha256 不匹配 → 报错，<strong>目标目录与 staging 均无残留</strong></li>
+<li>sha256 缺失 → 跳过校验并标注&quot;未校验&quot;</li>
+<li>zip 内含 <code>../</code> 条目 → 被 <code>unzipFile</code> 拒绝（回归）</li>
+<li>可执行位：zip 内 <code>+x</code> 文件解压后仍为 <code>+x</code></li>
+</ol>
+<h3>13.3 原子性与恢复</h3>
+<ol start="15">
+<li>staging 写入阶段失败 → <strong>旧版本内容与 sidecar 完全不变</strong></li>
+<li><code>rename(new → target)</code> 失败 → backup 被恢复为 target，内容与失败前一致</li>
+<li>遗留 <code>&lt;id&gt;.new</code> → 下次运行清理后正常安装</li>
+<li>遗留 <code>&lt;id&gt;.old</code> 且目标不存在 → 恢复为目标</li>
+<li>遗留 <code>&lt;id&gt;.old</code> 且目标存在 → 清理 old，不影响目标</li>
+<li>同一 skill 两个进程并发安装 → 最终目录内容与某一次完整安装一致，无混合残骸</li>
+<li><code>clearCommandsCache()</code> / <code>resetSentSkillNames()</code> <strong>仅在切换成功后</strong>被调用（失败路径断言未调用）</li>
+</ol>
+<h3>13.4 状态与覆盖</h3>
+<ol start="22">
+<li>同版本 + 同来源 → 不写磁盘（断言 mtime 不变）</li>
+<li>版本不同 + 同来源 → 更新成功</li>
+<li>hubUrl 变化 → 非交互下无 <code>--force</code> 时拒绝</li>
+<li>无 sidecar + 无 <code>--force</code> → 拒绝</li>
+<li>无 sidecar + <code>--force</code> → 覆盖并补写 sidecar</li>
+<li>sidecar JSON 损坏 → 视为来源未知</li>
+<li>sidecar <code>schemaVersion: 99</code> → 视为来源未知</li>
+<li>sidecar 的 <code>id</code> 与目录名不一致 → 视为来源未知</li>
+<li>user / project 同 id 同时存在 → 两侧状态各自识别正确，互不影响</li>
+</ol>
+<h3>13.5 卸载</h3>
+<ol start="31">
+<li>无 sidecar → 拒绝删除</li>
+<li>sidecar 损坏 → 拒绝删除</li>
+<li>sidecar id 不匹配 → 拒绝删除</li>
+<li>user scope 不存在时<strong>不</strong>回退到 project</li>
+<li>删除失败 → 不刷新缓存，不留下&quot;已卸载&quot;假状态</li>
+</ol>
+<h3>13.6 配置与清单</h3>
+<ol start="36">
+<li><code>ywdevhubUrl</code> 写在 projectSettings / localSettings → <strong>不被读取</strong></li>
+<li>优先级：policy &gt; user</li>
+<li>直接喂入现网 <code>skills.json</code>（顶层数组，无 sha256/downloadUrl）→ 全部 6 条正常解析</li>
+<li>地址派生：hubRoot 有 / 无尾斜杠两种输入 → 均得到 <code>&lt;hubRoot&gt;/skills.json</code> 与 <code>&lt;hubRoot&gt;/skills/&lt;filename&gt;</code></li>
+<li>条目提供 <code>downloadUrl</code> → 覆盖拼接结果</li>
+<li>清单重复 id → 保留第一条并警告</li>
+<li>清单超过 2 MB → 拒绝</li>
+<li>zip 超过 64 MB → 拒绝</li>
+<li>最终地址为 <code>file://</code> / <code>data:</code> → 拒绝</li>
+<li>最终地址含 userinfo → 拒绝</li>
+<li>下载返回 302 → 报错（不跟随）</li>
+<li>条目 id 非法或无法拼出地址 → 标记仅查看，不阻断其余条目</li>
+</ol>
+<h3>13.7 路径安全</h3>
+<ol start="48">
+<li>目标父目录含符号链接且指向 skills 根之外 → 拒绝</li>
+<li>skills 根本身是符号链接 → realpath 后仍在预期位置则允许</li>
+<li>scope=project 的路径解析（<code>.ywcoder</code> / <code>.claude</code> 两种 flag 状态）</li>
+</ol>
+<h3>13.8 策略</h3>
+<ol start="51">
+<li><code>strictPluginOnlyCustomization</code> 锁定 skills → user / project 安装均拒绝</li>
+<li>策略锁定时 <code>--force</code> 不能绕过</li>
+<li>策略锁定时 <code>--remove</code> 仍可清理本工具安装的目录</li>
+</ol>
+<p>CI：<code>bun run build</code>、<code>bun test --max-concurrency=1</code>、<code>bun run smoke</code>、
+<code>bun run security:pr-scan -- --base origin/main</code>。</p>
+<hr>
+<h2>14. 验收标准</h2>
+<p>功能验收（内网实机）：</p>
+<ul>
+<li><input disabled="" type="checkbox"> A1 未配置 <code>ywdevhubUrl</code> 时给出含完整路径与示例的提示</li>
+<li><input disabled="" type="checkbox"> A2 <code>/skill-install</code> 能列出清单，四类状态显示正确</li>
+<li><input disabled="" type="checkbox"> A3 全新安装成功，<code>/skills</code> 与 slash 菜单<strong>无需重启</strong>即可看到新 skill</li>
+<li><input disabled="" type="checkbox"> A4 输出的安装路径与磁盘实际路径一致（project scope 下 <code>.ywcoder</code>/<code>.claude</code> 正确）</li>
+<li><input disabled="" type="checkbox"> A5 重复执行同一安装 → &quot;已是最新&quot;，磁盘未被改写</li>
+<li><input disabled="" type="checkbox"> A6 服务端升版本后再执行 → 成功更新，sidecar 版本同步更新</li>
+<li><input disabled="" type="checkbox"> A7 存量手工目录（无 sidecar）→ 二次确认后收编成功，此后走正常版本比对</li>
+<li><input disabled="" type="checkbox"> A8 <code>--remove</code> 成功卸载，slash 菜单同步消失</li>
+<li><input disabled="" type="checkbox"> A9 <code>--remove</code> 对手工目录被拒绝</li>
+</ul>
+<p>健壮性验收：</p>
+<ul>
+<li><input disabled="" type="checkbox"> B1 下载中途断网 → 已安装的旧版本完好可用，staging 无残留（或下次运行自动清理）</li>
+<li><input disabled="" type="checkbox"> B2 sha256 故意改错 → 拒绝安装，旧版本完好</li>
+<li><input disabled="" type="checkbox"> B3 磁盘写满模拟 → 旧版本完好，报错信息可读</li>
+<li><input disabled="" type="checkbox"> B4 手工制造 <code>&lt;id&gt;.old</code> 遗留 + 删除目标 → 下次运行自动恢复</li>
+<li><input disabled="" type="checkbox"> B5 两个终端同时安装同一 skill → 最终目录为某一次的完整内容，无混合</li>
+</ul>
+<p>安全验收：</p>
+<ul>
+<li><input disabled="" type="checkbox"> C1 <code>ywdevhubUrl</code> 写进项目 <code>.ywcoder/settings.json</code> → 不生效</li>
+<li><input disabled="" type="checkbox"> C2 清单里构造 <code>id: &quot;../evil&quot;</code> → 拒绝</li>
+<li><input disabled="" type="checkbox"> C3 <code>downloadUrl</code> 改为 <code>file:///etc/passwd</code> → 拒绝</li>
+<li><input disabled="" type="checkbox"> C4 zip 内构造 <code>../../evil.sh</code> → 拒绝</li>
+<li><input disabled="" type="checkbox"> C5 开启 <code>strictPluginOnlyCustomization</code> → 安装被拒且提示明确，<code>--force</code> 无法绕过</li>
+</ul>
+<hr>
+<h2>15. 已关闭的确认事项</h2>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>事项</th>
+<th>结论</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Q1</td>
+<td>sidecar 文件名</td>
+<td>采用 <code>.ywcoder-source.json</code></td>
+</tr>
+<tr>
+<td>Q2</td>
+<td>清单是否改用 marketplace.json 形状</td>
+<td><strong>否</strong>。直接消费现有 <code>skills.json</code>，服务端零改动（D17）</td>
+</tr>
+<tr>
+<td>Q3</td>
+<td>内网 zip 结构</td>
+<td><strong>两种并存</strong>：<code>architecture-diagram</code> 为单顶层目录，其余 5 个为根即 SKILL.md（其中 <code>understand-anything</code> 为多 skill 包）。客户端按 §3.3 三条规则全部兼容，无需重打包</td>
+</tr>
+<tr>
+<td>Q4</td>
+<td>project scope 内容随仓库提交</td>
+<td><strong>可接受</strong>，与现有手工解压到 <code>$project/.ywcoder/skills/</code> 的行为一致，无需额外适配。唯一新增是几百字节的 sidecar</td>
+</tr>
+<tr>
+<td>Q5</td>
+<td>内网 HTTPS</td>
+<td>当前仅 HTTP，未来可能增加。设计上两者都支持，届时无需改代码</td>
+</tr>
+<tr>
+<td>Q6</td>
+<td><code>--update-all</code> 等批量操作</td>
+<td>一期不做</td>
+</tr>
+<tr>
+<td>Q7</td>
+<td>staging 的 <code>.gitignore</code> 提示</td>
+<td>降级为可选。staging 用完即删，稳态下不存在（§5）</td>
+</tr>
+<tr>
+<td>Q8</td>
+<td>环境变量配置来源</td>
+<td><strong>不做</strong>，只读 settings 文件（D10）</td>
+</tr>
+<tr>
+<td>Q9</td>
+<td>downloadUrl 与 hub 同源提示</td>
+<td><strong>不做</strong>（D19）</td>
+</tr>
+<tr>
+<td>Q10</td>
+<td>settings 字段命名与语义</td>
+<td>定名 <code>ywdevhubUrl</code>，值为 hub 根地址；资源类型靠清单路径约定区分（D20）</td>
+</tr>
+</tbody></table>
+<h3>剩余待确认</h3>
+<p>无阻塞项。以下为实现期可自行决定的细节：</p>
+<ul>
+<li>现网清单全部缺 <code>sha256</code> 时，&quot;未校验&quot;标记逐行显示还是在 footer 统一说明一次（§11.1）</li>
+<li>内网使用文档是否补充&quot;建议为清单补 sha256 字段&quot;的说明</li>
+</ul>
+<hr>
+<h2>16. 明确不做</h2>
+<ul>
+<li><strong>headless（<code>-p</code>）支持</strong>（D16）。装机脚本直接解压到 <code>~/.ywcoder/skills/</code> 即可。</li>
+<li><strong>环境变量配置</strong>（D10）。只读 settings 文件。</li>
+<li><strong>列表内实时搜索</strong>。规模够用为止。</li>
+<li><strong>版本兼容门禁</strong>（<code>minYwcoderVersion</code>）。老客户端装到新 skill 是运行时报错而非安装时拦截。</li>
+<li><strong>semver 版本高低比较</strong>（D5）。只判相同/不同。</li>
+<li><strong>并发安装锁</strong>（D15）。原子切换已保证无损坏状态。</li>
+<li><strong>downloadUrl 与 hub 同源限制或提示</strong>（D19）。</li>
+<li><strong>清单格式改造</strong>（D17）。直接吃现有 <code>skills.json</code>。</li>
+<li><strong>zip 重打包</strong>（D18）。客户端兼容存量两种结构。</li>
+<li><strong><code>--remove --force</code></strong>（D13）。拒绝时打印路径供手动删除。</li>
+<li><strong>企业级集中管控</strong>（禁用清单、多版本回滚、审计）。需要这些应选方案二。</li>
+</ul>
+<hr>
+<h2>17. 推进计划</h2>
+<p>设计已定稿（D1–D20、Q1–Q10 全部关闭，无阻塞项），以下按依赖顺序排布。
+每阶段列出验证检查点，未通过不进入下一阶段。</p>
+<h3>Phase 0 开工准备</h3>
+<ol>
+<li>从 main 切 feature 分支 <code>feature/skill-install</code>（本仓库规矩：feature 分支先行，main 最后合并）</li>
+<li>确认现网 <code>yw-devhub/skills.json</code> 可访问，字段与 §3.1 表格一致（id/version/filename 齐全）</li>
+<li>确认 <code>strictPluginOnlyCustomization</code> 在内网策略中的现状（影响 §9.1 联调方式）</li>
+</ol>
+<p>验证：分支就位；<code>curl</code> 清单返回 200 且为顶层数组。</p>
+<h3>Phase 1 核心 installer（纯逻辑，不依赖 UI）</h3>
+<p>按&quot;先纯函数、后副作用&quot;顺序，每个文件伴随单测：</p>
+<table>
+<thead>
+<tr>
+<th>步</th>
+<th>内容</th>
+<th>验证（对应 §13）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><code>skillInstallArgs.ts</code> + 单测</td>
+<td>§13.1 全部 6 组</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>types.ts</code> 加 <code>ywdevhubUrl</code>；清单拉取 / 校验 / hubRoot 归一化与地址派生</td>
+<td>§13.6</td>
+</tr>
+<tr>
+<td>3</td>
+<td>下载 + <code>unzipFile</code> + 三条结构判定</td>
+<td>§13.2</td>
+</tr>
+<tr>
+<td>4</td>
+<td>staging / 原子切换 / 遗留恢复 / sidecar 读写</td>
+<td>§13.3</td>
+</tr>
+<tr>
+<td>5</td>
+<td>三态扫描 / 覆盖判定 / <code>--remove</code></td>
+<td>§13.4、§13.5</td>
+</tr>
+<tr>
+<td>6</td>
+<td>路径逃逸三层校验 + 策略检查接入</td>
+<td>§13.7、§13.8</td>
+</tr>
+</tbody></table>
+<p>验证：<code>bun test --max-concurrency=1</code> 全绿。</p>
+<h3>Phase 2 命令与 UI</h3>
+<ol>
+<li><code>skill-install/index.ts</code> 注册（参照 <code>rate-limit-options</code>，19 行样板）</li>
+<li><code>skill-install.tsx</code>：四态列表、<code>(仅查看)</code> / <code>(未校验)</code> 标记、两类二次确认、结果展示</li>
+<li><code>commands.ts</code> 加入 COMMANDS（2 行）</li>
+</ol>
+<p>验证：<code>bun run build</code> 通过；本地交互跑通&quot;列表 → 选择 → 安装 → slash 菜单出现&quot;。</p>
+<h3>Phase 3 CI 与打包</h3>
+<p>按仓库 CI 清单全量执行：</p>
+<pre><code class="language-bash">bun run build
+bun run smoke
+bun test --max-concurrency=1
+bun run security:pr-scan -- --base origin/main
+</code></pre>
+<p>验证：全部通过后由 CI 打出内网测试包。</p>
+<h3>Phase 4 内网实机验收</h3>
+<p>用 CI 包装一台干净的内网机器，按 §14 逐项勾选：</p>
+<ul>
+<li>功能验收 A1–A9</li>
+<li>健壮性验收 B1–B5</li>
+<li>安全验收 C1–C5</li>
+</ul>
+<p>两个已知边界重点盯：</p>
+<ul>
+<li><strong>slash 菜单刷新</strong>：首次创建 <code>~/.ywcoder/skills/</code> 时 watcher 不存在（§10），若 A3 失败，
+启用预案——从 <code>skillChangeDetector</code> 导出 <code>notifySkillsChanged()</code>（一行）</li>
+<li><strong>project scope 目录名</strong>：<code>.ywcoder</code> / <code>.claude</code> 两种 flag 状态各验一次（A4）</li>
+</ul>
+<p>验证：§14 全部勾完。</p>
+<h3>Phase 5 合并与发布</h3>
+<ol>
+<li>内网验收通过后合并 main（main 是最后一步，不提前）</li>
+<li>内网使用文档（随发布交付）：<ul>
+<li>配置方法：<code>settings.json</code> 写 <code>ywdevhubUrl</code>，含完整示例</li>
+<li>&quot;安装 skill 等价于安装可执行代码&quot;的风险说明（§9.4）</li>
+<li>project scope 内容随仓库提交的告知（§8.3）</li>
+<li>HTTP 明文风险说明（§9.3，内网当前无 HTTPS）</li>
+<li>可选：建议为清单补 <code>sha256</code> 字段（§15 剩余事项）</li>
+</ul>
+</li>
+<li>发布后观察：安装类报障、<code>--remove</code> 拒绝文案是否足够指引手动删除</li>
+</ol>
+<p>验证：合并后 main 分支 CI 绿；内网文档发出。</p>
+<h3>外部依赖与风险</h3>
+<table>
+<thead>
+<tr>
+<th>项</th>
+<th>说明</th>
+<th>应对</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>现网清单持续可访问</td>
+<td>本方案服务端零改动的前提（D17）</td>
+<td>无额外动作；若清单迁移只需用户改 <code>ywdevhubUrl</code></td>
+</tr>
+<tr>
+<td>清单暂无 sha256</td>
+<td>全部条目带&quot;未校验&quot;标记，更新判定退化为 version-only</td>
+<td>功能不阻塞；建议上传侧后续补字段</td>
+</tr>
+<tr>
+<td>打包冗余（<code>understand-anything</code> 根与子目录同内容）</td>
+<td>安装后出现两个同内容 skill</td>
+<td>不阻塞；如需消除在上传侧处理（§3.3 备注）</td>
+</tr>
+</tbody></table>
+
+</body>
+</html>
