@@ -24,7 +24,7 @@
  * 每个场景各跑一个独立 shim 子进程与独立工作子目录，互不干扰。需 provider 凭证（真调模型）。
  */
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
@@ -357,8 +357,10 @@ function shimCommand(workdir: string, permissionMode: string): [string, string[]
 
 function runScenario(scenario: Scenario): Promise<boolean> {
   return new Promise(resolvePromise => {
-    // 每个场景独立工作目录，文件断言互不污染。
+    // 每个场景独立工作目录，文件断言互不污染。先删后建：复跑时清掉上轮产物
+    // （如 confirm-allow.txt），避免残留文件让模型误判「文件已符合要求」而跳过 Write。
     const workdir = join(rootWorkdir, scenario.name)
+    rmSync(workdir, { recursive: true, force: true })
     mkdirSync(workdir, { recursive: true })
     writeFileSync(join(workdir, 'test.txt'), 'hello from ywmatrix-shim mock-agentclient\n')
     scenario.setup?.(workdir)

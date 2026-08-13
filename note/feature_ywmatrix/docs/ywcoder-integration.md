@@ -41,12 +41,12 @@ AgentClient（通用 stdio 适配器）把 shim 当本地 Agent 拉起（已与 
 ```json
 {
   "command": "ywcoder-ywmatrix",
-  "args": ["--workdir", "/path/to/project", "--permission-mode", "default"],
-  "cwd": "/path/to/project"
+  "args": ["--workdir", "/path/to/project", "--permission-mode", "default"]
 }
 ```
 - AgentClient 保持通用：只透传 `command/args/cwd`，不解释 args 含义。
 - shim 的 args：`--workdir`（shim 据此设 ywcoder 的 cwd 与 `--add-dir`）、`--permission-mode`（用 ywcoder 真实取值 `default/acceptEdits/bypassPermissions`）。
+- **`cwd` 无需设置**：早期版本要求 shim 进程 cwd 必须等于 `--workdir`（`sessionIdExists` 按 `process.cwd()` 推导会话分桶），失配即拒启。现 shim 启动后自行 `chdir(--workdir)`，调用方传不传 cwd、传什么都行，单参数入口杜绝填错。
 - env 整体继承 AgentClient；需 AgentClient **以正确用户身份启动**，保证 `HOME/USER/PATH` 正确（供 ywcoder 读本地配置/凭证，见 §17-B）。
 
 shim 内部据 args 用 ywcoder **真实 flag** 拉起（`--permission-mode default` 时 shim **自动补 `--permission-prompt-tool stdio`** 并启用控制面）：
@@ -170,7 +170,7 @@ stream-json 双向流上跑两类消息：**数据消息**（SDKMessage）与**�
 | 管控台字段 | shim 处理 |
 |---|---|
 | `content` | 对应 session 的 ywcoder 子进程 stdin，写 user message 的 `message.content` |
-| `session_id` | **路由键**（见 §9.2）：**带 UUID**（AgentClient 现行行为）→ 原样采用，据本地是否已有该会话走 `--session-id`（新建）或 `--resume`（续接）；**不带**（早期约定，仍支持）→ shim mint 一个 UUID 并在 ack 回填供管控台采纳。两种入口最终都以 **ack 回传的 id 为准** |
+| `session_id` | **路由键**（见 §9.2）：**带 UUID**（常态，网关生成）→ 原样采用，据本地是否已有该会话走 `--session-id`（新建）或 `--resume`（续接）；**不带**（不该出现，说明上游链路有 bug）→ 防御性 mint 一个 UUID 并**打告警日志**。注意：AgentClient **不消费** ack 里的 `session_id`（2026-08-11 已明确不采纳「ack 回填、管控台采纳」方案），mint 出的 id 对方并不知道，仅保证 shim 本进程内路由自洽，多轮上下文会丢失 |
 | `task_id` | 回填到该 session 所有输出与控制关联；同一 session 内多个 task 串行 |
 | `context_id` | 多会话分组见 §9；MVP 可等同 session |
 | `history` | 通常无需——同一 ywcoder 会话已保上下文 |
@@ -374,7 +374,7 @@ shim 侧行为：
 2. ✅ **UUID 固定用小写**（`randomUUID()` 恒为小写）。大写能正常启动，但 `sessionIdExists` 查的是文件名 `<id>.jsonl`：macOS 大小写不敏感会"碰巧"命中，**Linux 上同一 id 的大小写变体会被判成两个会话**（该续接的变成新建）。若将来改用其它来源的 id（如从外部系统导入），需重新确认这一点。
 3. ⏳ **`session_id` 与 `workdir` 配套**（对方回复未涉及）。会话文件按工作目录分桶存，同一 id 换 `--workdir` = 全新会话；网关按 session 落库、用户隔天回来续聊时，必须把任务路由回**同一台机器的同一个工作目录**，否则上下文静默丢失。
 
-> 一致性保障：shim 的 `validateUuid` / `sessionIdExists` 与 ywcoder 自身校验**是同一个函数**，projectDir 也都由 `realpath(cwd)` 推导（shim 强制 `cwd == --workdir`），故不会出现「shim 判 create、ywcoder 却拒绝启动」的分叉。万一竞态撞上 `already in use`，`YwcoderSession.spawn` 会自动改用 `--resume` 重试一次。
+> 一致性保障：shim 的 `validateUuid` / `sessionIdExists` 与 ywcoder 自身校验**是同一个函数**，projectDir 也都由 `realpath(cwd)` 推导（shim 启动即 `chdir(--workdir)`，见 §2），故不会出现「shim 判 create、ywcoder 却拒绝启动」的分叉。万一竞态撞上 `already in use`，`YwcoderSession.spawn` 会自动改用 `--resume` 重试一次。
 
 ```js
 // 会话路由键 = task.create.session_id（任意字符串都能当 key）

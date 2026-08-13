@@ -11,7 +11,6 @@
  */
 import { createInterface } from 'node:readline'
 import { randomUUID } from 'node:crypto'
-import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
   EXTERNAL_PERMISSION_MODES,
@@ -488,23 +487,10 @@ class Shim {
 
 const args = parseArgs(process.argv.slice(2))
 
-// §9.2 硬约束：sessionIdExists 内部用 process.cwd() 判定；shim 进程 cwd 必须
-// == --workdir，否则 --session-id/--resume 分支会判断错误。AgentClient 按约定
-// 以 workdir 为 cwd 拉起 shim（见 §2），这里失配就直接快速失败而非静默纠正。
-// 比较用真实路径（realpath）：macOS 上 /tmp 等是符号链接，process.cwd() 会被解析为
-// /private/tmp，若只做 resolve 不解链接会误判为不一致。
-function canonicalPath(p: string): string {
-  try {
-    return realpathSync(p)
-  } catch {
-    return resolve(p)
-  }
-}
-if (canonicalPath(process.cwd()) !== canonicalPath(args.workdir)) {
-  log(
-    `致命: shim 进程 cwd(${process.cwd()}) 与 --workdir(${args.workdir}) 不一致，拒绝启动`,
-  )
-  process.exit(1)
-}
+// §9.2 硬约束：sessionIdExists 内部用 process.cwd() 推导会话分桶；shim 进程 cwd 必须
+// == --workdir，否则 --session-id/--resume 分支会判断错误。与其要求调用方把两处
+// 填成一致（填错即拒启），不如 shim 启动后直接 chdir 到 --workdir——单参数入口，
+// 失配这个错误类别不复存在。ywcoder 子进程本就显式带 cwd: workdir，不受影响。
+process.chdir(args.workdir)
 
 new Shim(args).start()
