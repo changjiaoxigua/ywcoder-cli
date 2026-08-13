@@ -68,9 +68,9 @@ describe('onboarding auth precedence cleanup', () => {
 
     applyGithubOnboardingProcessEnv('github:copilot', env)
 
-    // process.env 双写新+旧名
+    // 运行时只写新名（dcb420d 起停止写旧名）；旧名由读取端 getYwCoderEnv 回退兼容
     expect(env.YWCODER_USE_GITHUB).toBe('1')
-    expect(env.CLAUDE_CODE_USE_GITHUB).toBe('1')
+    expect(env.CLAUDE_CODE_USE_GITHUB).toBeUndefined()
     expect(env.OPENAI_MODEL).toBe('github:copilot')
 
     expect(env.OPENAI_API_KEY).toBeUndefined()
