@@ -329,7 +329,7 @@ staging 内使用两个路径：`<staging>/<id>.new/` 与 `<staging>/<id>.old/`�
   "id": "architecture-diagram",
   "version": "1.1",
   "hubUrl": "http://10.x.x.x/yw-devhub/",
-  "downloadUrl": "http://10.x.x.x/yw-devhub/skills/architecture-diagram.zip",
+  "downloadUrl": "http://10.x.x.x/yw-devhub/skills/architecture-diagram.zip", <!-- pr-scan:ignore executable-download-link —— 文档示例地址 -->
   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "installedAt": "2026-08-07T00:00:00.000Z"
 }

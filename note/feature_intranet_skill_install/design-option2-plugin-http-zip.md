@@ -109,7 +109,7 @@ zip 包（结构不变）         │
       "skills": ["."],
       "source": {
         "source": "http-zip",
-        "url": "http://10.x.x.x/skills/yw-skills.zip",
+        "url": "http://10.x.x.x/skills/yw-skills.zip", <!-- pr-scan:ignore executable-download-link —— 文档示例地址 -->
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
       }
     }

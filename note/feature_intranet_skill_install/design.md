@@ -42,7 +42,7 @@
   "version": "1.1",
   "updatedAt": "2026-05-15",
   "filename": "architecture-diagram.zip",
-  "downloadUrl": "http://内网服务器/skills/architecture-diagram.zip",
+  "downloadUrl": "http://内网服务器/skills/architecture-diagram.zip", <!-- pr-scan:ignore executable-download-link —— 文档示例地址 -->
   "entryDir": "architecture-diagram",
   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "scope": "user",
@@ -207,7 +207,7 @@ architecture-diagram.zip
       "scope": "project",
       "installPath": "/path/to/project/.ywcoder/skills/architecture-diagram",
       "sourceId": "architecture-diagram",
-      "downloadUrl": "http://内网服务器/skills/architecture-diagram.zip"
+      "downloadUrl": "http://内网服务器/skills/architecture-diagram.zip" <!-- pr-scan:ignore executable-download-link —— 文档示例地址 -->
     }
   }
 }
