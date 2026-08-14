@@ -1091,6 +1091,14 @@ export const SettingsSchema = lazySchema(() =>
             'Useful for enterprise administrators to add organization-specific context ' +
             '(e.g., "All plugins from our internal marketplace are vetted and approved.").',
         ),
+      ywdevhubUrl: z
+        .string()
+        .url()
+        .optional()
+        .describe(
+          '内网 yw-devhub 根地址（如 "http://10.x.x.x/yw-devhub/"），/skill-install 的清单与 zip 均按约定路径从它派生。 ' +
+            '只从 policySettings / userSettings 读取，project/local settings 中的配置不生效。',
+        ),
     })
     .passthrough(),
 )
