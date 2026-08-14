@@ -1,91 +1,14 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>内网 Skill 远程安装：实施方案（方案一 · 修订版）</title>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>内网 Skill 远程安装：实施方案（方案一 · 修订版）</title>
 <style>
-  :root {
-    --bg: #ffffff;
-    --fg: #1f2328;
-    --muted: #656d76;
-    --border: #d0d7de;
-    --code-bg: #f6f8fa;
-    --accent: #0969da;
-    --table-head-bg: #f6f8fa;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0d1117;
-      --fg: #c9d1d9;
-      --muted: #8b949e;
-      --border: #30363d;
-      --code-bg: #161b22;
-      --accent: #58a6ff;
-      --table-head-bg: #161b22;
-    }
-  }
-  body {
-    max-width: 920px;
-    margin: 0 auto;
-    padding: 40px 24px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", Helvetica, Arial, sans-serif;
-    line-height: 1.7;
-    color: var(--fg);
-    background: var(--bg);
-  }
-  h1, h2, h3, h4 { margin-top: 1.6em; margin-bottom: 0.6em; line-height: 1.3; }
-  h1 { font-size: 2em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
-  h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
-  h3 { font-size: 1.25em; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  p { margin: 0.8em 0; }
-  blockquote {
-    margin: 1em 0;
-    padding: 0.6em 1em;
-    color: var(--muted);
-    border-left: 4px solid var(--border);
-    background: var(--code-bg);
-    border-radius: 0 6px 6px 0;
-  }
-  blockquote p { margin: 0.4em 0; }
-  ul, ol { padding-left: 1.8em; }
-  li { margin: 0.3em 0; }
-  code {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 0.9em;
-    padding: 0.2em 0.4em;
-    background: var(--code-bg);
-    border-radius: 4px;
-  }
-  pre {
-    background: var(--code-bg);
-    padding: 16px;
-    border-radius: 8px;
-    overflow-x: auto;
-    border: 1px solid var(--border);
-  }
-  pre code { padding: 0; background: transparent; }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1em 0;
-    font-size: 0.95em;
-  }
-  th, td {
-    border: 1px solid var(--border);
-    padding: 8px 12px;
-    text-align: left;
-  }
-  th { background: var(--table-head-bg); font-weight: 600; }
-  tr:nth-child(even) { background: var(--code-bg); }
-  hr { border: none; border-top: 1px solid var(--border); margin: 2em 0; }
-  input[type="checkbox"] { margin-right: 0.4em; }
-</style>
-</head>
-<body>
-<h1>内网 Skill 远程安装：实施方案（方案一 · 修订版）</h1>
+:root { color-scheme: light dark; }
+body { max-width: 900px; margin: 2rem auto; padding: 0 1rem; font-family: -apple-system, 'PingFang SC', sans-serif; line-height: 1.6; }
+pre { background: rgba(127,127,127,.12); padding: .8rem; border-radius: 6px; overflow-x: auto; }
+code { font-family: ui-monospace, Menlo, monospace; font-size: .9em; }
+:not(pre) > code { background: rgba(127,127,127,.15); padding: .1em .3em; border-radius: 4px; }
+table { border-collapse: collapse; } th, td { border: 1px solid rgba(127,127,127,.4); padding: .3rem .6rem; }
+h1, h2, h3 { border-bottom: 1px solid rgba(127,127,127,.25); padding-bottom: .2em; }
+</style></head><body><h1>内网 Skill 远程安装：实施方案（方案一 · 修订版）</h1>
 <blockquote>
 <p><strong>定位</strong>：本文取代 <code>design.md</code>，是 <code>/skill-install</code> 的实施依据。
 与 <code>design-option2-plugin-http-zip.md</code>（复用 plugin 机制）二选一。</p>
@@ -311,7 +234,7 @@ user 找不到时不得自动去 project 找。</p>
 <p><code>ywdevhubUrl</code> 是 hub 根地址，清单与 zip 都按固定路径约定从它派生：</p>
 <pre><code>hubRoot       http://10.x.x.x/yw-devhub/
 清单地址      new URL(&#39;skills.json&#39;, hubRoot)         → http://10.x.x.x/yw-devhub/skills.json
-下载地址      new URL(&#39;skills/&#39; + filename, hubRoot)  → http://10.x.x.x/yw-devhub/skills/architecture-diagram.zip
+下载地址      new URL(&#39;skills/&#39; + filename, hubRoot)  → http://10.x.x.x/yw-devhub/skills/architecture-diagram.zip  &lt;!-- pr-scan:ignore executable-download-link —— 文档示例地址 --&gt;
 </code></pre>
 <p>将来其他资源类型走各自的清单约定（如 <code>tools.json</code>），不新增 settings 字段（D20）。</p>
 <p><strong>hubRoot 必须先归一化为以 <code>/</code> 结尾再拼接。</strong> <code>new URL()</code> 会替换掉 base 的最后一段路径：
@@ -553,7 +476,7 @@ user 找不到时不得自动去 project 找。</p>
   &quot;id&quot;: &quot;architecture-diagram&quot;,
   &quot;version&quot;: &quot;1.1&quot;,
   &quot;hubUrl&quot;: &quot;http://10.x.x.x/yw-devhub/&quot;,
-  &quot;downloadUrl&quot;: &quot;http://10.x.x.x/yw-devhub/skills/architecture-diagram.zip&quot;,
+  &quot;downloadUrl&quot;: &quot;http://10.x.x.x/yw-devhub/skills/architecture-diagram.zip&quot;, &lt;!-- pr-scan:ignore executable-download-link —— 文档示例地址 --&gt;
   &quot;sha256&quot;: &quot;e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855&quot;,
   &quot;installedAt&quot;: &quot;2026-08-07T00:00:00.000Z&quot;
 }
@@ -1096,6 +1019,4 @@ bun run security:pr-scan -- --base origin/main
 <td>不阻塞；如需消除在上传侧处理（§3.3 备注）</td>
 </tr>
 </tbody></table>
-
-</body>
-</html>
+</body></html>

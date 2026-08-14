@@ -73,7 +73,7 @@ test('39：hubRoot 有 / 无尾斜杠两种输入，派生结果一致', () => {
     )
     assert.equal(
       deriveZipUrl(hubRoot, { filename: 'architecture-diagram.zip' }),
-      'http://10.0.0.1/yw-devhub/skills/architecture-diagram.zip',
+      'http://10.0.0.1/yw-devhub/skills/architecture-diagram.zip', // pr-scan:ignore executable-download-link —— 测试用假地址
     )
   }
   // 裸 host 也允许
@@ -86,9 +86,9 @@ test('39：hubRoot 有 / 无尾斜杠两种输入，派生结果一致', () => {
 test('40：条目提供 downloadUrl → 覆盖拼接结果', () => {
   const url = deriveZipUrl('http://10.0.0.1/yw-devhub/', {
     filename: 'a.zip',
-    downloadUrl: 'http://other.example/files/a.zip',
+    downloadUrl: 'http://other.example/files/a.zip', // pr-scan:ignore executable-download-link —— 测试用假地址
   })
-  assert.equal(url, 'http://other.example/files/a.zip')
+  assert.equal(url, 'http://other.example/files/a.zip') // pr-scan:ignore executable-download-link —— 测试用假地址
 })
 
 // ---------------------------------------------------------------------------
@@ -117,7 +117,7 @@ test('45：URL 携带 userinfo → 拒绝', () => {
   )
   assert.throws(
     () =>
-      deriveZipUrl('http://h/', { downloadUrl: 'http://u:p@host/a.zip' }),
+      deriveZipUrl('http://h/', { downloadUrl: 'http://u:p@host/a.zip' }), // pr-scan:ignore executable-download-link —— 测试用假地址
     /userinfo/,
   )
 })
@@ -366,7 +366,7 @@ test('14：可执行位：zip 内 +x 文件解压后 modes 保留 +x', async () 
 
 test('43：下载 zip 使用 60s 超时与 64MB 上限；超限错误被包装且不泄露 query', async () => {
   const seen: { opts?: { timeout: number; maxContentLength: number } } = {}
-  const buf = await downloadZip('http://h/hub/skills/a.zip', async (url, opts) => {
+  const buf = await downloadZip('http://h/hub/skills/a.zip', async (url, opts) => { // pr-scan:ignore executable-download-link —— 测试用假地址
     seen.opts = opts
     return Buffer.from('zip-bytes')
   })
@@ -375,7 +375,7 @@ test('43：下载 zip 使用 60s 超时与 64MB 上限；超限错误被包装�
   assert.equal(seen.opts?.maxContentLength, ZIP_MAX_BYTES)
 
   await assert.rejects(
-    downloadZip('http://h/hub/skills/a.zip?token=secret', async () => {
+    downloadZip('http://h/hub/skills/a.zip?token=secret', async () => { // pr-scan:ignore executable-download-link —— 测试用假地址
       throw new Error('maxContentLength size exceeded')
     }),
     /下载 zip 失败（http:\/\/h\/hub\/skills\/a\.zip）：maxContentLength/,
@@ -384,7 +384,7 @@ test('43：下载 zip 使用 60s 超时与 64MB 上限；超限错误被包装�
 
 test('downloadZip 对最终地址做协议与 userinfo 校验', async () => {
   await assert.rejects(downloadZip('file:///etc/passwd'), /只允许/)
-  await assert.rejects(downloadZip('http://u:p@h/a.zip'), /userinfo/)
+  await assert.rejects(downloadZip('http://u:p@h/a.zip'), /userinfo/) // pr-scan:ignore executable-download-link —— 测试用假地址
 })
 
 // ---------------------------------------------------------------------------
@@ -428,7 +428,7 @@ function makeSandbox(withOld?: { version: string }) {
           id: 'my-skill',
           version: withOld.version,
           hubUrl: 'http://h/yw-devhub/',
-          downloadUrl: 'http://h/yw-devhub/skills/my-skill.zip',
+          downloadUrl: 'http://h/yw-devhub/skills/my-skill.zip', // pr-scan:ignore executable-download-link —— 测试用假地址
         }),
       ),
     )
@@ -449,7 +449,7 @@ function sampleSidecar(version = '1.1') {
     id: 'my-skill',
     version,
     hubUrl: 'http://h/yw-devhub/',
-    downloadUrl: 'http://h/yw-devhub/skills/my-skill.zip',
+    downloadUrl: 'http://h/yw-devhub/skills/my-skill.zip', // pr-scan:ignore executable-download-link —— 测试用假地址
     sha256: 'a'.repeat(64),
   })
 }

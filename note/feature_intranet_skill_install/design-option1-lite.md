@@ -129,7 +129,7 @@ user 找不到时不得自动去 project 找。
 ```
 hubRoot       http://10.x.x.x/yw-devhub/
 清单地址      new URL('skills.json', hubRoot)         → http://10.x.x.x/yw-devhub/skills.json
-下载地址      new URL('skills/' + filename, hubRoot)  → http://10.x.x.x/yw-devhub/skills/architecture-diagram.zip
+下载地址      new URL('skills/' + filename, hubRoot)  → http://10.x.x.x/yw-devhub/skills/architecture-diagram.zip  <!-- pr-scan:ignore executable-download-link —— 文档示例地址 -->
 ```
 
 将来其他资源类型走各自的清单约定（如 `tools.json`），不新增 settings 字段（D20）。
