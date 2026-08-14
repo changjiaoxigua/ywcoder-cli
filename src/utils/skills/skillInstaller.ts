@@ -219,6 +219,11 @@ function parseManifestEntry(raw: unknown): ManifestEntry | null {
     viewOnlyReason = 'version 缺失或过长'
   } else if (!filename && !downloadUrl) {
     viewOnlyReason = '缺 filename 且缺 downloadUrl，无法拼出下载地址'
+  } else if (filename && !downloadUrl && !/^[^/\\]+$/.test(filename)) {
+    // filename 语义是纯文件名。含路径序列虽会被 new URL() 无害化（仍落在
+    // http(s) URL 上），但拦截能让清单错误尽早暴露。有 downloadUrl 时
+    // filename 不参与拼接，无需拦截
+    viewOnlyReason = 'filename 含路径字符，应为纯文件名'
   } else if (sha256 && !SHA256_REGEX.test(sha256)) {
     viewOnlyReason = 'sha256 格式非法'
   } else if (downloadUrl) {
@@ -809,17 +814,15 @@ export async function installSkill(
     const message =
       `该 skill 的安装来源已变化：\n  旧：${decision.oldHub}\n  新：${decision.newHub}\n` +
       `继续将按新来源覆盖安装。`
-    if (!force && !(await askConfirm(deps, message))) {
-      throw new Error(`来源已变化，非交互模式需加 --force（${message}）`)
-    }
+    await requireConfirm(deps, force, message,
+      `来源已变化，非交互模式需加 --force（${message}）`)
     previousVersion = state.kind === 'managed' ? state.sidecar.version : undefined
   } else if (decision.action === 'confirm-unknown-source') {
     const message =
       `目标目录已存在且来源未知（非 /skill-install 安装）。` +
       `继续将永久删除其中的全部本地修改：${target}`
-    if (!force && !(await askConfirm(deps, message))) {
-      throw new Error(`目录来源未知，非交互模式需加 --force（会永久删除本地修改）：${target}`)
-    }
+    await requireConfirm(deps, force, message,
+      `目录来源未知，非交互模式需加 --force（会永久删除本地修改）：${target}`)
   }
 
   // 第 9-12 步：下载、sha256、解压、结构判定
@@ -858,12 +861,20 @@ export async function installSkill(
   }
 }
 
-async function askConfirm(
+/**
+ * 覆盖确认的三种去向：--force 直通；无 confirm 回调视为非交互，抛引导
+ * --force 的错误；confirm 拒答是用户主动取消，抛取消错误——不再把交互
+ * 拒答误导性地提示为"非交互模式需加 --force"。
+ */
+async function requireConfirm(
   deps: InstallerDeps,
+  force: boolean,
   message: string,
-): Promise<boolean> {
-  if (!deps.confirm) return false
-  return deps.confirm(message)
+  nonInteractiveError: string,
+): Promise<void> {
+  if (force) return
+  if (!deps.confirm) throw new Error(nonInteractiveError)
+  if (!(await deps.confirm(message))) throw new Error('已取消安装')
 }
 
 export type RemoveResult = { removed: true; path: string }

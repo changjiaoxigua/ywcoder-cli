@@ -176,17 +176,22 @@ test('47：字段非法条目标记仅查看，不阻断其余条目', () => {
     { id: '../evil', version: '1.0', filename: 'x.zip' }, // id 非法
     { id: 'no-version', filename: 'x.zip' }, // 缺 version
     { id: 'no-file', version: '1.0' }, // 缺 filename 且缺 downloadUrl
+    { id: 'bad-name', version: '1.0', filename: '../x.zip' }, // filename 含路径字符
     { id: 'bad-sha', version: '1.0', filename: 'x.zip', sha256: 'zzz' },
     { id: 'bad-url', version: '1.0', downloadUrl: 'file:///etc/passwd' },
+    // 有合法 downloadUrl 时 filename 不参与拼接，含路径字符也不拦截
+    { id: 'ok-url', version: '1.0', filename: '../x.zip', downloadUrl: 'http://h/x.zip' }, // pr-scan:ignore executable-download-link —— 测试用假地址
     { id: 'good', version: '1.0', filename: 'good.zip' },
   ])
-  assert.equal(entries.length, 6)
+  assert.equal(entries.length, 8)
   const byId = Object.fromEntries(entries.map(e => [e.id, e.viewOnlyReason]))
   assert.match(byId['../evil'] ?? '', /id 非法/)
   assert.match(byId['no-version'] ?? '', /version/)
   assert.match(byId['no-file'] ?? '', /无法拼出下载地址/)
+  assert.match(byId['bad-name'] ?? '', /纯文件名/)
   assert.match(byId['bad-sha'] ?? '', /sha256/)
   assert.match(byId['bad-url'] ?? '', /只允许/)
+  assert.equal(byId['ok-url'], null)
   assert.equal(byId['good'], null)
 })
 
@@ -774,9 +779,10 @@ test('24b：hubUrl 变化 → 交互确认后通过，拒绝则中止', async ()
   assert.match(asked, /旧：http:\/\/h\/yw-devhub\/\n  新：http:\/\/other/)
 
   const confirmNo = async () => false
+  // 交互拒答是用户主动取消，不再提示"非交互模式需加 --force"
   await assert.rejects(
     installOnce(sb, '1.0', { hubUrl: HUB, confirm: confirmNo }),
-    /来源已变化/,
+    /已取消安装/,
   )
 })
 
@@ -787,10 +793,10 @@ test('25/26：无 sidecar → 无 --force 拒绝；--force 覆盖并补写 sidec
   writeFileSync(join(sb.target, 'SKILL.md'), 'hand-made')
 
   await assert.rejects(installOnce(sb, '1.0'), /来源未知.*--force/s)
-  // 确认回调拒绝同样中止
+  // 确认回调拒绝同样中止，文案为用户取消而非误导性的 --force 引导
   await assert.rejects(
     installOnce(sb, '1.0', { confirm: async () => false }),
-    /来源未知/,
+    /已取消安装/,
   )
   // 交互确认文案必须写明永久删除（§7.2）
   let asked = ''
@@ -873,6 +879,35 @@ test('21：切换失败路径不刷新缓存；成功才刷新', async () => {
   assert.equal(deps.refreshCount(), 0)
   // 旧版本完好
   assert.equal(readFileSync(join(sb.target, 'SKILL.md'), 'utf8'), 'old 1.0')
+})
+
+test('11b：sha256 不匹配 → 报错，目标目录与 staging 均无残留（§13.2-11 集成断言）', async () => {
+  using sb = makeSandbox({ version: '1.0' })
+  // 清单声明的 sha256 与 zip 实际内容不符
+  const zip = makeZip({ 'SKILL.md': 'tampered' })
+  const manifest = [
+    {
+      id: 'my-skill',
+      version: '1.1',
+      filename: 'my-skill.zip',
+      sha256: '0'.repeat(64),
+    },
+  ]
+  const deps = makeDeps('1.1', {
+    httpGet: async (url: string) =>
+      Buffer.from(url.endsWith('skills.json') ? JSON.stringify(manifest) : zip),
+  })
+  await assert.rejects(
+    installSkill(
+      { id: 'my-skill', scope: 'user', skillsRoot: sb.skillsRoot },
+      deps,
+    ),
+    /sha256 校验失败/,
+  )
+  // 旧版本完好、staging 从未创建、缓存未刷新
+  assert.equal(readFileSync(join(sb.target, 'SKILL.md'), 'utf8'), 'old 1.0')
+  assert.ok(!existsSync(sb.stagingRoot))
+  assert.equal(deps.refreshCount(), 0)
 })
 
 test('未配置 ywdevhubUrl → 报错含完整路径与示例 JSON', async () => {
