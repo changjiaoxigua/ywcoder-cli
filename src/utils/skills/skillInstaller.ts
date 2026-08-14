@@ -25,7 +25,7 @@ import axios from 'axios'
 import { getSettingsForSource } from '../settings/settings.js'
 import type { SettingsJson } from '../settings/types.js'
 import { unzipFile, parseZipModes } from '../dxt/zip.js'
-import { validateSkillId, SKILL_ID_MAX_LENGTH } from './skillInstallArgs.js'
+import { validateSkillId } from './skillInstallArgs.js'
 
 // ---------------------------------------------------------------------------
 // 常量（§3.1 / §6.3 / §9.3）
@@ -114,7 +114,8 @@ export function assertUrlAllowed(raw: string, fieldName: string): void {
   try {
     url = new URL(raw)
   } catch {
-    throw new Error(`${fieldName} 不是合法 URL：${raw}`)
+    // URL 无法解析时拿不到 origin；截掉 query/fragment 再回显，避免泄露敏感参数（§6.3）
+    throw new Error(`${fieldName} 不是合法 URL：${raw.split(/[?#]/)[0]}`)
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
     throw new Error(`${fieldName} 只允许 http/https 协议：${url.protocol}`)
@@ -160,6 +161,8 @@ export type ParsedManifest = {
 }
 
 const SHA256_REGEX = /^[a-f0-9]{64}$/i
+/** 清单 version 长度上限（§3.1）。与 id 上限数值巧合一致，独立常量避免联动误伤 */
+const VERSION_MAX_LENGTH = 64
 
 /**
  * 解析清单 JSON（顶层数组）。单条字段非法只把该条标为"仅查看"，
@@ -212,7 +215,7 @@ function parseManifestEntry(raw: unknown): ManifestEntry | null {
   let viewOnlyReason: string | null = null
   if (idError) {
     viewOnlyReason = `id 非法：${idError}`
-  } else if (!version || version.length > SKILL_ID_MAX_LENGTH) {
+  } else if (!version || version.length > VERSION_MAX_LENGTH) {
     viewOnlyReason = 'version 缺失或过长'
   } else if (!filename && !downloadUrl) {
     viewOnlyReason = '缺 filename 且缺 downloadUrl，无法拼出下载地址'
@@ -465,6 +468,11 @@ export async function readSidecar(
       typeof obj.downloadUrl !== 'string' ||
       typeof obj.installedAt !== 'string'
     ) {
+      return { kind: 'invalid' }
+    }
+    // 可选字段同样要校验类型：sha256 被改成非 string 时，
+    // decideOverwrite 的 toLowerCase() 会抛 TypeError 而非按 §7.1 落入"来源未知"
+    if (obj.sha256 !== undefined && typeof obj.sha256 !== 'string') {
       return { kind: 'invalid' }
     }
     return { kind: 'valid', sidecar: obj as SkillSidecar }
@@ -870,6 +878,9 @@ export async function removeSkill(
 ): Promise<RemoveResult> {
   const { id, skillsRoot } = opts
   const target = join(skillsRoot, id)
+  // 与安装路径对称的三层校验（§9.2"缺一不可"）：当前 id 白名单 + rm 不跟随
+  // 符号链接已无可利用路径，此处防未来改动（如先 realpath 再删）引入漏洞
+  await assertPathInside(skillsRoot, target)
   const state = await scanSkillDir(target, id)
   if (state.kind !== 'managed') {
     throw new Error(

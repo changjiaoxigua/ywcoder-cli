@@ -625,6 +625,18 @@ test('29：sidecar 的 id 与目录名不一致 → invalid；缺失 → missing
   assert.equal((await readSidecar(sb.target, 'my-skill')).kind, 'missing')
 })
 
+test('29b：sidecar 的 sha256 被改成非 string → invalid，全链路不崩溃', async () => {
+  using sb = makeSandbox({ version: '1.0' })
+  writeFileSync(
+    join(sb.target, SIDECAR_FILENAME),
+    JSON.stringify({ ...sampleSidecar(), sha256: 123 }),
+  )
+  assert.equal((await readSidecar(sb.target, 'my-skill')).kind, 'invalid')
+  // 扫描落入"来源未知"，decideOverwrite 不会对数字调 toLowerCase 抛 TypeError
+  const state = await scanSkillDir(sb.target, 'my-skill')
+  assert.equal(state.kind, 'unknown')
+})
+
 // ---------------------------------------------------------------------------
 // §13.3-20/21、§13.4、§13.5：installSkill / removeSkill 编排
 // ---------------------------------------------------------------------------
@@ -635,6 +647,7 @@ import {
   decideOverwrite,
   installSkill,
   removeSkill,
+  resolveSkillsRoot,
   scanSkillDir,
   type InstallerDeps,
 } from './skillInstaller.ts'
@@ -1073,4 +1086,53 @@ test('53：策略锁定时 --remove 仍可清理本工具安装的目录', async
   )
   assert.equal(result.removed, true)
   assert.ok(!existsSync(sb.target))
+})
+
+test('53b：--remove 同样拒绝指向 skills 根之外的符号链接（§9.2 对称校验）', async () => {
+  using sb = makeSandbox()
+  const outside = join(sb.root, 'outside')
+  mkdirSync(outside, { recursive: true })
+  mkdirSync(sb.skillsRoot, { recursive: true })
+  symlinkSync(outside, sb.target)
+  let rmCalled = false
+  await assert.rejects(
+    removeSkill(
+      { id: 'my-skill', skillsRoot: sb.skillsRoot },
+      makeDeps('1.0', {
+        rmFn: async () => {
+          rmCalled = true
+        },
+      }),
+    ),
+    /符号链接指向 skills 根之外/,
+  )
+  assert.equal(rmCalled, false)
+  assert.ok(existsSync(outside))
+})
+
+// §13.6-43 附：非法 URL 的错误信息不回显 query/fragment（§6.3）
+test('非法 URL 报错截掉 query/fragment，不泄露敏感参数', () => {
+  assert.throws(
+    () => assertUrlAllowed('not-a-url?token=secret#frag', 'downloadUrl'),
+    (e: unknown) =>
+      e instanceof Error &&
+      e.message.includes('downloadUrl 不是合法 URL：not-a-url') &&
+      !e.message.includes('secret') &&
+      !e.message.includes('frag'),
+  )
+})
+
+// §13.7-50：project scope 路径解析
+import { getProjectConfigDir } from '../projectConfigDir.js'
+
+test('50：resolveSkillsRoot project scope 转发到 getProjectConfigDir(cwd)/skills', async () => {
+  const cwd = join(tmpdir(), 'skill-proj-scope-test')
+  const root = await resolveSkillsRoot('project', cwd)
+  assert.equal(root, join(getProjectConfigDir(cwd), 'skills'))
+  // 目录名 .ywcoder / .claude 由编译期 MACRO 门控，bun test 下 feature() 恒 false
+  // 只能覆盖 .claude 分支；.ywcoder 分支由 §14-A4 实机验收兜底
+  assert.ok(
+    root === join(cwd, '.ywcoder', 'skills') ||
+      root === join(cwd, '.claude', 'skills'),
+  )
 })
