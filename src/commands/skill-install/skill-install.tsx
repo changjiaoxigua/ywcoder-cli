@@ -64,13 +64,15 @@ type MenuPhase =
 type MenuProps = {
   onDone: LocalJSXCommandOnDone
   hubRoot: string
+  /** 列表视角的 scope：决定扫描哪个 skills 根、装到哪一级目录 */
+  scope: SkillScope
   skillsRoot: string
   warnings: string[]
   initialRows: Row[]
 }
 
 function SkillInstallMenu(props: MenuProps): React.ReactNode {
-  const { onDone, hubRoot, skillsRoot, warnings, initialRows } = props
+  const { onDone, hubRoot, scope, skillsRoot, warnings, initialRows } = props
   const [phase, setPhase] = useState<MenuPhase>({
     kind: 'list',
     rows: initialRows,
@@ -82,7 +84,7 @@ function SkillInstallMenu(props: MenuProps): React.ReactNode {
     try {
       // 需要确认的决策已在 UI 里确认过，confirm 恒为同意
       const result = await installSkill(
-        { id, scope: 'user', skillsRoot },
+        { id, scope, skillsRoot },
         { confirm: () => Promise.resolve(true) },
       )
       if (result.kind === 'already-latest') {
@@ -163,7 +165,7 @@ function SkillInstallMenu(props: MenuProps): React.ReactNode {
   const hasUnverified = phase.rows.some(r => r.entry.sha256 === undefined)
   return (
     <Dialog
-      title={`内网 Skill 安装 — ${hubRoot}`}
+      title={`内网 Skill 安装（${scope === 'project' ? '项目级' : '用户级'}）— ${hubRoot}`}
       onCancel={handleCancel}
       subtitle={
         warnings.length > 0 ? `清单警告：${warnings.join('；')}` : undefined
@@ -178,6 +180,7 @@ function SkillInstallMenu(props: MenuProps): React.ReactNode {
       <Text dimColor>
         skill 可执行 shell 命令，请只安装可信来源
         {hasUnverified ? '；部分条目未提供 sha256，将跳过完整性校验' : ''}
+        {scope === 'project' ? '；项目级 skill 的全部内容将随仓库提交' : ''}
       </Text>
     </Dialog>
   )
@@ -212,8 +215,9 @@ function DirectRun(props: {
 /** 列表加载器：先拉清单 + 扫描本地状态，再挂菜单 */
 function ListLoader(props: {
   onDone: LocalJSXCommandOnDone
+  project: boolean
 }): React.ReactNode {
-  const { onDone } = props
+  const { onDone, project } = props
   const [loaded, setLoaded] = useState<MenuProps | null>(null)
 
   useEffect(() => {
@@ -229,7 +233,8 @@ function ListLoader(props: {
             `{ "ywdevhubUrl": "http://10.x.x.x/yw-devhub/" }`,
         )
       }
-      const skillsRoot = await resolveSkillsRoot('user')
+      const scope: SkillScope = project ? 'project' : 'user'
+      const skillsRoot = await resolveSkillsRoot(scope)
       const manifest = await fetchManifest(hub.hubRoot)
       const rows: Row[] = []
       for (const entry of manifest.entries) {
@@ -243,13 +248,14 @@ function ListLoader(props: {
           decision: decideOverwrite(state, entry, hub.hubRoot),
         })
       }
-      return { hub, skillsRoot, manifest, rows }
+      return { hub, scope, skillsRoot, manifest, rows }
     })().then(
-      ({ hub, skillsRoot, manifest, rows }) => {
+      ({ hub, scope, skillsRoot, manifest, rows }) => {
         if (cancelled) return
         setLoaded({
           onDone,
           hubRoot: hub.hubRoot,
+          scope,
           skillsRoot,
           warnings: manifest.warnings,
           initialRows: rows,
@@ -283,7 +289,7 @@ export async function call(
   }
 
   if (parsed.args.kind === 'list') {
-    return <ListLoader onDone={onDone} />
+    return <ListLoader onDone={onDone} project={parsed.args.project} />
   }
 
   if (parsed.args.kind === 'remove') {

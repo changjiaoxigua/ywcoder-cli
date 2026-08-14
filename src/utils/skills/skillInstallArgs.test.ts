@@ -21,8 +21,12 @@ function expectError(raw: string, messagePart: string) {
 }
 
 test('空参数与纯空白 → list', () => {
-  expectOk('', { kind: 'list' })
-  expectOk('   ', { kind: 'list' })
+  expectOk('', { kind: 'list', project: false })
+  expectOk('   ', { kind: 'list', project: false })
+})
+
+test('列表形态携带 --project：项目级视角列出并安装', () => {
+  expectOk('--project', { kind: 'list', project: true })
 })
 
 test('正常安装：id / id+--project / id+--force / id+--project+--force', () => {

@@ -137,6 +137,7 @@ h1, h2, h3 { border-bottom: 1px solid rgba(127,127,127,.25); padding-bottom: .2e
 <hr>
 <h2>2. 命令面</h2>
 <pre><code class="language-text">/skill-install                     列出内网 skill，交互选择后安装      ← 主路径
+/skill-install --project           同上，但以项目级视角列出并装到项目级 skills 目录
 /skill-install &lt;id&gt;                安装 / 更新（幂等）
 /skill-install &lt;id&gt; --project      装到项目级 skills 目录
 /skill-install &lt;id&gt; --force        覆盖来源未知的同名目录
@@ -160,6 +161,8 @@ h1, h2, h3 { border-bottom: 1px solid rgba(127,127,127,.25); padding-bottom: .2e
 <li>不带 <code>--project</code> → user scope，目标 <code>getSkillsPath(&#39;userSettings&#39;, &#39;skills&#39;)</code></li>
 <li>带 <code>--project</code> → project scope，目标 <code>getSkillsPath(&#39;projectSettings&#39;, &#39;skills&#39;, cwd)</code></li>
 </ul>
+<p>列表形态同样由 <code>--project</code> 决定视角：扫描哪个 skills 根的状态、选中后装到哪一级目录。
+列表 Dialog 标题需标明&quot;用户级 / 项目级&quot;；项目级列表需在 footer 提示内容将随仓库提交（§8.3）。</p>
 <p><strong>所有面向用户的输出必须打印 <code>getSkillsPath()</code> 的真实返回值</strong>，不得硬编码 <code>.ywcoder</code> 或 <code>.claude</code>
 ——项目配置目录名受编译期 flag <code>MIGRATE_PROJECT_CONFIG</code> 门控（<code>projectConfigDir.ts</code>）。</p>
 <p><code>--remove</code> 的 scope 与安装一样由 <code>--project</code> 决定（缺省 user）；<strong>不做跨 scope 回退</strong>——

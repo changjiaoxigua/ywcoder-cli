@@ -5,7 +5,8 @@
  * note/feature_intranet_skill_install/design-option1-lite.md §2.1。
  *
  * 命令面：
- *   /skill-install                          列出内网 skill（list）
+ *   /skill-install                          列出内网 skill（list，user 视角）
+ *   /skill-install --project                列出内网 skill（list，project 视角）
  *   /skill-install <id> [--project] [--force]   安装 / 更新
  *   /skill-install --remove <id> [--project]    卸载
  */
@@ -15,7 +16,8 @@ export const SKILL_ID_REGEX = /^[a-z0-9][a-z0-9._-]*$/i
 export const SKILL_ID_MAX_LENGTH = 64
 
 export type SkillInstallArgs =
-  | { kind: 'list' }
+  // 列表形态带 project：/skill-install --project 以项目级视角列出并安装（§2）
+  | { kind: 'list'; project: boolean }
   | { kind: 'install'; id: string; project: boolean; force: boolean }
   | { kind: 'remove'; id: string; project: boolean }
 
@@ -86,7 +88,7 @@ export function parseSkillInstallArgs(
     if (force) {
       return { ok: false, error: '--force 需要配合安装 id 使用' }
     }
-    return { ok: true, args: { kind: 'list' } }
+    return { ok: true, args: { kind: 'list', project } }
   }
   if (positionals.length > 1) {
     return {

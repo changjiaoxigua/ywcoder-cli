@@ -47,6 +47,7 @@
 
 ```text
 /skill-install                     列出内网 skill，交互选择后安装      ← 主路径
+/skill-install --project           同上，但以项目级视角列出并装到项目级 skills 目录
 /skill-install <id>                安装 / 更新（幂等）
 /skill-install <id> --project      装到项目级 skills 目录
 /skill-install <id> --force        覆盖来源未知的同名目录
@@ -72,6 +73,9 @@
 
 - 不带 `--project` → user scope，目标 `getSkillsPath('userSettings', 'skills')`
 - 带 `--project` → project scope，目标 `getSkillsPath('projectSettings', 'skills', cwd)`
+
+列表形态同样由 `--project` 决定视角：扫描哪个 skills 根的状态、选中后装到哪一级目录。
+列表 Dialog 标题需标明"用户级 / 项目级"；项目级列表需在 footer 提示内容将随仓库提交（§8.3）。
 
 **所有面向用户的输出必须打印 `getSkillsPath()` 的真实返回值**，不得硬编码 `.ywcoder` 或 `.claude`
 ——项目配置目录名受编译期 flag `MIGRATE_PROJECT_CONFIG` 门控（`projectConfigDir.ts`）。
