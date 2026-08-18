@@ -1,15 +1,5 @@
 import { useCallback, useEffect } from 'react'
-import { appendFileSync } from 'fs'
 import type { Command } from '../commands.js'
-
-// 临时排障探针：定位 skill 重载后 UI 冻结的断点，修完即删
-function traceStep(msg: string): void {
-  try {
-    appendFileSync('/tmp/reload-trace.log', `${Date.now()} ${msg}\n`)
-  } catch {
-    // 忽略
-  }
-}
 import {
   clearCommandMemoizationCaches,
   clearCommandsCache,
@@ -36,16 +26,12 @@ export function useSkillsChange(
   onCommandsChange: (commands: Command[]) => void,
 ): void {
   const handleChange = useCallback(async () => {
-    traceStep('useSkillsChange.handleChange entry')
     if (!cwd) return
     try {
       // Clear all command caches to ensure fresh load
       clearCommandsCache()
-      traceStep('hook: after clearCommandsCache')
       const commands = await getCommands(cwd)
-      traceStep(`hook: after getCommands n=${commands.length}`)
       onCommandsChange(commands)
-      traceStep('hook: after onCommandsChange')
     } catch (error) {
       // Errors during reload are non-fatal - log and continue
       if (error instanceof Error) {

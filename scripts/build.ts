@@ -111,6 +111,10 @@ async function buildTarget(opts: {
   naming: opts.naming,
   banner: opts.banner,
   define: {
+    // 生产模式：不定义时 react-reconciler 会把 dev 版打进产物，其 commit
+    // 阶段的 props diff 性能埋点会触发 props 上的 getter（如 /sandbox 的
+    // description），getter 抛异常会损坏 reconciler 导致 UI 永久冻结
+    'process.env.NODE_ENV': JSON.stringify('production'),
     // MACRO.* 构建时常量
     // MACRO.VERSION 保持 99.0.0 用于绕过 first-party min-version 检查，严禁修改
     // MACRO.DISPLAY_VERSION 为用户可见的真实版本号（含 channel 后缀）
@@ -359,7 +363,15 @@ export default stub;
 export const __stub = true;
 // Named exports for all known imports
 export const SandboxViolationStore = null;
-export const SandboxManager = new Proxy({}, { get: () => noop });
+// SandboxManager 桩：方法默认返回 null（noop），但对返回值做链式取值的
+// 调用点必须返回形状正确的对象，否则 null.errors 之类会直接抛 TypeError。
+// 已知调用点：/sandbox 命令的 description getter 读 checkDependencies().errors。
+export const SandboxManager = new Proxy({}, { get: (_, prop) => {
+  if (prop === 'checkDependencies') {
+    return () => ({ errors: ['内网构建未启用沙箱（sandbox-runtime 已桩化）'], warnings: [] });
+  }
+  return noop;
+} });
 export const SandboxRuntimeConfigSchema = { parse: () => ({}) };
 export const BROWSER_TOOLS = [];
 export const getMcpConfigForManifest = noop;

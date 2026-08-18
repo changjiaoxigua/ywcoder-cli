@@ -23,8 +23,6 @@ import { CostThresholdDialog } from '../components/CostThresholdDialog.js';
 import { IdleReturnDialog } from '../components/IdleReturnDialog.js';
 import * as React from 'react';
 import { useEffect, useMemo, useRef, useState, useCallback, useDeferredValue, useLayoutEffect, type RefObject } from 'react';
-// 临时排障探针依赖，修完即删
-import { appendFileSync as appendFileSyncTrace } from 'node:fs';
 import { useNotifications } from '../context/notifications.js';
 import { sendNotification } from '../services/notifier.js';
 import { startPreventSleep, stopPreventSleep } from '../services/preventSleep.js';
@@ -684,20 +682,6 @@ export function REPL({
 
   // Watch for skill file changes and reload all commands
   useSkillsChange(isRemoteSession ? undefined : getProjectRoot(), setLocalCommands);
-
-  // 临时排障探针：验证 localCommands 变化后渲染是否真正提交，修完即删
-  try {
-    appendFileSyncTrace('/tmp/reload-trace.log', `${Date.now()} REPL render\n`);
-  } catch {
-    // 忽略
-  }
-  useEffect(() => {
-    try {
-      appendFileSyncTrace('/tmp/reload-trace.log', `${Date.now()} REPL committed localCommands=${localCommands.length}\n`);
-    } catch {
-      // 忽略
-    }
-  }, [localCommands]);
 
   // Track proactive mode for tools dependency - SleepTool filters by proactive state
   const proactiveActive = React.useSyncExternalStore(proactiveModule?.subscribeToProactiveChanges ?? PROACTIVE_NO_OP_SUBSCRIBE, proactiveModule?.isProactiveActive ?? PROACTIVE_FALSE);

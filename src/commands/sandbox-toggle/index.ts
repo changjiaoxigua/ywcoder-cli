@@ -9,7 +9,10 @@ const command = {
     const autoAllow = SandboxManager.isAutoAllowBashIfSandboxedEnabled()
     const allowUnsandboxed = SandboxManager.areUnsandboxedCommandsAllowed()
     const isLocked = SandboxManager.areSandboxSettingsLockedByPolicy()
-    const hasDeps = SandboxManager.checkDependencies().errors.length === 0
+    // 防御：内网构建中 sandbox-runtime 被桩化，checkDependencies 可能返回
+    // 非预期值；此 getter 会在 React commit 阶段被 props diff 意外触发，
+    // 必须保证任何情况下都不抛异常
+    const hasDeps = SandboxManager.checkDependencies()?.errors?.length === 0
 
     // Show warning icon if dependencies missing, otherwise enabled/disabled status
     let icon: string

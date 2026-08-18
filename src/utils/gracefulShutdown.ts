@@ -1,14 +1,5 @@
 import chalk from 'chalk'
-import { writeSync, appendFileSync } from 'fs'
-
-// 临时排障探针：捕获被吞的渲染层异常，修完即删
-function traceStep(msg: string): void {
-  try {
-    appendFileSync('/tmp/reload-trace.log', `${Date.now()} ${msg}\n`)
-  } catch {
-    // 忽略
-  }
-}
+import { writeSync } from 'fs'
 import memoize from 'lodash-es/memoize.js'
 import { onExit } from 'signal-exit'
 import type { ExitReason } from 'src/entrypoints/agentSdkTypes.js'
@@ -313,7 +304,6 @@ export const setupGracefulShutdown = memoize(() => {
   // Log uncaught exceptions for container observability and analytics
   // Error names (e.g., "TypeError") are not sensitive - safe to log
   process.on('uncaughtException', error => {
-    traceStep(`UNCAUGHT ${error.name}: ${error.message}\n${error.stack?.slice(0, 3000)}`)
     logForDiagnosticsNoPII('error', 'uncaught_exception', {
       error_name: error.name,
       error_message: error.message.slice(0, 2000),
@@ -326,7 +316,6 @@ export const setupGracefulShutdown = memoize(() => {
 
   // Log unhandled promise rejections for container observability and analytics
   process.on('unhandledRejection', reason => {
-    traceStep(`UNHANDLED_REJECTION ${reason instanceof Error ? `${reason.name}: ${reason.message}\n${reason.stack?.slice(0, 3000)}` : String(reason)}`)
     const errorName =
       reason instanceof Error
         ? reason.name
