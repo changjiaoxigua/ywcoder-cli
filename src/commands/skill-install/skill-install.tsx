@@ -5,8 +5,18 @@
  * 全部业务判定都在 utils/skills/skillInstaller.ts，本文件不做业务判断。
  */
 import { join } from 'node:path'
+import { appendFileSync } from 'node:fs'
 import * as React from 'react'
 import { useEffect, useState } from 'react'
+
+// 临时排障探针：定位安装/卸载 skill 后 UI 冻结的断点，修完即删
+function traceStep(msg: string): void {
+  try {
+    appendFileSync('/tmp/reload-trace.log', `${Date.now()} ${msg}\n`)
+  } catch {
+    // 忽略
+  }
+}
 import {
   type OptionWithDescription,
   Select,
@@ -195,16 +205,22 @@ function DirectRun(props: {
   const { onDone, task, pendingText } = props
   useEffect(() => {
     let cancelled = false
+    traceStep('DirectRun mount')
     task().then(
       message => {
+        traceStep(`DirectRun task settled ok cancelled=${cancelled}`)
         if (!cancelled) onDone(message)
+        else traceStep('DirectRun onDone SWALLOWED')
       },
       (e: unknown) => {
+        traceStep(`DirectRun task settled err cancelled=${cancelled}`)
         if (!cancelled) onDone(errorText(e), { display: 'system' })
+        else traceStep('DirectRun onDone SWALLOWED')
       },
     )
     return () => {
       cancelled = true
+      traceStep('DirectRun cleanup')
     }
     // task 由 call() 一次性构造，不随渲染变化
     // eslint-disable-next-line react-hooks/exhaustive-deps

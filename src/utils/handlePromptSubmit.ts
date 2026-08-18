@@ -1,4 +1,14 @@
 import type { UUID } from 'crypto'
+import { appendFileSync as appendFileSyncTrace } from 'node:fs'
+
+// 临时排障探针：定位 /skill-install 卡死断点，修完即删
+function traceStep(msg: string): void {
+  try {
+    appendFileSyncTrace('/tmp/reload-trace.log', `${Date.now()} ${msg}\n`)
+  } catch {
+    // 忽略
+  }
+}
 import { logEvent } from 'src/services/analytics/index.js'
 import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from 'src/services/analytics/metadata.js'
 import { type Command, getCommandName, isCommandEnabled } from '../commands.js'
@@ -495,6 +505,7 @@ async function executeUserInput(params: ExecuteUserInputParams): Promise<void> {
           isMeta: cmd.isMeta,
           skipAttachments: !isFirst,
         })
+        traceStep(`executeUserInput: processUserInput returned i=${i}`)
         // Stamp origin here rather than threading another arg through
         // processUserInput → processUserInputBase → processTextPrompt → createUserMessage.
         // Derive origin from mode for task-notifications — mirrors the origin
@@ -540,6 +551,7 @@ async function executeUserInput(params: ExecuteUserInputParams): Promise<void> {
       }
 
       if (newMessages.length) {
+        traceStep(`executeUserInput: newMessages=${newMessages.length}, before clearLocalJSX`)
         // History is now added in the caller (onSubmit) for direct user submissions.
         // This ensures queued command processing (notifications, already-queued user input)
         // doesn't add to history, since those either shouldn't be in history or were
@@ -558,6 +570,7 @@ async function executeUserInput(params: ExecuteUserInputParams): Promise<void> {
             ? primaryCmd.value
             : undefined
         const shouldCallBeforeQuery = primaryMode === 'prompt'
+        traceStep('executeUserInput: before onQuery')
         await onQuery(
           newMessages,
           abortController,
@@ -570,6 +583,7 @@ async function executeUserInput(params: ExecuteUserInputParams): Promise<void> {
           primaryInput,
           effort,
         )
+        traceStep('executeUserInput: after onQuery')
       } else {
         // Local slash commands that skip messages (e.g., /model, /theme).
         // Release the guard BEFORE clearing toolJSX to prevent spinner flash —
@@ -595,7 +609,11 @@ async function executeUserInput(params: ExecuteUserInputParams): Promise<void> {
         }
       }
     }) // end runWithWorkload — ALS context naturally scoped, no finally needed
+  } catch (e) {
+    traceStep(`executeUserInput: CAUGHT ${e instanceof Error ? e.stack : String(e)}`)
+    throw e
   } finally {
+    traceStep('executeUserInput: finally')
     // Safety net: release the guard reservation if processUserInput threw
     // or onQuery was skipped. No-op if onQuery already ran (guard is idle
     // via end(), or running — cancelReservation only acts on dispatching).

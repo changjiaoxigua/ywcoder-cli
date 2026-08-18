@@ -1,4 +1,14 @@
 import { feature } from 'bun:bundle';
+import { appendFileSync as appendFileSyncTrace } from 'node:fs';
+
+// 临时排障探针：定位 /skill-install 卡死断点，修完即删
+function traceStep(msg: string): void {
+  try {
+    appendFileSyncTrace('/tmp/reload-trace.log', `${Date.now()} ${msg}\n`);
+  } catch {
+    // 忽略
+  }
+}
 import type { ContentBlockParam, TextBlockParam } from '@anthropic-ai/sdk/resources';
 import { randomUUID } from 'crypto';
 import { setPromptId } from 'src/bootstrap/state.js';
@@ -559,6 +569,7 @@ async function getMessagesForSlashCommand(commandName: string, args: string, set
               nextInput?: string;
               submitNextInput?: boolean;
             }) => {
+              traceStep(`onDone entry display=${options?.display}`);
               doneWasCalled = true;
               // If display is 'skip', don't add any messages to the conversation
               if (options?.display === 'skip') {
@@ -589,6 +600,7 @@ async function getMessagesForSlashCommand(commandName: string, args: string, set
               // usage, /rename, /proactive) use display:system for actual
               // output that must reach the transcript.
               const skipTranscript = isFullscreenEnvEnabled() && typeof result === 'string' && result.endsWith(' dismissed');
+              traceStep('onDone before resolve');
               void resolve({
                 messages: options?.display === 'system' ? skipTranscript ? metaMessages : [createCommandInputMessage(formatCommandInput(command, args)), createCommandInputMessage(`<local-command-stdout>${result}</local-command-stdout>`), ...metaMessages] : [createUserMessage({
                   content: prepareUserContent({
@@ -605,6 +617,7 @@ async function getMessagesForSlashCommand(commandName: string, args: string, set
                 nextInput: options?.nextInput,
                 submitNextInput: options?.submitNextInput
               });
+              traceStep('onDone after resolve');
             };
             void command.load().then(mod => mod.call(onDone, {
               ...context,

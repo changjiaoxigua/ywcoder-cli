@@ -848,6 +848,12 @@ export async function installSkill(
   // 第 15-18 步：复核与原子切换
   await atomicSwitch({ stagingRoot, id, target, renameFn: deps.renameFn })
 
+  // 临时排障探针：人为拉长"写盘→settle"窗口，模拟内网慢盘（如 NFS），
+  // 让 watcher reload 落在 local-jsx 挂起期间以验证卡死根因，修完即删
+  if (process.env.YW_DEBUG_SETTLE_DELAY_MS) {
+    await new Promise(r => setTimeout(r, Number(process.env.YW_DEBUG_SETTLE_DELAY_MS)))
+  }
+
   // 第 19 步：只在切换成功后刷新缓存（§6.1）
   await (deps.refreshCaches ?? defaultRefreshCaches)()
 

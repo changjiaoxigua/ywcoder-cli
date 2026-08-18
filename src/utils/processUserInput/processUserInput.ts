@@ -1,4 +1,14 @@
 import { feature } from 'bun:bundle'
+import { appendFileSync as appendFileSyncTrace } from 'node:fs'
+
+// 临时排障探针：定位 /skill-install 卡死断点，修完即删
+function traceStep(msg: string): void {
+  try {
+    appendFileSyncTrace('/tmp/reload-trace.log', `${Date.now()} ${msg}\n`)
+  } catch {
+    // 忽略
+  }
+}
 import type {
   Base64ImageSource,
   ContentBlockParam,
@@ -547,6 +557,7 @@ async function processUserInputBase(
       isAlreadyProcessing,
       canUseTool,
     )
+    traceStep('processUserInput: after await processSlashCommand')
     return addImageMetadataMessage(slashResult, imageMetadataTexts)
   }
 

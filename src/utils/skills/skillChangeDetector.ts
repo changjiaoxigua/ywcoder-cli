@@ -1,5 +1,15 @@
 import chokidar, { type FSWatcher } from 'chokidar'
+import { appendFileSync } from 'fs'
 import * as platformPath from 'path'
+
+// 临时排障探针：定位安装/卸载 skill 后 UI 冻结的断点，修完即删
+function traceStep(msg: string): void {
+  try {
+    appendFileSync('/tmp/reload-trace.log', `${Date.now()} ${msg}\n`)
+  } catch {
+    // 忽略
+  }
+}
 import { getAdditionalDirectoriesForClaudeMd } from '../../bootstrap/state.js'
 import {
   clearCommandMemoizationCaches,
@@ -135,6 +145,13 @@ export async function initialize(): Promise<void> {
   watcher.on('change', handleChange)
   watcher.on('unlink', handleChange)
 
+  // 临时排障探针：记录 chokidar 全部事件与底层 raw 事件，修完即删
+  watcher.on('all', (event, path) => traceStep(`evt ${event} ${path}`))
+  watcher.on('raw', (event, path) => traceStep(`raw ${event} ${path}`))
+  watcher.on('error', err => traceStep(`watch error ${String(err)}`))
+  const heartbeat = setInterval(() => traceStep('heartbeat'), 1000)
+  heartbeat.unref()
+
   // Register cleanup to properly dispose of the file watcher during graceful shutdown
   unregisterCleanup = registerCleanup(async () => {
     await dispose()
@@ -236,6 +253,7 @@ async function getWatchablePaths(): Promise<string[]> {
 }
 
 function handleChange(path: string): void {
+  traceStep(`handleChange entry path=${path}`)
   logForDebugging(`Detected skill change: ${path}`)
   logEvent('tengu_skill_file_changed', {
     source:
@@ -259,13 +277,16 @@ function scheduleReload(changedPath: string): void {
   reloadTimer = setTimeout(async () => {
     reloadTimer = null
     const paths = [...pendingChangedPaths]
+    traceStep(`reloadTimer fired paths=${paths.length}`)
     pendingChangedPaths.clear()
     // Fire ConfigChange hook once for the batch — the hook query is always
     // 'skills' so firing per-path (which can be hundreds during a git
     // operation) just spams the hook matcher with identical queries. Pass the
     // first path as a representative; hooks can inspect all paths via the
     // skills directory if they need the full set.
+    traceStep('before executeConfigChangeHooks')
     const results = await executeConfigChangeHooks('skills', paths[0]!)
+    traceStep('after executeConfigChangeHooks')
     if (hasBlockingResult(results)) {
       logForDebugging(
         `ConfigChange hook blocked skill reload (${paths.length} paths)`,
@@ -273,9 +294,12 @@ function scheduleReload(changedPath: string): void {
       return
     }
     clearSkillCaches()
+    traceStep('after clearSkillCaches')
     clearCommandsCache()
+    traceStep('after clearCommandsCache')
     resetSentSkillNames()
     skillsChanged.emit()
+    traceStep('after skillsChanged.emit')
   }, testOverrides?.reloadDebounce ?? RELOAD_DEBOUNCE_MS)
 }
 
