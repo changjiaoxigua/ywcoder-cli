@@ -375,6 +375,13 @@ export async function checkYwCoderUpdate(deps: CheckDeps = {}): Promise<void> {
       return
     }
 
+    // 诊断盲区补钉：有新版本但平台无匹配包时留痕（D11 仍静默跳过，仅 debug 可见）
+    if (isNewerVersion(latestVersion, currentVersion) && !packageFilename) {
+      logForDebugging(
+        `ywUpdateCheck: 有新版本 ${String(latestVersion)} 但平台 ${platform} 无匹配包`,
+      )
+    }
+
     // 无更新 / 条目缺失 / version 非法 / 本机平台无包：清掉 latest 缓存（§6）
     store.write({ lastCheckedAt: now, hubRoot: hub.hubRoot })
   } catch (e) {
