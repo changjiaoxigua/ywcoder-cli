@@ -256,6 +256,7 @@ import { PluginHintMenu } from 'src/components/ClaudeCodeHint/PluginHintMenu.js'
 import { DesktopUpsellStartup, shouldShowDesktopUpsellStartup } from 'src/components/DesktopUpsell/DesktopUpsellStartup.js';
 import { usePluginInstallationStatus } from 'src/hooks/notifs/usePluginInstallationStatus.js';
 import { usePluginAutoupdateNotification } from 'src/hooks/notifs/usePluginAutoupdateNotification.js';
+import { useYwCoderUpdateNotification } from 'src/hooks/notifs/useYwCoderUpdateNotification.js';
 import { performStartupChecks } from 'src/utils/plugins/performStartupChecks.js';
 import { UserTextMessage } from 'src/components/messages/UserTextMessage.js';
 import { AwsAuthStatusBox } from '../components/AwsAuthStatusBox.js';
@@ -754,6 +755,7 @@ export function REPL({
   useAutoModeUnavailableNotification();
   usePluginInstallationStatus();
   usePluginAutoupdateNotification();
+  useYwCoderUpdateNotification();
   useSettingsErrors();
   useRateLimitWarningNotification(mainLoopModel);
   useFastModeNotification();

@@ -211,6 +211,13 @@ export type GlobalConfig = {
   lastReleaseNotesSeen?: string
   // Timestamp when changelog was last fetched (content stored in ~/.claude/cache/changelog.md)
   changelogLastFetched?: number
+  // YwCoder 运行时版本检查缓存（ywUpdateCheck.ts，§4.1）：节流 + 提醒展示数据源
+  ywcoderUpdateCheck?: {
+    lastCheckedAt: number
+    hubRoot?: string
+    latestVersion?: string
+    packageFilename?: string
+  }
   // @deprecated - Migrated to ~/.claude/cache/changelog.md. Keep for migration support.
   cachedChangelog?: string
   mcpServers?: Record<string, McpServerConfig>
