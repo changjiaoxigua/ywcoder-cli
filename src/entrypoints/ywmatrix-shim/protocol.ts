@@ -3,9 +3,13 @@
  * 以及 ywcoder SDKMessage → 管控台 stream.chunk 的字段级映射（§4/§5/§6/§7）。
  *
  * M4 完整档：含 can_use_tool ↔ confirm_required ↔ task.respond 控制面（§6.2）。
+ * v3 适配（local-agent-interface-0819-v3.md）：session_id 必填小写 UUID、
+ * metadata.workdir/group/command schema、JSON-RPC response 与 task.subtask_result
+ * 入站识别、agentInfo 实例身份、两级 capabilities。
  */
 import { hostname } from 'node:os'
 import { z } from 'zod/v4'
+import { validateUuid } from '../../utils/uuid.js'
 import type {
   PermissionRespondDecision,
   YwcoderSessionEvent,
@@ -28,16 +32,67 @@ const LifecycleInitializeParamsSchema = z.object({
   clientInfo: z
     .object({ name: z.string(), version: z.string() })
     .optional(),
+  // v3 C3：AgentClient 下发网关认可的本 Agent 实例 ID（群管理者判定的受信依据）。
+  agentInfo: z.object({ agent_id: z.string() }).optional(),
 })
 
 const PingParamsSchema = z.object({
   timestamp: z.string().optional(),
 })
 
+// --- v3 metadata（§6.1.1 群聊 / §6.1.2 工作目录 / §6.5 结构化命令）-----------------
+
+/** 群成员（v3 §6.1.1）。 */
+const GroupMemberSchema = z.object({
+  agent_id: z.string(),
+  name: z.string(),
+})
+
+/** 群聊上下文（v3 §6.1.1）：单 Agent 会话没有该字段。 */
+const GroupContextSchema = z.object({
+  group_id: z.string(),
+  group_name: z.string(),
+  manager_agent_id: z.string(),
+  members: z.array(GroupMemberSchema),
+  mentions: z.array(z.string()),
+})
+
+/** 结构化命令（v3 §6.5）：免字符串解析；自由文本参数约定放 args.text。 */
+const CommandInvocationSchema = z.object({
+  name: z.string(),
+  args: z.record(z.string(), z.unknown()).optional(),
+})
+
+/**
+ * task.create 的 metadata（v3）。已知字段严格校验，未知字段透传（loose），
+ * 不阻断后续协议扩展。
+ */
+const TaskMetadataSchema = z.looseObject({
+  // 会话工作目录（v3 §6.1.2）：用户在页面设置、网关逐条注入。校验与绑定语义见 workdirPolicy.ts。
+  workdir: z.string().optional(),
+  group: GroupContextSchema.optional(),
+  command: CommandInvocationSchema.optional(),
+})
+
+export type GroupContext = z.infer<typeof GroupContextSchema>
+export type CommandInvocation = z.infer<typeof CommandInvocationSchema>
+export type TaskMetadata = z.infer<typeof TaskMetadataSchema>
+
+/**
+ * v3 契约确认 1：session_id 必填，且必须是小写 UUID（网关 randomUUID 恒小写）。
+ * validateUuid 本身不区分大小写，须显式再查小写——macOS 大小写不敏感会碰巧命中，
+ * Linux 上同一 id 的大小写变体会被判成两个会话（§9.2 对管控台的三条要求之 2）。
+ */
+const SessionIdSchema = z
+  .string()
+  .refine(v => validateUuid(v) !== null && v === v.toLowerCase(), {
+    message: 'session_id 必须是小写 UUID',
+  })
+
 const TaskCreateParamsSchema = z.object({
   task_id: z.string(),
-  // 首条 task.create 可不带 session_id：由 shim 生成 UUID 并回传，管控台后续沿用（§9.2）。
-  session_id: z.string().optional(),
+  // v3：必填，由网关在 session.create 时生成；shim 不再自行 mint（契约确认 1）。
+  session_id: SessionIdSchema,
   context_id: z.string().optional(),
   type: z.enum(['chat', 'respond']),
   // type='respond' 时（§5）等价于 task.respond：confirm_id 指向待决的 can_use_tool，
@@ -49,7 +104,7 @@ const TaskCreateParamsSchema = z.object({
   requester: z.string().optional(),
   timestamp: z.string().optional(),
   timeout: z.number().optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: TaskMetadataSchema.optional(),
 })
 
 const TaskCancelParamsSchema = z.object({
@@ -70,12 +125,42 @@ const TaskRespondParamsSchema = z.object({
   response: z.unknown(),
 })
 
+/**
+ * 入站信封（v3 §6.3 双层 JSON-RPC 关联）：除 request/notification 外，
+ * 还要能识别 AgentClient 对 shim 出站请求（task.invoke 等）回的的 response
+ * （无 method、带 result/error + id）。
+ */
 const IncomingEnvelopeSchema = z.object({
   jsonrpc: z.literal('2.0'),
   id: z.union([z.string(), z.number(), z.null()]).optional(),
-  method: z.string(),
+  method: z.string().optional(),
   params: z.unknown().optional(),
+  result: z.unknown().optional(),
+  error: z
+    .object({
+      code: z.number(),
+      message: z.string(),
+      data: z.unknown().optional(),
+    })
+    .optional(),
 })
+
+/**
+ * task.subtask_result（v3 §6.6）：子任务终态回推。关键关联字段
+ * （task_id/parent_task_id/group_id/target_agent_id/status）全部必填——
+ * DelegationBridge 依赖它们做防串话校验，缺失必须显式判负而不是静默漏配。
+ */
+const SubtaskResultParamsSchema = z.looseObject({
+  task_id: z.string(),
+  parent_task_id: z.string(),
+  group_id: z.string(),
+  target_agent_id: z.string(),
+  status: z.enum(['completed', 'failed', 'timeout', 'cancelled']),
+  chunks: z.array(z.looseObject({ type: z.string() })).optional(),
+  error: z.unknown().optional(),
+})
+
+export type SubtaskResultParams = z.infer<typeof SubtaskResultParamsSchema>
 
 export type TaskCreateParams = z.infer<typeof TaskCreateParamsSchema>
 export type TaskCancelParams = z.infer<typeof TaskCancelParamsSchema>
@@ -104,6 +189,23 @@ export type IncomingMessage =
       id: string | number | null
       params: TaskRespondParams
     }
+  // v3 §6.6：子任务结果回推，交由 DelegationBridge 按 task_id 关联；
+  // 未匹配（迟到/重复/未知）由上层幂等忽略。
+  | {
+      method: 'task.subtask_result'
+      id: string | number | null
+      params: SubtaskResultParams
+    }
+  // AgentClient 对 shim 出站请求（task.invoke）的 JSON-RPC response，
+  // 交由 DelegationBridge 按 id 关联；未匹配只记日志。
+  | {
+      method: '$response'
+      id: string | number
+      result?: unknown
+      error?: { code: number; message: string; data?: unknown }
+    }
+  // 未知 method：请求由上层回 -32601，通知只记 stderr（不产生非法 response）。
+  | { method: '$unknown'; id: string | number | null; methodName: string }
 
 export type ParseResult =
   | { ok: true; message: IncomingMessage }
@@ -150,6 +252,27 @@ export function parseIncoming(line: string): ParseResult | null {
   const { method, params } = envelope.data
   const id = envelope.data.id ?? null
 
+  // 无 method = JSON-RPC response（对 shim 出站请求的回应，v3 §6.3 双层关联）。
+  if (method === undefined) {
+    if (id === null) {
+      return {
+        ok: false,
+        id: null,
+        code: JsonRpcErrorCode.InvalidRequest,
+        message: 'Invalid Request',
+      }
+    }
+    return {
+      ok: true,
+      message: {
+        method: '$response',
+        id,
+        result: envelope.data.result,
+        error: envelope.data.error,
+      },
+    }
+  }
+
   switch (method) {
     case 'lifecycle.initialize': {
       const parsed = LifecycleInitializeParamsSchema.safeParse(params)
@@ -195,14 +318,81 @@ export function parseIncoming(line: string): ParseResult | null {
       // id 允许为 null：契约上 task.respond 带 id，但按通知发来也应照常执行。
       return { ok: true, message: { method, id, params: parsed.data } }
     }
-    default:
-      return {
-        ok: false,
-        id,
-        code: JsonRpcErrorCode.MethodNotFound,
-        message: 'Method not found',
+    case 'task.subtask_result': {
+      // v3 §6.6：子任务结果回推。关键关联字段全部必填（见 schema 注释），
+      // 缺字段即判负；合法消息由上层路由给 DelegationBridge，未匹配幂等忽略。
+      const parsed = SubtaskResultParamsSchema.safeParse(params)
+      if (!parsed.success) {
+        return { ok: false, id, code: JsonRpcErrorCode.InvalidParams, message: 'Invalid params' }
       }
+      return { ok: true, message: { method, id, params: parsed.data } }
+    }
+    default:
+      // 未知 method 不在这里直接判负：请求（带 id）应由上层回 -32601，
+      // 通知（id 为 null）只记 stderr——对通知回 error 自身就是非法 JSON-RPC。
+      return { ok: true, message: { method: '$unknown', id, methodName: method } }
   }
+}
+
+// ============================================================================
+// v3 §6.5 命令解析：结构化 metadata.command 优先，退化解 content 的 '/' 前缀
+// ============================================================================
+
+/**
+ * 归一化后的命令调用。
+ * - `value`：单值主参数（/model 的模型名、/permission 的档位）；
+ * - `text`：整段自由文本参数（/compact 的说明、未识别命令原样透传用）。
+ */
+export interface ParsedCommand {
+  name: string
+  value?: string
+  text?: string
+}
+
+/**
+ * 结构化通道（v3 §6.5 推荐）：`{name:'model', args:{model:'kimi-k2'}}` → `{name:'model', value:'kimi-k2'}`。
+ * 自由文本参数约定走 `args.text`；其余情况取首个字符串参数值作 value。
+ */
+export function commandFromMetadata(
+  command: CommandInvocation | undefined,
+): ParsedCommand | null {
+  if (!command || !command.name.trim()) return null
+  const name = command.name.trim()
+  const args = command.args ?? {}
+  const text = typeof args.text === 'string' && args.text.trim() ? args.text : undefined
+  for (const [k, v] of Object.entries(args)) {
+    // args.text 是约定的自由文本槽位，不再充当单值参数。
+    if (k !== 'text' && typeof v === 'string' && v.trim()) {
+      return { name, value: v.trim(), ...(text ? { text } : {}) }
+    }
+  }
+  return { name, ...(text ? { text } : {}) }
+}
+
+/**
+ * 退化通道：content 以 '/' 开头时按「/name arg...」解析。
+ * value 取首个空白分隔的 token，text 取完整剩余段（供自由文本参数）。
+ */
+export function commandFromSlashPrefix(content: string): ParsedCommand | null {
+  if (!content.startsWith('/')) return null
+  const body = content.slice(1).trim()
+  if (!body) return null
+  const m = /^(\S+)(?:\s+([\s\S]*))?$/.exec(body)
+  if (!m) return null
+  const text = m[2]?.trim() || undefined
+  const value = text && !/\s/.test(text) ? text : undefined
+  return { name: m[1], ...(value ? { value } : {}), ...(text ? { text } : {}) }
+}
+
+/**
+ * 双通道入口：优先 metadata.command（结构化，免解析），
+ * 不存在时退化解析 content 的 '/' 前缀（v3 §6.5）。
+ */
+export function parseCommandInput(params: {
+  content: string
+  metadata?: TaskMetadata
+}): ParsedCommand | null {
+  return commandFromMetadata(params.metadata?.command) ?? commandFromSlashPrefix(params.content)
 }
 
 // ============================================================================
@@ -275,7 +465,32 @@ export function buildPingResult(id: string | number, timestamp?: string): Outgoi
   return buildResult(id, { status: 'ok', timestamp: timestamp ?? new Date().toISOString() })
 }
 
-export function buildRegisterNotification(): OutgoingMessage {
+/**
+ * 能力条目（v3 §6.4/§6.5）。`type` 取值：
+ * - `chat`：对话能力；
+ * - `command`：斜杠命令（页面渲染 args[].options 下拉，勿硬编码词表）；
+ *   技能也是 command，以 `metadata.kind:"skill"` 区分（v3 §6.5 页面分组约定）。
+ * `metadata.current` 是枚举类命令当前值的唯一事实来源（v3 §6.5.1）。
+ */
+export interface CapabilityEntry {
+  type: 'chat' | 'command'
+  name: string
+  description?: string
+  metadata?: {
+    current?: string
+    args?: Array<{
+      name: string
+      type: 'enum' | 'text'
+      options?: string[]
+      required?: boolean
+    }>
+    kind?: string
+  }
+}
+
+export function buildRegisterNotification(
+  capabilities: CapabilityEntry[],
+): OutgoingMessage {
   return {
     jsonrpc: '2.0',
     id: null,
@@ -285,14 +500,33 @@ export function buildRegisterNotification(): OutgoingMessage {
       name: 'ywcoder',
       version: shimVersion,
       description: '编码助手，可读写文件、执行命令、分析代码',
-      capabilities: [
-        { type: 'chat', name: 'coding', description: '编码助手，可读写文件、执行命令、分析代码' },
-      ],
+      capabilities: capabilities as unknown as Record<string, unknown>[],
       platform: {
         os: process.platform,
         arch: process.arch,
         hostname: safeHostname(),
       },
+    },
+  }
+}
+
+/**
+ * 能力快照更新（v3 §6.4 + C1 两级作用域）：
+ * - 不带 `sessionId`：Agent 全局能力的全量快照（模型/权限的 current、全局命令）；
+ * - 带 `sessionId`：指定 session/workdir 的命令和技能全量快照。
+ * 全量替换只作用于本次消息对应的层级；同 type/name 由 session 层优先（页面侧合并）。
+ */
+export function buildCapabilitiesUpdatedNotification(
+  capabilities: CapabilityEntry[],
+  sessionId?: string,
+): OutgoingMessage {
+  return {
+    jsonrpc: '2.0',
+    id: null,
+    method: 'lifecycle.capabilities_updated',
+    params: {
+      ...(sessionId ? { session_id: sessionId } : {}),
+      capabilities: capabilities as unknown as Record<string, unknown>[],
     },
   }
 }
@@ -323,12 +557,41 @@ export function buildTaskCreateAck(
   taskId: string,
   sessionId: string,
 ): OutgoingMessage {
-  // 回填 session_id（首条任务时可能是 shim 新生成的 UUID），供管控台采纳并在后续 task 沿用（§9.2）。
+  // session_id 回显给管控台核对（v3：一律由网关在 session.create 时生成，shim 不 mint）。
   return buildResult(id, { task_id: taskId, session_id: sessionId, status: 'accepted' })
 }
 
 export function buildTaskCancelResult(id: string | number, taskId: string): OutgoingMessage {
   return buildResult(id, { task_id: taskId, status: 'cancelled' })
+}
+
+/**
+ * task.invoke（v3 §6.6）：群管理者委派子任务的出站请求（shim → AgentClient）。
+ * 路由字段（parent_task_id/group_id/target_agent_id）只接受受信来源
+ * （当前活动任务 + 最新受信群状态），禁止从模型入参带入——调用方
+ * （DelegationMcpServer）负责在组装前剥离模型 metadata 中的同名字段。
+ */
+export function buildTaskInvokeRequest(params: {
+  id: string | number
+  parent_task_id: string
+  group_id: string
+  target_agent_id: string
+  content: string
+  metadata?: Record<string, unknown>
+}): OutgoingMessage {
+  return {
+    jsonrpc: '2.0',
+    id: params.id,
+    method: 'task.invoke',
+    params: {
+      parent_task_id: params.parent_task_id,
+      group_id: params.group_id,
+      target_agent_id: params.target_agent_id,
+      type: 'chat',
+      content: params.content,
+      ...(params.metadata ? { metadata: params.metadata } : {}),
+    },
+  }
 }
 
 interface StreamChunkParams {
@@ -1005,6 +1268,9 @@ export function translateYwcoderEvent(
       ]
     case 'permission_cancelled':
       // ywcoder 侧已撤销该权限请求；协议无对应消息，只在 shim 内清理映射。
+      return []
+    case 'init':
+      // system/init 只用于 shim 内部回填模型 current（P3），不上行给管控台。
       return []
   }
 }

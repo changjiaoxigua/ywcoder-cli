@@ -13,6 +13,7 @@ import {
   type Command,
   formatDescriptionWithSource,
   getCommandName,
+  getProtocolCommandKind,
 } from 'src/commands.js'
 import { createStreamlinedTransformer } from 'src/utils/streamlinedTransform.js'
 import { installStreamJsonStdoutGuard } from 'src/utils/streamJsonStdoutGuard.js'
@@ -3118,6 +3119,7 @@ function runHeadlessStreaming(
                   name: getCommandName(cmd),
                   description: formatDescriptionWithSource(cmd),
                   argumentHint: cmd.argumentHint || '',
+                  kind: getProtocolCommandKind(cmd),
                 })),
               agents: currentAgents.map(a => ({
                 name: a.agentType,
@@ -4458,6 +4460,8 @@ async function handleInitializeRequest(
         name: getCommandName(cmd),
         description: formatDescriptionWithSource(cmd),
         argumentHint: cmd.argumentHint || '',
+        // v3：管控台按 metadata.kind 分组展示技能；判定与 reload 响应统一。
+        kind: getProtocolCommandKind(cmd),
       })),
     agents: agents.map(agent => ({
       name: agent.agentType,

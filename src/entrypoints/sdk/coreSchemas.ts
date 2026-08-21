@@ -1024,6 +1024,11 @@ export const SlashCommandSchema = lazySchema(() =>
       argumentHint: z
         .string()
         .describe('Hint for skill arguments (e.g., "<file>")'),
+      // 区分技能与普通命令（v3 管控台按 metadata.kind 分组展示）；缺省为 command。
+      kind: z
+        .enum(['command', 'skill'])
+        .optional()
+        .describe('Whether this entry is a skill or a plain command'),
     })
     .describe(
       'Information about an available skill (invoked via /command syntax).',

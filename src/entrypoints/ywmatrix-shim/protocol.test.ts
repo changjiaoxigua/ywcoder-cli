@@ -4,8 +4,15 @@
  */
 import { describe, expect, test } from 'bun:test'
 import {
+  buildCapabilitiesUpdatedNotification,
+  buildRegisterNotification,
+  commandFromMetadata,
+  commandFromSlashPrefix,
   inferConfirmLevel,
+  JsonRpcErrorCode,
   normalizeConfirmResponse,
+  parseCommandInput,
+  parseIncoming,
   translateYwcoderEvent,
 } from './protocol.js'
 
@@ -348,5 +355,218 @@ describe('normalizeResultContent —— review 回归（真实 Read 输出的几
       content: '5000\t日志行 A\n5001\t日志行 B',
     })
     expect(content).toEqual([{ type: 'text', text: '5000\t日志行 A\n5001\t日志行 B' }])
+  })
+})
+
+// ============================================================================
+// v3 P1 协议基线：session_id 严格化、metadata schema、envelope 扩展、命令解析
+// ============================================================================
+
+const VALID_SID = '123e4567-e89b-42d3-a456-426614174000'
+
+/** parseIncoming 对非空行不应返回 null；包一层让 TS 收窄掉 null。 */
+function parse(line: string) {
+  const r = parseIncoming(line)
+  if (r === null) throw new Error('parseIncoming 意外返回 null')
+  return r
+}
+
+function taskCreateLine(overrides: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'task.create',
+    params: { task_id: 't1', session_id: VALID_SID, type: 'chat', content: 'hi', ...overrides },
+  })
+}
+
+describe('v3 task.create session_id 严格校验', () => {
+  test('缺失 session_id → -32602', () => {
+    const line = JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'task.create',
+      params: { task_id: 't1', type: 'chat', content: 'hi' },
+    })
+    const r = parse(line)
+    expect(r).toMatchObject({ ok: false, code: JsonRpcErrorCode.InvalidParams })
+  })
+
+  test('非 UUID / 大写 UUID → -32602', () => {
+    for (const sid of ['session-001', VALID_SID.toUpperCase(), '123e4567-e89b-42d3-a456']) {
+      const r = parse(taskCreateLine({ session_id: sid }))
+      expect(r).toMatchObject({ ok: false, code: JsonRpcErrorCode.InvalidParams })
+    }
+  })
+
+  test('合法小写 UUID → 通过', () => {
+    const r = parse(taskCreateLine())
+    expect(r.ok).toBe(true)
+    if (r?.ok && r.message.method === 'task.create') {
+      expect(r.message.params.session_id).toBe(VALID_SID)
+    }
+  })
+})
+
+describe('v3 task.create metadata 解析', () => {
+  test('workdir/group/command 三个已知字段入 schema', () => {
+    const r = parse(taskCreateLine({
+      metadata: {
+        workdir: '/tmp/proj',
+        group: {
+          group_id: 'g1', group_name: '群', manager_agent_id: 'a1',
+          members: [{ agent_id: 'a1', name: '主管' }], mentions: ['a1'],
+        },
+        command: { name: 'model', args: { model: 'k2' } },
+      },
+    }))
+    expect(r.ok).toBe(true)
+    if (r?.ok && r.message.method === 'task.create') {
+      expect(r.message.params.metadata?.workdir).toBe('/tmp/proj')
+      expect(r.message.params.metadata?.group?.manager_agent_id).toBe('a1')
+      expect(r.message.params.metadata?.command?.name).toBe('model')
+    }
+  })
+
+  test('未知 metadata 字段透传（loose），不阻断协议扩展', () => {
+    const r = parse(taskCreateLine({ metadata: { future_field: 1 } }))
+    expect(r.ok).toBe(true)
+    if (r?.ok && r.message.method === 'task.create') {
+      expect((r.message.params.metadata as Record<string, unknown>).future_field).toBe(1)
+    }
+  })
+
+  test('group 缺必填字段 → -32602', () => {
+    const r = parse(taskCreateLine({ metadata: { group: { group_id: 'g1' } } }))
+    expect(r).toMatchObject({ ok: false, code: JsonRpcErrorCode.InvalidParams })
+  })
+})
+
+describe('v3 envelope 扩展：response / subtask_result / 未知消息', () => {
+  test('无 method 带 id+result → $response', () => {
+    const r = parse(JSON.stringify({ jsonrpc: '2.0', id: 9, result: { ok: 1 } }))
+    expect(r).toEqual({ ok: true, message: { method: '$response', id: 9, result: { ok: 1 }, error: undefined } })
+  })
+
+  test('无 method 且无 id → Invalid Request', () => {
+    const r = parse(JSON.stringify({ jsonrpc: '2.0', result: {} }))
+    expect(r).toMatchObject({ ok: false, code: JsonRpcErrorCode.InvalidRequest })
+  })
+
+  test('task.subtask_result 全字段被识别（P5 编排关联字段必填）', () => {
+    const r = parse(JSON.stringify({
+      jsonrpc: '2.0', id: null, method: 'task.subtask_result',
+      params: {
+        task_id: 'sub1', parent_task_id: 'p1', group_id: 'g1',
+        target_agent_id: 'worker-a', status: 'completed',
+        chunks: [{ type: 'text', text: 'done' }], error: null,
+      },
+    }))
+    expect(r.ok).toBe(true)
+    if (r?.ok) expect(r.message.method).toBe('task.subtask_result')
+  })
+
+  test('task.subtask_result 缺关联字段（group_id/target_agent_id）→ Invalid params', () => {
+    const r = parse(JSON.stringify({
+      jsonrpc: '2.0', id: null, method: 'task.subtask_result',
+      params: { task_id: 'sub1', parent_task_id: 'p1', status: 'completed' },
+    }))
+    expect(r.ok).toBe(false)
+    if (r && !r.ok) expect(r.code).toBe(JsonRpcErrorCode.InvalidParams)
+  })
+
+  test('task.subtask_result 非法 status → Invalid params', () => {
+    const r = parse(JSON.stringify({
+      jsonrpc: '2.0', id: null, method: 'task.subtask_result',
+      params: {
+        task_id: 'sub1', parent_task_id: 'p1', group_id: 'g1',
+        target_agent_id: 'worker-a', status: 'running',
+      },
+    }))
+    expect(r.ok).toBe(false)
+    if (r && !r.ok) expect(r.code).toBe(JsonRpcErrorCode.InvalidParams)
+  })
+
+  test('未知请求（带 id）→ $unknown，由上层回 -32601', () => {
+    const r = parse(JSON.stringify({ jsonrpc: '2.0', id: 5, method: 'foo.bar', params: {} }))
+    expect(r).toEqual({ ok: true, message: { method: '$unknown', id: 5, methodName: 'foo.bar' } })
+  })
+
+  test('未知通知（无 id）→ $unknown，上层只记日志不回 error', () => {
+    const r = parse(JSON.stringify({ jsonrpc: '2.0', method: 'foo.bar' }))
+    expect(r).toEqual({ ok: true, message: { method: '$unknown', id: null, methodName: 'foo.bar' } })
+  })
+})
+
+describe('v3 lifecycle.initialize agentInfo', () => {
+  test('agentInfo.agent_id 被解析（C3 实例身份）', () => {
+    const r = parse(JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'lifecycle.initialize',
+      params: { protocolVersion: '1.0.0', agentInfo: { agent_id: 'agent-xyz' } },
+    }))
+    expect(r.ok).toBe(true)
+    if (r?.ok && r.message.method === 'lifecycle.initialize') {
+      expect(r.message.params.agentInfo?.agent_id).toBe('agent-xyz')
+    }
+  })
+
+  test('不带 agentInfo 也兼容（旧 client）', () => {
+    const r = parse(JSON.stringify({
+      jsonrpc: '2.0', id: 1, method: 'lifecycle.initialize',
+      params: { protocolVersion: '1.0.0' },
+    }))
+    expect(r.ok).toBe(true)
+  })
+})
+
+describe('命令解析双通道', () => {
+  test('metadata.command 结构化通道：args 首个字符串值 → value', () => {
+    expect(commandFromMetadata({ name: 'model', args: { model: 'kimi-k2' } }))
+      .toEqual({ name: 'model', value: 'kimi-k2' })
+    expect(commandFromMetadata({ name: 'compact', args: { text: '只保留接口' } }))
+      .toEqual({ name: 'compact', text: '只保留接口' })
+    expect(commandFromMetadata({ name: 'model' })).toEqual({ name: 'model' })
+    expect(commandFromMetadata(undefined)).toBeNull()
+    expect(commandFromMetadata({ name: '  ' })).toBeNull()
+  })
+
+  test('斜杠前缀退化通道', () => {
+    expect(commandFromSlashPrefix('/model kimi-k2')).toEqual({ name: 'model', value: 'kimi-k2', text: 'kimi-k2' })
+    expect(commandFromSlashPrefix('/compact 保留 接口 说明')).toEqual({ name: 'compact', text: '保留 接口 说明' })
+    expect(commandFromSlashPrefix('/model')).toEqual({ name: 'model' })
+    expect(commandFromSlashPrefix('普通文本')).toBeNull()
+    expect(commandFromSlashPrefix('/')).toBeNull()
+  })
+
+  test('parseCommandInput：metadata.command 优先于 content 前缀', () => {
+    const cmd = parseCommandInput({
+      content: '/permission default',
+      metadata: { command: { name: 'model', args: { model: 'k2' } } },
+    })
+    expect(cmd).toEqual({ name: 'model', value: 'k2' })
+    expect(parseCommandInput({ content: '/permission default' })).toMatchObject({ name: 'permission', value: 'default' })
+    expect(parseCommandInput({ content: '你好' })).toBeNull()
+  })
+})
+
+describe('两级 capabilities 构造（C1）', () => {
+  const caps = [
+    { type: 'command' as const, name: 'model', description: '切换模型',
+      metadata: { current: 'k2', args: [{ name: 'model', type: 'enum' as const, options: ['k2'], required: true }] } },
+  ]
+
+  test('register 携带动态 capabilities', () => {
+    const msg = buildRegisterNotification(caps)
+    expect(msg.method).toBe('lifecycle.register')
+    expect((msg.params as { capabilities: unknown[] }).capabilities).toHaveLength(1)
+  })
+
+  test('capabilities_updated 不带 session_id = 全局快照', () => {
+    const msg = buildCapabilitiesUpdatedNotification(caps)
+    expect(msg.method).toBe('lifecycle.capabilities_updated')
+    expect(msg.params).not.toHaveProperty('session_id')
+  })
+
+  test('capabilities_updated 带 session_id = 会话级快照', () => {
+    const msg = buildCapabilitiesUpdatedNotification(caps, VALID_SID)
+    expect((msg.params as { session_id: string }).session_id).toBe(VALID_SID)
   })
 })

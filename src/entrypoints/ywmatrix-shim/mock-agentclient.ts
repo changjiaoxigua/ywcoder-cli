@@ -19,11 +19,22 @@
  *          本轮以 event.error（error_during_execution）中止
  *   cancel-task 完整档：确认待决期间发通知形式 task.cancel → 收到一条
  *          confirm_cancelled{reason:'task_cancelled'} → 本轮中止（取消与控制面并存）
+ *   workdir 简单档：task.create 带 metadata.workdir（兄弟目录）→ 文件落在绑定目录
+ *          而非实例默认 --workdir（P2，v3 §6.1.2）
  *   all    依次跑上面全部（默认）
  *
  * 每个场景各跑一个独立 shim 子进程与独立工作子目录，互不干扰。需 provider 凭证（真调模型）。
+ *
+ * v3 改造（P2 workdir / P3 命令 / P4 群身份 / P5 委派）的产物级回归在
+ * mock-agentclient-delegation.mjs（fake 子进程扮演 ywcoder，不需要模型凭证）：
+ * invoke-success / invoke-rejected / invoke-cancel / invoke-parallel /
+ * invoke-subtask-failed / invoke-timeout / group-manager / group-member /
+ * workdir-default / workdir-two-sessions / workdir-realpath / workdir-invalid /
+ * command-model / command-permission / command-compact / command-skill /
+ * command-unsupported-local。
  */
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -33,7 +44,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 function usage(): never {
   process.stderr.write(
-    '用法: mock-agentclient.ts <workdir> [--dev] [--scenario read|preview|preview-big|allow|deny|cancel|cancel-task|all]\n',
+    '用法: mock-agentclient.ts <workdir> [--dev] [--scenario read|preview|preview-big|allow|deny|cancel|cancel-task|workdir|all]\n',
   )
   process.exit(1)
 }
@@ -71,6 +82,11 @@ interface Scenario {
   confirmAction?: 'respond' | 'cancelTask'
   /** 期望的结束方式：任务完成，还是以 event.error 中止。 */
   expectEnd: 'completed' | 'error'
+  /**
+   * P2：task.create 携带 metadata.workdir（兄弟目录 <root>/<name>-bound），
+   * 验证会话级 workdir 覆盖实例默认 --workdir（v3 §6.1.2）。
+   */
+  useSiblingWorkdir?: boolean
   timeoutMs: number
   /** 结束后的额外断言，返回失败原因（空数组=通过）。 */
   verify: (ctx: ScenarioContext) => string[]
@@ -328,6 +344,26 @@ const SCENARIOS: Scenario[] = [
       return fails
     },
   },
+  {
+    // P2（v3 §6.1.2 + 契约确认 5）：task.create 携带 metadata.workdir 时，
+    // 会话绑定到该目录而非实例默认 --workdir，文件必须落在绑定目录。
+    name: 'workdir',
+    permissionMode: 'acceptEdits',
+    useSiblingWorkdir: true,
+    prompt: writePrompt('wd-bound.txt'),
+    expectConfirm: false,
+    expectEnd: 'completed',
+    timeoutMs: 180_000,
+    verify: ctx => {
+      const fails: string[] = []
+      const bound = join(rootWorkdir, 'workdir-bound')
+      const inBound = existsSync(join(bound, 'wd-bound.txt'))
+      const inDefault = existsSync(join(ctx.workdir, 'wd-bound.txt'))
+      if (!inBound) fails.push('文件未写入 metadata.workdir 绑定的目录')
+      if (inDefault) fails.push('文件错误地写入实例默认 --workdir')
+      return fails
+    },
+  },
 ]
 
 function shimCommand(workdir: string, permissionMode: string): [string, string[]] {
@@ -364,6 +400,13 @@ function runScenario(scenario: Scenario): Promise<boolean> {
     mkdirSync(workdir, { recursive: true })
     writeFileSync(join(workdir, 'test.txt'), 'hello from ywmatrix-shim mock-agentclient\n')
     scenario.setup?.(workdir)
+    // P2：metadata.workdir 指向兄弟目录（场景绑定的会话目录）。
+    let boundWorkdir: string | undefined
+    if (scenario.useSiblingWorkdir) {
+      boundWorkdir = join(rootWorkdir, `${scenario.name}-bound`)
+      rmSync(boundWorkdir, { recursive: true, force: true })
+      mkdirSync(boundWorkdir, { recursive: true })
+    }
 
     const ctx: ScenarioContext = {
       workdir,
@@ -396,6 +439,8 @@ function runScenario(scenario: Scenario): Promise<boolean> {
     }
 
     const taskId = `task-${scenario.name}-${Date.now()}`
+    // v3：mock 扮演网关，每个场景一个会话，session_id 用 randomUUID（恒小写）。
+    const sessionId = randomUUID()
     const initId = nextId()
     let taskCreateId: string | null = null
     let adoptedSessionId: string | null = null
@@ -461,13 +506,20 @@ function runScenario(scenario: Scenario): Promise<boolean> {
       }
 
       if (msg.method === 'lifecycle.register') {
-        // §9.2：首条 task.create 不带 session_id，由 shim 生成 UUID 回传。
+        // v3 契约确认 1：session_id 由网关侧（这里是 mock）在 session.create 时
+        // 生成小写 UUID，每条 task.create 携带；shim 原样采纳，不再 mint。
         taskCreateId = nextId()
         send({
           jsonrpc: '2.0',
           id: taskCreateId,
           method: 'task.create',
-          params: { task_id: taskId, type: 'chat', content: scenario.prompt },
+          params: {
+            task_id: taskId,
+            session_id: sessionId,
+            type: 'chat',
+            content: scenario.prompt,
+            ...(boundWorkdir ? { metadata: { workdir: boundWorkdir } } : {}),
+          },
         })
         return
       }
@@ -475,7 +527,7 @@ function runScenario(scenario: Scenario): Promise<boolean> {
       if (msg.id === taskCreateId && msg.result) {
         const r = msg.result as Record<string, unknown>
         adoptedSessionId = typeof r.session_id === 'string' ? r.session_id : null
-        ctx.sawAckSession = Boolean(adoptedSessionId)
+        ctx.sawAckSession = adoptedSessionId === sessionId
         return
       }
 
@@ -592,6 +644,8 @@ function runScenario(scenario: Scenario): Promise<boolean> {
         protocolVersion: '1.0.0',
         capabilities: { chat: {}, streaming: {}, confirmations: {}, prompts: {} },
         clientInfo: { name: 'mock-agentclient', version: '0.0.1' },
+        // v3 C3：网关认可的本 Agent 实例 ID。
+        agentInfo: { agent_id: 'mock-agent-001' },
       },
     })
   })

@@ -10,7 +10,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createInterface } from 'node:readline'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { sessionIdExists } from '../../utils/sessionStorage.js'
+import { sessionIdExistsIn } from './workdirPolicy.js'
 import { validateUuid } from '../../utils/uuid.js'
 import type { ExternalPermissionMode } from '../../types/permissions.js'
 import { StdoutMessageSchema } from '../sdk/controlSchemas.js'
@@ -43,6 +43,28 @@ const CLI_ENTRY = join(dirname(fileURLToPath(import.meta.url)), 'cli.mjs')
 const INTERRUPT_GRACE_MS = 10_000
 /** SIGTERM 后仍不退出则升级到 SIGKILL——否则「保证解卡」这个目的本身就不成立。 */
 const SIGKILL_ESCALATION_MS = 5_000
+
+/**
+ * SIGTERM → SIGKILL 升级看门狗（审查 P1-2）：SIGTERM 不保证子进程退出——
+ * 若其卡住，fail-closed 路径永远等不到 exit 收尾（活动任务无终态、session
+ * 不清理、子进程残留）。宽限期内退出则由调用方以返回的取消函数撤掉计时器；
+ * 超时仍存活则升级 SIGKILL，最终仍由真实 exit 事件统一产生协议终态。
+ * 计时器 unref：不因子进程僵死而拖住 shim 自身退出。
+ */
+export function armSigkillEscalation(opts: {
+  isAlive: () => boolean
+  kill: () => void
+  graceMs?: number
+  log?: (msg: string) => void
+}): () => void {
+  const timer = setTimeout(() => {
+    if (!opts.isAlive()) return
+    opts.log?.('SIGTERM 宽限期已过仍未退出，升级为 SIGKILL')
+    opts.kill()
+  }, opts.graceMs ?? SIGKILL_ESCALATION_MS)
+  timer.unref?.()
+  return () => clearTimeout(timer)
+}
 
 export type YwcoderSessionEvent =
   | { kind: 'text'; text: string }
@@ -78,6 +100,8 @@ export type YwcoderSessionEvent =
     }
   | { kind: 'error'; message: string; sessionId: string | null }
   | { kind: 'exit'; code: number | null; signal: NodeJS.Signals | null }
+  /** P3：system/init 到达（含实际生效的模型名），供 shim 回填全局 model current。 */
+  | { kind: 'init'; model?: string }
   /**
    * M4 完整档：ywcoder 发来 `control_request{can_use_tool}`，等待权限裁决（§6.2）。
    * 注意：这里刻意**不透传** `permission_suggestions`——它是「永久加白名单」建议，
@@ -117,6 +141,20 @@ export interface YwcoderSessionOptions {
   sessionId: string
   model?: string
   fallbackModel?: string
+  /** P4：群身份等稳定上下文，经 initialize.appendSystemPrompt 注入（controlSchemas.ts:67）。 */
+  appendSystemPrompt?: string
+  /**
+   * P5：群会话的内嵌 SDK MCP server 名单（随 initialize 下发，controlSchemas.ts:64）。
+   * 子进程据此为每个名字建立 SdkControlClientTransport + MCP Client。
+   */
+  sdkMcpServers?: string[]
+  /**
+   * P5：子进程 control_request{subtype:"mcp_message"} 的路由处理器
+   * （DelegationMcpServer.handleMessage）。返回需回给子进程的 MCP 响应；
+   * 通知类消息返回 undefined（回空载荷 success）。未提供时 mcp_message
+   * 一律显式回 error（安全约束 9：不能静默忽略，子进程 pendingRequests 无自超时）。
+   */
+  onMcpMessage?: (serverName: string, message: unknown) => Promise<unknown>
   onEvent: (event: YwcoderSessionEvent) => void
 }
 
@@ -143,6 +181,23 @@ export class YwcoderSession {
   /** interrupt 看门狗与 SIGKILL 升级计时器（见 INTERRUPT_GRACE_MS）。 */
   private interruptTimer: NodeJS.Timeout | null = null
   private killTimer: NodeJS.Timeout | null = null
+  /** kill() 的 SIGKILL 升级取消函数（审查 P1-2，见 armSigkillEscalation）。 */
+  private cancelKillEscalation: (() => void) | null = null
+  /**
+   * P3：initialize 握手返回的模型列表（ModelInfo.value）与会话可用命令，
+   * 供 shim 组装两级 capabilities（v3 §6.4/§6.5，C7）。
+   */
+  models: string[] = []
+  commands: Array<{ name: string; description?: string; kind?: 'command' | 'skill' }> = []
+  /**
+   * P3：运行期控制请求（set_model/set_permission_mode）的待决表。
+   * 与 initRequestId 分开：握手之后发的控制请求都走这里，带机器超时兜底
+   * （ywcoder 的 pendingRequests 无自超时，shim 侧不能无限等）。
+   */
+  private pendingControl = new Map<
+    string,
+    { resolve: () => void; reject: (err: Error) => void; timer: NodeJS.Timeout }
+  >()
 
   private constructor(opts: YwcoderSessionOptions) {
     this.opts = opts
@@ -169,7 +224,8 @@ export class YwcoderSession {
   /** 依据 session_id 格式与本地是否已有会话，决定启动模式（§9.2）。 */
   private resolveLaunchMode(): LaunchMode {
     if (!validateUuid(this.sessionId)) return 'ephemeral' // 非 UUID（兜底 *-session）→ 一次性
-    return sessionIdExists(this.sessionId) ? 'resume' : 'create'
+    // v3 P2：分桶按「本 session 的 workdir」推导，而非 shim 进程 cwd。
+    return sessionIdExistsIn(this.sessionId, this.opts.workdir) ? 'resume' : 'create'
   }
 
   private buildArgs(mode: LaunchMode): string[] {
@@ -186,13 +242,13 @@ export class YwcoderSession {
       '--add-dir',
       this.opts.workdir,
     ]
-    // 完整档（§2/§8.2）：default 档必须补 --permission-prompt-tool stdio，这是让工具
-    // 权限走 can_use_tool 控制面的**必要条件**——不加则由本地按 permission-mode 判定，
+    // 完整档（§2/§8.2）：--permission-prompt-tool stdio 是让工具权限走
+    // can_use_tool 控制面的**必要条件**——不加则由本地按 permission-mode 判定，
     // 需批准的工具直接返回 is_error 的 tool_result，网页永远收不到确认。
-    // acceptEdits/bypassPermissions 是简单档，不接控制面。
-    if (this.opts.permissionMode === 'default') {
-      args.push('--permission-prompt-tool', 'stdio')
-    }
+    // v3 P3 起无条件装配（方案 A）：运行时用 set_permission_mode 切入 default 后，
+    // 需批准的工具必须能走控制面；acceptEdits/bypassPermissions 在权限判定层短路，
+    // 不会触发 prompt-tool 咨询。
+    args.push('--permission-prompt-tool', 'stdio')
     // ephemeral：不传 --session-id/--resume，由 ywcoder 自动生成内部 id。
     if (mode === 'resume') args.push('--resume', this.opts.sessionId)
     else if (mode === 'create') args.push('--session-id', this.opts.sessionId)
@@ -240,6 +296,12 @@ export class YwcoderSession {
     this.child.on('exit', (code, signal) => {
       this.alive = false
       this.clearWatchdogs()
+      // 子进程退出：拒绝所有待决控制请求，不让他们等满机器超时。
+      for (const [, pending] of this.pendingControl) {
+        clearTimeout(pending.timer)
+        pending.reject(new Error('ywcoder 子进程已退出'))
+      }
+      this.pendingControl.clear()
       if (!this.readySettled) {
         this.settleReadyError(
           new Error(
@@ -258,7 +320,18 @@ export class YwcoderSession {
     this.send({
       type: 'control_request',
       request_id: this.initRequestId,
-      request: { subtype: 'initialize' },
+      request: {
+        subtype: 'initialize',
+        // P4：群身份等稳定上下文随握手注入系统提示（契约确认 9）。
+        ...(this.opts.appendSystemPrompt
+          ? { appendSystemPrompt: this.opts.appendSystemPrompt }
+          : {}),
+        // P5：群会话登记内嵌 SDK MCP server，子进程据此建立 MCP Client
+        // 并经 mcp_message 控制桥调用委派工具（计划 §7.6）。
+        ...(this.opts.sdkMcpServers && this.opts.sdkMcpServers.length > 0
+          ? { sdkMcpServers: this.opts.sdkMcpServers }
+          : {}),
+      },
     })
 
     return ready
@@ -300,15 +373,27 @@ export class YwcoderSession {
     switch (msg.type) {
       case 'control_response': {
         const response = msg.response as Record<string, unknown>
-        if (response.request_id !== this.initRequestId) return
-        if (response.subtype === 'success') {
-          // initialize 握手完成，即可开始 sendUser（见下方 system/init 时序说明）。
-          this.settleReadyOk()
+        const requestId = String(response.request_id ?? '')
+        if (requestId === this.initRequestId) {
+          if (response.subtype === 'success') {
+            // P3：缓存握手返回的 models/commands，供 shim 组装 capabilities。
+            this.captureInitializeResponse(response.response)
+            // initialize 握手完成，即可开始 sendUser（见下方 system/init 时序说明）。
+            this.settleReadyOk()
+            return
+          }
+          this.settleReadyError(
+            new Error(`ywcoder initialize 失败: ${String(response.error)}`),
+          )
           return
         }
-        this.settleReadyError(
-          new Error(`ywcoder initialize 失败: ${String(response.error)}`),
-        )
+        // 握手之后的控制响应：路由到 pendingControl（set_model/set_permission_mode）。
+        const pending = this.pendingControl.get(requestId)
+        if (!pending) return
+        this.pendingControl.delete(requestId)
+        clearTimeout(pending.timer)
+        if (response.subtype === 'success') pending.resolve()
+        else pending.reject(new Error(`控制请求失败: ${String(response.error)}`))
         return
       }
       case 'control_request': {
@@ -338,6 +423,12 @@ export class YwcoderSession {
             `警告: system/init 回显 session_id=${sid} 与预期 ${this.sessionId} 不一致`,
           )
         }
+        // P3：system/init 携带实际生效的模型名（systemInit.ts），供 shim 回填
+        // 全局 /model 的 metadata.current（initialize 的 models 列表无 current 标记）。
+        this.opts.onEvent({
+          kind: 'init',
+          model: typeof msg.model === 'string' ? msg.model : undefined,
+        })
         return
       }
       case 'assistant': {
@@ -359,13 +450,17 @@ export class YwcoderSession {
   }
 
   /**
-   * ywcoder → shim 的 control_request（§6.2）。只支持 can_use_tool；其余 subtype
-   * （hook_callback/mcp_message 等）必须显式回 error——ywcoder 的 pendingRequests
-   * 没有自超时，静默不理会让它一直挂着。
+   * ywcoder → shim 的 control_request（§6.2）。只支持 can_use_tool 与 P5 的
+   * mcp_message；其余 subtype（hook_callback 等）必须显式回 error——ywcoder 的
+   * pendingRequests 没有自超时，静默不理会让它一直挂着。
    */
   private handleControlRequest(msg: Record<string, unknown>): void {
     const requestId = String(msg.request_id ?? '')
     const request = (msg.request as Record<string, unknown> | undefined) ?? {}
+    if (request.subtype === 'mcp_message') {
+      this.handleMcpMessageRequest(requestId, request)
+      return
+    }
     if (request.subtype !== 'can_use_tool') {
       this.log(
         `不支持的 control_request subtype=${String(request.subtype)}，回 error 避免 ywcoder 挂起`,
@@ -396,6 +491,77 @@ export class YwcoderSession {
       title: typeof request.title === 'string' ? request.title : undefined,
       description:
         typeof request.description === 'string' ? request.description : undefined,
+    })
+  }
+
+  /**
+   * P5：子进程 MCP Client → 内嵌 MCP server 的控制桥（计划 §7.6）。
+   *
+   * - server_name 只放行 initialize 时登记的 sdkMcpServers（安全约束 9：
+   *   非 ywmatrix 一律显式回 error，绝不静默忽略——子进程 pendingRequests
+   *   无自超时，不理会会让 MCP Client 永久挂起）；
+   * - 合法消息异步路由给 DelegationMcpServer；tools/call 的委派等待可能
+   *   很长，绝不同步阻塞 stdout 行处理；
+   * - 响应包成 control_response 回给子进程，request_id 精确关联；
+   *   通知类消息（handler 返回 undefined）回空载荷 success——子进程
+   *   SdkControlClientTransport 对每条消息都等一个应答；
+   * - handler 抛错（非法消息等）→ error control_response，让子进程
+   *   MCP Client 以失败收尾而不是悬挂。
+   */
+  private handleMcpMessageRequest(
+    requestId: string,
+    request: Record<string, unknown>,
+  ): void {
+    const serverName =
+      typeof request.server_name === 'string' ? request.server_name : ''
+    const handler = this.opts.onMcpMessage
+    if (!handler || !this.opts.sdkMcpServers?.includes(serverName)) {
+      this.log(`拒绝 mcp_message：未登记的 MCP server '${serverName || '(缺失)'}'`)
+      this.send({
+        type: 'control_response',
+        response: {
+          subtype: 'error',
+          request_id: requestId,
+          error: `ywmatrix-shim 未登记的 MCP server: ${serverName || '(缺失)'}`,
+        },
+      })
+      return
+    }
+    Promise.resolve()
+      .then(() => handler(serverName, request.message))
+      .then(mcpResponse => {
+        this.send({
+          type: 'control_response',
+          response: {
+            subtype: 'success',
+            request_id: requestId,
+            response:
+              mcpResponse === undefined ? {} : { mcp_response: mcpResponse },
+          },
+        })
+      })
+      .catch(err => {
+        this.send({
+          type: 'control_response',
+          response: {
+            subtype: 'error',
+            request_id: requestId,
+            error: `mcp_message 处理失败: ${err instanceof Error ? err.message : String(err)}`,
+          },
+        })
+      })
+  }
+
+  /**
+   * P5：内嵌 MCP server → 子进程的通知通道（notifications/tools/list_changed）。
+   * 复用运行期控制请求机制：子进程 print.ts 收到后转给 MCP Client 并立即回执，
+   * 10s 机器超时兜底。
+   */
+  sendMcpMessage(serverName: string, message: unknown): Promise<void> {
+    return this.sendControlRequest({
+      subtype: 'mcp_message',
+      server_name: serverName,
+      message,
     })
   }
 
@@ -547,11 +713,98 @@ export class YwcoderSession {
       clearTimeout(this.killTimer)
       this.killTimer = null
     }
+    // kill() 的 SIGKILL 升级看门狗：子进程已退出，无需再升级。
+    this.cancelKillEscalation?.()
+    this.cancelKillEscalation = null
+  }
+
+  /**
+   * P3：解析 initialize 握手响应，缓存 models（value 列表）与 commands。
+   * 字段缺失/变形只记日志不抛错——握手已成功，能力列表缺失只影响上报。
+   */
+  private captureInitializeResponse(payload: unknown): void {
+    if (!payload || typeof payload !== 'object') return
+    const p = payload as Record<string, unknown>
+    if (Array.isArray(p.models)) {
+      this.models = p.models
+        .map(m =>
+          m && typeof m === 'object' && typeof (m as { value?: unknown }).value === 'string'
+            ? (m as { value: string }).value
+            : null,
+        )
+        .filter((v): v is string => v !== null)
+    }
+    if (Array.isArray(p.commands)) {
+      this.commands = p.commands
+        .map(c => {
+          if (!c || typeof c !== 'object') return null
+          const name = (c as { name?: unknown }).name
+          if (typeof name !== 'string' || !name) return null
+          const description = (c as { description?: unknown }).description
+          const kind = (c as { kind?: unknown }).kind
+          return {
+            name,
+            ...(typeof description === 'string' && description ? { description } : {}),
+            ...(kind === 'skill' || kind === 'command' ? { kind } : {}),
+          }
+        })
+        .filter(
+          (c): c is { name: string; description?: string; kind?: 'command' | 'skill' } =>
+            c !== null,
+        )
+    }
+  }
+
+  /**
+   * P3：发送运行期控制请求（set_model/set_permission_mode），等待 control_response。
+   * 机器超时 10s：这是 shim↔本地子进程的内部往返，正常毫秒级；超时说明子进程
+   * 异常，让上层按失败收尾（不改动全局状态、不回成功确认）。
+   */
+  private static CONTROL_TIMEOUT_MS = 10_000
+
+  private sendControlRequest(request: Record<string, unknown>): Promise<void> {
+    if (!this.alive) return Promise.reject(new Error('ywcoder 子进程已退出'))
+    const requestId = `ctrl-${Date.now()}-${shortId()}`
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingControl.delete(requestId)
+        reject(new Error(`控制请求 ${String(request.subtype)} 超时未响应`))
+      }, YwcoderSession.CONTROL_TIMEOUT_MS)
+      this.pendingControl.set(requestId, { resolve, reject, timer })
+      this.send({
+        type: 'control_request',
+        request_id: requestId,
+        request,
+      })
+    })
+  }
+
+  /** P3：会话内切换模型（v3 §6.5.1，controlSchemas.ts 的 set_model）。 */
+  setModel(model: string): Promise<void> {
+    return this.sendControlRequest({ subtype: 'set_model', model })
+  }
+
+  /** P3：会话内切换权限模式（v3 §6.5.1，controlSchemas.ts 的 set_permission_mode）。 */
+  setPermissionMode(mode: string): Promise<void> {
+    return this.sendControlRequest({ subtype: 'set_permission_mode', mode })
   }
 
   kill(): void {
     this.clearWatchdogs()
+    // 拒绝所有待决控制请求，避免上层悬挂。
+    for (const [, pending] of this.pendingControl) {
+      clearTimeout(pending.timer)
+      pending.reject(new Error('ywcoder 子进程已退出'))
+    }
+    this.pendingControl.clear()
     if (!this.child.killed) this.child.kill('SIGTERM')
+    // 审查 P1-2：SIGTERM 后挂升级看门狗，保证 exit 收尾一定会到来。
+    // 子进程正常退出时由 clearWatchdogs（exit 处理器）取消该计时器。
+    this.cancelKillEscalation = armSigkillEscalation({
+      isAlive: () => this.alive,
+      kill: () => this.child.kill('SIGKILL'),
+      log: msg => this.log(msg),
+    })
   }
 
   private send(obj: unknown): void {

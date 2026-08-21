@@ -736,6 +736,26 @@ export function getCommand(commandName: string, commands: Command[]): Command {
  *
  * For model-facing prompts (like SkillTool), use cmd.description directly.
  */
+/**
+ * 管控台协议（initialize / reload-plugins 响应）里的命令类别。
+ * 与 getSlashCommandToolSkills / getMcpSkillCommands 的技能口径一致：
+ * prompt 型且 loadedFrom ∈ {skills, plugin, bundled, mcp} 视为技能；
+ * 其余（local 命令、legacy /commands/、无 loadedFrom 的插件普通命令）为普通命令。
+ * v3 管控台按 metadata.kind 分组展示，initialize 与 reload 必须用同一判定。
+ */
+export function getProtocolCommandKind(cmd: Command): 'command' | 'skill' {
+  if (cmd.type !== 'prompt') return 'command'
+  switch (cmd.loadedFrom) {
+    case 'skills':
+    case 'plugin':
+    case 'bundled':
+    case 'mcp':
+      return 'skill'
+    default:
+      return 'command'
+  }
+}
+
 export function formatDescriptionWithSource(cmd: Command): string {
   if (cmd.type !== 'prompt') {
     return cmd.description
