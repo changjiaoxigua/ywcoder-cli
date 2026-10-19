@@ -54,7 +54,7 @@ export async function startMCPServer(
   const server = new Server(
     {
       name: 'ywcoder',
-      version: MACRO.VERSION,
+      version: MACRO.PACKAGE_VERSION ?? MACRO.DISPLAY_VERSION ?? MACRO.VERSION,
     },
     {
       capabilities: {

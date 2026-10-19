@@ -28,7 +28,11 @@ const originalEnv = {
 }
 
 beforeEach(() => {
-  ;(globalThis as Record<string, unknown>).MACRO = { VERSION: 'test-version' }
+  ;(globalThis as Record<string, unknown>).MACRO = {
+    VERSION: 'compat-version',
+    DISPLAY_VERSION: 'display-version',
+    PACKAGE_VERSION: 'test-version',
+  }
   process.env.YWCODER_USE_GEMINI = process.env.CLAUDE_CODE_USE_GEMINI = '1'
   process.env.GEMINI_API_KEY = 'gemini-test-key'
   process.env.GEMINI_MODEL = 'gemini-2.0-flash'
@@ -114,6 +118,10 @@ test('routes Gemini provider requests through the OpenAI-compatible shim', async
 
   expect(capturedUrl).toBe('https://gemini.example/v1beta/openai/chat/completions')
   expect(capturedHeaders?.get('authorization')).toBe('Bearer gemini-test-key')
+  expect(capturedHeaders?.get('user-agent')).toStartWith('ywcoder/test-version ')
+  expect(capturedHeaders?.get('user-agent')).not.toContain('claude')
+  expect(capturedHeaders?.get('x-ywcoder-session-id')).toBeTruthy()
+  expect(capturedHeaders?.get('x-claude-code-session-id')).toBeNull()
   expect(capturedBody?.model).toBe('gemini-2.0-flash')
   expect(response).toMatchObject({
     role: 'assistant',

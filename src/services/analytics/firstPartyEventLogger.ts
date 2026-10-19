@@ -341,8 +341,9 @@ export function initialize1PEventLogging(): void {
   // Build our own resource for 1P event logging with minimal attributes
   const platform = getPlatform()
   const attributes: Record<string, string> = {
-    [ATTR_SERVICE_NAME]: 'claude-code',
-    [ATTR_SERVICE_VERSION]: MACRO.VERSION,
+    [ATTR_SERVICE_NAME]: 'ywcoder',
+    [ATTR_SERVICE_VERSION]:
+      MACRO.PACKAGE_VERSION ?? MACRO.DISPLAY_VERSION ?? MACRO.VERSION,
   }
 
   // Add WSL-specific attributes if running on WSL
@@ -383,8 +384,8 @@ export function initialize1PEventLogging(): void {
   // because logs.getLogger() returns a logger from the global provider, which is
   // separate and used for customer telemetry.
   firstPartyEventLogger = firstPartyEventLoggerProvider.getLogger(
-    'com.anthropic.claude_code.events',
-    MACRO.VERSION,
+    'com.ywcoder.cli.events',
+    MACRO.PACKAGE_VERSION ?? MACRO.DISPLAY_VERSION ?? MACRO.VERSION,
   )
 }
 

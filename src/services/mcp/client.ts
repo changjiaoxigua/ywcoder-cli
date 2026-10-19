@@ -1000,7 +1000,11 @@ export const connectToServer = memoize(
         {
           name: 'ywcoder',
           title: 'ywcoder',
-          version: MACRO.VERSION ?? 'unknown',
+          version:
+            MACRO.PACKAGE_VERSION ??
+            MACRO.DISPLAY_VERSION ??
+            MACRO.VERSION ??
+            'unknown',
           description: "YwCoder's agentic coding tool",
           // websiteUrl: PRODUCT_URL,
         },
@@ -3296,7 +3300,11 @@ export async function setupSdkMcpClients(
         {
           name: 'ywcoder',
           title: 'ywcoder',
-          version: MACRO.VERSION ?? 'unknown',
+          version:
+            MACRO.PACKAGE_VERSION ??
+            MACRO.DISPLAY_VERSION ??
+            MACRO.VERSION ??
+            'unknown',
           description: "YwCoder's agentic coding tool",
           // websiteUrl: PRODUCT_URL,
         },

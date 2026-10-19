@@ -15,8 +15,6 @@ import { getYwCoderUserAgent } from './userAgent.js'
 import { getWorkload } from './workloadContext.js'
 import { getYwCoderEnv } from './envUtils.js'
 
-// WARNING: We rely on `claude-cli` in the user agent for log filtering.
-// Please do NOT change this without making sure that logging also gets updated!
 export function getUserAgent(): string {
   const agentSdkVersion = process.env.CLAUDE_AGENT_SDK_VERSION
     ? `, agent-sdk/${process.env.CLAUDE_AGENT_SDK_VERSION}`
@@ -33,7 +31,7 @@ export function getUserAgent(): string {
   // so the read picks up the same setWorkload() value as getAttributionHeader.
   const workload = getWorkload()
   const workloadSuffix = workload ? `, workload/${workload}` : ''
-  return `claude-cli/${MACRO.VERSION} (${process.env.USER_TYPE}, ${getYwCoderEnv('ENTRYPOINT') ?? 'cli'}${agentSdkVersion}${clientApp}${workloadSuffix})`
+  return `${getYwCoderUserAgent()} (${process.env.USER_TYPE}, ${getYwCoderEnv('ENTRYPOINT') ?? 'cli'}${agentSdkVersion}${clientApp}${workloadSuffix})`
 }
 
 export function getMCPUserAgent(): string {
@@ -48,19 +46,16 @@ export function getMCPUserAgent(): string {
     parts.push(`client-app/${process.env.CLAUDE_AGENT_SDK_CLIENT_APP}`)
   }
   const suffix = parts.length > 0 ? ` (${parts.join(', ')})` : ''
-  return `claude-code/${MACRO.VERSION}${suffix}`
+  return `${getYwCoderUserAgent()}${suffix}`
 }
 
-// User-Agent for WebFetch requests to arbitrary sites. `Claude-User` is
-// The first-party provider's publicly documented agent for user-initiated fetches (what site
-// operators match in robots.txt); the claude-code suffix lets them distinguish
-// local CLI traffic from claude.ai server-side fetches.
+// WebFetch 对外请求也统一使用 YwCoder 的 User-Agent。
 export function getWebFetchUserAgent(): string {
   const supportUrl =
     getAPIProvider() === 'firstParty'
       ? 'https://support.anthropic.com/'
       : 'https://github.com/dcywzc/ywcoder'
-  return `Claude-User (${getYwCoderUserAgent()}; +${supportUrl})`
+  return `${getYwCoderUserAgent()} (+${supportUrl})`
 }
 
 export type AuthHeaders = {

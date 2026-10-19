@@ -118,8 +118,10 @@ async function buildTarget(opts: {
     // MACRO.* 构建时常量
     // MACRO.VERSION 保持 99.0.0 用于绕过 first-party min-version 检查，严禁修改
     // MACRO.DISPLAY_VERSION 为用户可见的真实版本号（含 channel 后缀）
+    // MACRO.PACKAGE_VERSION 为对外客户端标识使用的 package.json 原始版本号
     'MACRO.VERSION': JSON.stringify('99.0.0'),
     'MACRO.DISPLAY_VERSION': JSON.stringify(displayVersion),
+    'MACRO.PACKAGE_VERSION': JSON.stringify(version),
     'MACRO.GIT_SHA': JSON.stringify(gitSha),
     'MACRO.BUILD_ID': JSON.stringify(buildId),
     'MACRO.BUILD_CHANNEL': JSON.stringify(buildChannel),

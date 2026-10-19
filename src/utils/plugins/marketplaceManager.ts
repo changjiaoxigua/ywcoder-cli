@@ -48,6 +48,7 @@ import {
   jsonStringify,
   writeFileSync_DEPRECATED,
 } from '../slowOperations.js'
+import { getYwCoderUserAgent } from '../userAgent.js'
 import {
   getAddDirEnabledPlugins,
   getAddDirExtraMarketplaces,
@@ -1273,7 +1274,7 @@ async function cacheMarketplaceFromUrl(
   const headers = {
     ...customHeaders,
     // User-Agent must come last to prevent override (for consistency with WebFetch)
-    'User-Agent': 'Claude-Code-Plugin-Manager',
+    'User-Agent': getYwCoderUserAgent(),
   }
 
   let response

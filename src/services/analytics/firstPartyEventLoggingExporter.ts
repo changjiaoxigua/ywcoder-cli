@@ -311,7 +311,7 @@ export class FirstPartyEventLoggingExporter implements LogRecordExporter {
       // Filter for event logs only (by scope name)
       const eventLogs = logs.filter(
         log =>
-          log.instrumentationScope?.name === 'com.anthropic.claude_code.events',
+          log.instrumentationScope?.name === 'com.ywcoder.cli.events',
       )
 
       if (eventLogs.length === 0) {
@@ -538,7 +538,7 @@ export class FirstPartyEventLoggingExporter implements LogRecordExporter {
     const baseHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'User-Agent': getYwCoderUserAgent(),
-      'x-service-name': 'claude-code',
+      'x-service-name': 'ywcoder',
     }
 
     // Skip auth if trust hasn't been established yet

@@ -6,5 +6,5 @@
  */
 
 export function getYwCoderUserAgent(): string {
-  return `ywcoder/${MACRO.VERSION}`
+  return `ywcoder/${MACRO.PACKAGE_VERSION ?? MACRO.DISPLAY_VERSION ?? MACRO.VERSION}`
 }
