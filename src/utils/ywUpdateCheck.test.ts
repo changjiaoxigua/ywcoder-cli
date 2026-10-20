@@ -382,6 +382,21 @@ test('7a：有更新 → 写 hubRoot + latestVersion + packageFilename，并触�
   }
 })
 
+test('通知栏与输入栏订阅者都能收到更新', async () => {
+  resetYwUpdateCheckForTest()
+  const received: string[] = []
+  const offNotification = onYwCoderUpdateAvailable(() => received.push('notification'))
+  const offFooter = onYwCoderUpdateAvailable(() => received.push('footer'))
+  try {
+    await checkYwCoderUpdate(makeDeps({ store: makeStore().store }))
+    assert.deepEqual(received, ['notification', 'footer'])
+  } finally {
+    offNotification()
+    offFooter()
+    resetYwUpdateCheckForTest()
+  }
+})
+
 test('7b：无更新（清单版本更旧）→ 清掉 latest 缓存，不触发回调', async () => {
   resetYwUpdateCheckForTest()
   const received: YwUpdateInfo[] = []

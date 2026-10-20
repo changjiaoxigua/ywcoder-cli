@@ -1,7 +1,8 @@
 import { feature } from 'bun:bundle';
 import * as React from 'react';
-import { memo, type ReactNode, useMemo, useRef } from 'react';
+import { memo, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { isBridgeEnabled } from '../../bridge/bridgeEnabled.js';
+import { getIsRemoteMode } from '../../bootstrap/state.js';
 import { getBridgeStatus } from '../../bridge/bridgeStatusUtil.js';
 import { useSetPromptOverlay } from '../../context/promptOverlayContext.js';
 import type { VerificationStatus } from '../../hooks/useApiKeyVerification.js';
@@ -17,12 +18,15 @@ import type { PromptInputMode, VimMode } from '../../types/textInputTypes.js';
 import type { AutoUpdaterResult } from '../../utils/autoUpdater.js';
 import { isFullscreenEnvEnabled } from '../../utils/fullscreen.js';
 import { isUndercover } from '../../utils/undercover.js';
+import { resolveHubConfig } from '../../utils/skills/skillInstaller.js';
+import { getCachedUpdate, isYwUpdateCheckDisabled, onYwCoderUpdateAvailable, type YwUpdateInfo } from '../../utils/ywUpdateCheck.js';
 import { CoordinatorTaskPanel, useCoordinatorTaskCount } from '../CoordinatorAgentStatus.js';
 import { getLastAssistantMessageId, StatusLine, statusLineShouldDisplay } from '../StatusLine.js';
 import { Notifications } from './Notifications.js';
 import { PromptInputFooterLeftSide } from './PromptInputFooterLeftSide.js';
 import { PromptInputFooterSuggestions, type SuggestionItem } from './PromptInputFooterSuggestions.js';
 import { PromptInputHelpMenu } from './PromptInputHelpMenu.js';
+declare const MACRO: { DISPLAY_VERSION?: string };
 type Props = {
   apiKeyStatus: VerificationStatus;
   debug: boolean;
@@ -142,6 +146,7 @@ function PromptInputFooter({
           <PromptInputFooterLeftSide exitMessage={exitMessage} vimMode={vimMode} mode={mode} toolPermissionContext={toolPermissionContext} suppressHint={suppressHint} isLoading={isLoading} tasksSelected={pillSelected} teamsSelected={teamsSelected} teammateFooterIndex={teammateFooterIndex} tmuxSelected={tmuxSelected} isPasting={isPasting} isSearching={isSearching} historyQuery={historyQuery} setHistoryQuery={setHistoryQuery} historyFailedMatch={historyFailedMatch} onOpenTasksDialog={onOpenTasksDialog} />
         </Box>
         <Box flexShrink={1} gap={1}>
+          <YwUpdateIndicator />
           {isFullscreen ? null : <Notifications apiKeyStatus={apiKeyStatus} autoUpdaterResult={autoUpdaterResult} debug={debug} isAutoUpdating={isAutoUpdating} verbose={verbose} messages={messages} onAutoUpdaterResult={onAutoUpdaterResult} onChangeIsUpdating={onChangeIsUpdating} ideSelection={ideSelection} mcpClients={mcpClients} isInputWrapped={isInputWrapped} isNarrow={isNarrow} />}
           {"external" === 'ant' && isUndercover() && <Text dimColor>undercover</Text>}
           <BridgeStatusIndicator bridgeSelected={bridgeSelected} />
@@ -151,6 +156,25 @@ function PromptInputFooter({
     </>;
 }
 export default memo(PromptInputFooter);
+
+/** 更新提示留在输入栏，直到本次会话结束或用户完成升级。 */
+function YwUpdateIndicator(): React.ReactNode {
+  const [update, setUpdate] = useState<YwUpdateInfo | null>(null);
+  useEffect(() => {
+    if (getIsRemoteMode() || isYwUpdateCheckDisabled()) return;
+    try {
+      const hub = resolveHubConfig();
+      if (hub && typeof MACRO !== 'undefined') {
+        setUpdate(getCachedUpdate(hub.hubRoot, MACRO.DISPLAY_VERSION ?? ''));
+      }
+    } catch {
+      // 内网 hub 配置异常时不影响输入栏。
+    }
+    return onYwCoderUpdateAvailable(setUpdate);
+  }, []);
+  return update ? <Text color="yellow">可更新至 {update.latestVersion} · ywcoder update</Text> : null;
+}
+
 type BridgeStatusProps = {
   bridgeSelected: boolean;
 };

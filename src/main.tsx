@@ -4346,17 +4346,15 @@ async function run(): Promise<CommanderCommand> {
     await doctorHandler(root);
   });
 
-  // claude update
-  //
-  // For SemVer-compliant versioning with build metadata (X.X.X+SHA):
-  // - We perform exact string comparison (including SHA) to detect any change
-  // - This ensures users always get the latest build, even when only the SHA changes
-  // - UI shows both versions including build metadata for clarity
-  // YwCoder: 在线更新禁用 — update/upgrade 实为从 Anthropic GCS（claude-code-dist）
-  // 下载更新包，内网不可达。保留命令但给中性提示；移除对 cli/update.js 的动态 import，
-  // 使其字符串被 tree-shaking 移出打包产物。将来接内网更新源时，恢复 import 与 update() 调用即可。
-  program.command('update').alias('upgrade').description('Check for updates and install if available').action(async () => {
-    console.log('暂不提供在线更新。请联系管理员获取新版本。');
+  // 使用内网 hub 清单更新 YwCoder；上游 GCS 更新器不适用于本发行包。
+  program.command('update').alias('upgrade').description('检查并安装内网最新版').option('--check', '仅检查最新版').option('--yes', '跳过安装确认').action(async (options: { check?: boolean; yes?: boolean }) => {
+    try {
+      const { ywUpdate } = await import('./cli/ywUpdate.js');
+      await ywUpdate(options);
+    } catch (error) {
+      console.error(`更新失败：${error instanceof Error ? error.message : String(error)}`);
+      process.exitCode = 1;
+    }
   });
 
   // claude up — run the project's YWCODER.md "# claude up" setup instructions.

@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react'
 import { getIsRemoteMode } from '../../bootstrap/state.js'
 import { useNotifications } from '../../context/notifications.js'
 import { logForDebugging } from '../../utils/debug.js'
+import { isYwUpdateCheckDisabled } from '../../utils/ywUpdateCheck.js'
 import { resolveHubConfig } from '../../utils/skills/skillInstaller.js'
 import {
   checkYwCoderUpdate,
@@ -41,6 +42,7 @@ export function useYwCoderUpdateNotification(): void {
 
   useEffect(() => {
     if (getIsRemoteMode()) return
+    if (isYwUpdateCheckDisabled()) return
 
     const notify = (info: YwUpdateInfo) => {
       if (notifiedRef.current) return
@@ -50,7 +52,7 @@ export function useYwCoderUpdateNotification(): void {
         text: messageFor(info, currentDisplayVersion()),
         color: 'warning',
         priority: 'medium',
-        timeoutMs: 15_000,
+        timeoutMs: 60_000,
       })
       logForDebugging(`ywUpdateCheck: 已提醒新版本 ${info.latestVersion}`)
     }

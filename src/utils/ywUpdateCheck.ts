@@ -135,6 +135,15 @@ export function matchPlatformPackageFilename(
   packages: unknown,
   platform: NodeJS.Platform = process.platform,
 ): string | null {
+  const selected = matchPlatformPackage(packages, platform)
+  return selected ? selected.filename.split('/').pop() || null : null
+}
+
+/** 返回与当前平台匹配的原始包条目，供安装流程读取校验字段。 */
+export function matchPlatformPackage(
+  packages: unknown,
+  platform: NodeJS.Platform = process.platform,
+): { filename: string; sha256?: unknown; size?: unknown } | null {
   if (!Array.isArray(packages)) return null
   const want = PLATFORM_MAP[platform]
   if (!want) return null
@@ -142,12 +151,12 @@ export function matchPlatformPackageFilename(
   const entries = packages.filter(
     (p): p is ToolsPackage => p !== null && typeof p === 'object',
   )
-  const byPlatform = (pred: (platform: string) => boolean): string | null => {
+  const byPlatform = (pred: (platform: string) => boolean): { filename: string; sha256?: unknown; size?: unknown } | null => {
     for (const p of entries) {
       if (typeof p.platform === 'string' && pred(p.platform)) {
         if (typeof p.filename === 'string' && p.filename.length > 0) {
           const base = p.filename.split('/').pop() ?? ''
-          return base || null
+          return base ? p as { filename: string; sha256?: unknown; size?: unknown } : null
         }
         // 平台命中但缺 filename：视为无匹配，不让提醒展示空文件名
         return null
@@ -241,24 +250,24 @@ const defaultHttpGet: HttpGet = async (url, opts) => {
 
 export type YwUpdateCallback = (info: YwUpdateInfo) => void
 
-let updateCallback: YwUpdateCallback | null = null
+const updateCallbacks = new Set<YwUpdateCallback>()
 /** 回调注册前已产出的结果，注册时补发（REPL 挂载晚于检查完成的竞态） */
 let pendingUpdate: YwUpdateInfo | null = null
 
 export function onYwCoderUpdateAvailable(callback: YwUpdateCallback): () => void {
-  updateCallback = callback
+  updateCallbacks.add(callback)
   if (pendingUpdate !== null) {
     callback(pendingUpdate)
     pendingUpdate = null
   }
   return () => {
-    updateCallback = null
+    updateCallbacks.delete(callback)
   }
 }
 
 function emitUpdate(info: YwUpdateInfo): void {
-  if (updateCallback) {
-    updateCallback(info)
+  if (updateCallbacks.size > 0) {
+    for (const callback of updateCallbacks) callback(info)
   } else {
     pendingUpdate = info
   }
@@ -266,7 +275,7 @@ function emitUpdate(info: YwUpdateInfo): void {
 
 /** 仅测试用：清空模块级回调与 pending 状态 */
 export function resetYwUpdateCheckForTest(): void {
-  updateCallback = null
+  updateCallbacks.clear()
   pendingUpdate = null
 }
 

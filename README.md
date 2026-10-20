@@ -35,6 +35,37 @@ If the install later reports `ripgrep not found`, install ripgrep system-wide an
 ywcoder
 ```
 
+For an internal installation, configure `ywdevhubUrl` in user or managed settings.
+YwCoder checks the hub's `tools.json` in the background when an interactive
+session starts, with a 24-hour network interval. A newer version remains visible
+in the input footer. Run `ywcoder update --check` to check immediately, or
+`ywcoder update` to download and install an available offline `.tgz` package.
+Automatic installation currently supports global npm installs. Other install
+methods receive a verified local package for manual installation. Both require
+the package's `size` and `sha256` fields in the hub manifest. Restart YwCoder
+after updating.
+
+Example `tools.json` entry for an administrator:
+
+```json
+{
+  "id": "ywcoder-cli",
+  "version": "1.3.2",
+  "packages": [
+    {
+      "platform": "Linux",
+      "filename": "tools/YwCoder-Cli/ywcoder-1.3.2-linux-universal.tgz",
+      "size": 12345678,
+      "sha256": "<64-character SHA-256 digest>"
+    }
+  ]
+}
+```
+
+The manifest is a top-level array containing this entry. Publish the package
+before raising its manifest version. Use a trusted internal hub: a checksum in
+the same manifest detects transfer errors, but does not authenticate an HTTP hub.
+
 Inside YwCoder:
 
 - run `/provider` for guided provider setup and saved profiles
