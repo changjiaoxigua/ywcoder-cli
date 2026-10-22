@@ -4347,7 +4347,7 @@ async function run(): Promise<CommanderCommand> {
   });
 
   // 使用内网 hub 清单更新 YwCoder；上游 GCS 更新器不适用于本发行包。
-  program.command('update').alias('upgrade').description('检查并安装内网最新版').option('--check', '仅检查最新版').option('--yes', '跳过安装确认').action(async (options: { check?: boolean; yes?: boolean }) => {
+  program.command('update').alias('upgrade').description('检查并安装内网最新版').option('--check', '仅检查最新版').addOption(new Option('--yes', '兼容旧版参数，更新默认无需确认').hideHelp()).action(async (options: { check?: boolean; yes?: boolean }) => {
     try {
       const { ywUpdate } = await import('./cli/ywUpdate.js');
       await ywUpdate(options);

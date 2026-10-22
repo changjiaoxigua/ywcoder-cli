@@ -1,5 +1,4 @@
 /** YwCoder 内网更新命令。 */
-import { createInterface } from 'node:readline/promises'
 import { getCurrentInstallationType } from '../utils/doctorDiagnostic.js'
 import { downloadUpdateForManualInstall, fetchUpdateRelease, installUpdatePackage } from '../utils/ywUpdater.js'
 
@@ -29,19 +28,6 @@ export async function ywUpdate(options: { check?: boolean; yes?: boolean }): Pro
     console.log(`当前安装方式不支持自动替换。已校验安装包保留在：${path}`)
     console.log('请按原安装方式使用该包升级。')
     return
-  }
-  if (!options.yes) {
-    if (!process.stdin.isTTY) throw new Error('非交互环境安装请显式指定 --yes。')
-    const input = createInterface({ input: process.stdin, output: process.stdout })
-    try {
-      const answer = await input.question('下载并安装此版本？[y/N] ')
-      if (!/^(y|yes)$/i.test(answer.trim())) {
-        console.log('已取消更新。')
-        return
-      }
-    } finally {
-      input.close()
-    }
   }
   await installUpdatePackage(release.installablePackage, release.version)
   console.log('安装完成。请重启 YwCoder，以加载新版本。')

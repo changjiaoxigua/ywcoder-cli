@@ -39,7 +39,8 @@ For an internal installation, configure `ywdevhubUrl` in user or managed setting
 YwCoder checks the hub's `tools.json` in the background when an interactive
 session starts, with a 24-hour network interval. A newer version remains visible
 in the input footer. Run `ywcoder update --check` to check immediately, or
-`ywcoder update` to download and install an available offline `.tgz` package.
+`ywcoder update` to download and install an available offline `.tgz` package
+directly, without an additional confirmation prompt.
 Automatic installation currently supports global npm installs. Other install
 methods receive a verified local package for manual installation. Both require
 the package's `size` and `sha256` fields in the hub manifest. Restart YwCoder
