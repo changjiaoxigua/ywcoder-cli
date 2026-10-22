@@ -8,6 +8,7 @@ import test from 'node:test'
 
 import axios from 'axios'
 import { downloadVerifiedPackage, fetchUpdateRelease, isExpectedPackageIdentity, resolveUpdatePackage } from './ywUpdater.js'
+import { checkYwCoderUpdate, getCachedUpdate, resetYwUpdateCheckForTest, type YwUpdateCheckCache } from './ywUpdateCheck.js'
 
 const HUB = 'http://example.invalid/yw-devhub/'
 const CONTENT = Buffer.from('测试安装包')
@@ -60,7 +61,14 @@ test('安装前核对包名和基础版本，兼容开发版显示后缀', () =>
 
 test('手动检查直接读取 hub 清单并返回当前平台的新版本', async () => {
   let requestedUrl = ''
+  let cache: YwUpdateCheckCache | undefined
+  const store = {
+    read: () => cache,
+    write: (value: YwUpdateCheckCache) => { cache = value },
+  }
   const release = await fetchUpdateRelease('1.3.1', 'linux', {
+    store,
+    now: 1000,
     resolveHub: () => ({ hubRoot: HUB, source: 'userSettings' }),
     httpGet: async url => {
       requestedUrl = url
@@ -73,4 +81,55 @@ test('手动检查直接读取 hub 清单并返回当前平台的新版本', asy
   assert.equal(requestedUrl, `${HUB}tools.json`)
   assert.equal(release?.version, '1.3.2')
   assert.equal(release?.installablePackage?.sha256, SHA)
+  // 模拟下一次启动：直接读手动检查缓存显示提示，且不重复访问清单。
+  assert.deepEqual(getCachedUpdate(HUB, '1.3.1', store), {
+    latestVersion: '1.3.2',
+    packageFilename: 'ywcoder-linux.tgz',
+  })
+  await checkYwCoderUpdate({
+    store,
+    now: 1001,
+    currentVersion: '1.3.1',
+    isInteractive: () => true,
+    isRemoteMode: () => false,
+    isDisabled: () => false,
+    resolveHub: () => ({ hubRoot: HUB, source: 'userSettings' }),
+    httpGet: async () => { throw new Error('不应重复请求') },
+  })
+  assert.equal(cache?.lastCheckedAt, 1000)
+  resetYwUpdateCheckForTest()
+})
+
+test('手动检查已是最新版或无本机包时清除旧提醒，失败时保留缓存', async () => {
+  for (const [currentVersion, platform] of [['1.3.2', 'linux'], ['1.3.1', 'darwin']] as const) {
+    let cache: YwUpdateCheckCache = {
+      lastCheckedAt: 1,
+      hubRoot: HUB,
+      latestVersion: '9.9.9',
+      packageFilename: 'old.tgz',
+    }
+    const store = {
+      read: () => cache,
+      write: (value: YwUpdateCheckCache) => { cache = value },
+    }
+    const deps = {
+      store,
+      now: 1000,
+      resolveHub: () => ({ hubRoot: HUB, source: 'userSettings' as const }),
+      httpGet: async () => Buffer.from(JSON.stringify([{
+        id: 'ywcoder-cli', version: '1.3.2',
+        packages: [{ platform: 'Linux', filename: 'tools/ywcoder-linux.tgz' }],
+      }])),
+    }
+    const previous = cache
+    await assert.rejects(fetchUpdateRelease(currentVersion, platform, {
+      ...deps,
+      httpGet: async () => { throw new Error('网络不可达') },
+    }), /网络不可达/)
+    assert.equal(cache, previous)
+
+    await fetchUpdateRelease(currentVersion, platform, deps)
+    assert.equal(getCachedUpdate(HUB, currentVersion, store), null)
+    assert.deepEqual(cache, { lastCheckedAt: 1000, hubRoot: HUB, currentVersion })
+  }
 })

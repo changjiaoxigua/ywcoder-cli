@@ -215,6 +215,7 @@ export type GlobalConfig = {
   ywcoderUpdateCheck?: {
     lastCheckedAt: number
     hubRoot?: string
+    currentVersion?: string
     latestVersion?: string
     packageFilename?: string
   }

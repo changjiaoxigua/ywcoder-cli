@@ -11,7 +11,8 @@ import axios from 'axios'
 import { execa } from 'execa'
 
 import { assertUrlAllowed, normalizeHubRoot, resolveHubConfig } from './skills/skillInstaller.js'
-import { extractYwCoderEntry, isNewerVersion, isValidVersion, MANIFEST_MAX_BYTES, matchPlatformPackage, matchPlatformPackageFilename } from './ywUpdateCheck.js'
+import { logForDebugging } from './debug.js'
+import { extractYwCoderEntry, isNewerVersion, isValidVersion, MANIFEST_MAX_BYTES, matchPlatformPackage, matchPlatformPackageFilename, recordYwCoderUpdateCheck, type YwUpdateCheckStore } from './ywUpdateCheck.js'
 
 export const UPDATE_PACKAGE_MAX_BYTES = 256 * 1024 * 1024
 const DOWNLOAD_TIMEOUT_MS = 60_000
@@ -69,6 +70,8 @@ export async function fetchUpdateRelease(
   deps: {
     resolveHub?: typeof resolveHubConfig
     httpGet?: (url: string) => Promise<Buffer>
+    store?: YwUpdateCheckStore
+    now?: number
   } = {},
 ): Promise<UpdateRelease | null> {
   const hub = (deps.resolveHub ?? resolveHubConfig)()
@@ -85,12 +88,25 @@ export async function fetchUpdateRelease(
   if (body.length > MANIFEST_MAX_BYTES) throw new Error('更新清单超过大小上限。')
   const entry = extractYwCoderEntry(JSON.parse(body.toString('utf8')))
   if (!entry || !isValidVersion(entry.version)) throw new Error('更新清单缺少有效的 ywcoder-cli 版本。')
-  if (!isNewerVersion(entry.version, currentVersion)) return null
-  return {
+  const release = isNewerVersion(entry.version, currentVersion) ? {
     version: entry.version,
     packageFilename: matchPlatformPackageFilename(entry.packages, platform),
     installablePackage: resolveUpdatePackage(entry.packages, platform, hub.hubRoot),
+  } : null
+  try {
+    recordYwCoderUpdateCheck(
+      hub.hubRoot,
+      currentVersion,
+      release?.packageFilename
+        ? { latestVersion: release.version, packageFilename: release.packageFilename }
+        : null,
+      { store: deps.store, now: deps.now },
+    )
+  } catch (error) {
+    // 缓存写入失败不影响手动检查结果。
+    logForDebugging(`ywUpdateCheck: 保存手动检查结果失败：${error}`)
   }
+  return release
 }
 
 /** 流式下载并检查字节数与摘要，避免将整个安装包载入内存。 */

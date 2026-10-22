@@ -164,7 +164,7 @@ function YwUpdateIndicator(): React.ReactNode {
     if (getIsRemoteMode() || isYwUpdateCheckDisabled()) return;
     try {
       const hub = resolveHubConfig();
-      if (hub && typeof MACRO !== 'undefined') {
+      if (hub) {
         setUpdate(getCachedUpdate(hub.hubRoot, MACRO.DISPLAY_VERSION ?? ''));
       }
     } catch {

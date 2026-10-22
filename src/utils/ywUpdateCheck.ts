@@ -65,6 +65,7 @@ export type YwUpdateInfo = {
 export type YwUpdateCheckCache = {
   lastCheckedAt: number
   hubRoot?: string
+  currentVersion?: string
   latestVersion?: string
   packageFilename?: string
 }
@@ -207,7 +208,10 @@ const defaultStore: YwUpdateCheckStore = {
 export function shouldCheckNow(
   cache: YwUpdateCheckCache | undefined,
   now: number,
+  currentVersion?: string,
 ): boolean {
+  // 升级后或读取旧格式缓存时重新检查，避免继承旧构建留下的无结果节流。
+  if (currentVersion !== undefined && cache?.currentVersion !== currentVersion) return true
   if (!cache || typeof cache.lastCheckedAt !== 'number') return true
   return now - cache.lastCheckedAt >= CHECK_INTERVAL_MS
 }
@@ -273,6 +277,25 @@ function emitUpdate(info: YwUpdateInfo): void {
   }
 }
 
+/** 手动与启动检查共享缓存，下次启动可直接显示已经发现的新版本。 */
+export function recordYwCoderUpdateCheck(
+  hubRoot: string,
+  currentVersion: string,
+  update: YwUpdateInfo | null,
+  { store = defaultStore, now = Date.now() }: {
+    store?: YwUpdateCheckStore
+    now?: number
+  } = {},
+): void {
+  store.write({
+    lastCheckedAt: now,
+    hubRoot,
+    currentVersion,
+    ...(update ?? {}),
+  })
+  if (update) emitUpdate(update)
+}
+
 /** 仅测试用：清空模块级回调与 pending 状态 */
 export function resetYwUpdateCheckForTest(): void {
   updateCallbacks.clear()
@@ -329,11 +352,11 @@ export async function checkYwCoderUpdate(deps: CheckDeps = {}): Promise<void> {
     // packageFilename 一律不继承（旧源数据不得挂到新源名下展示）。
     const storedCache = store.read()
     const cache = storedCache?.hubRoot === hub.hubRoot ? storedCache : undefined
-    if (!shouldCheckNow(cache, now)) return
+    if (!shouldCheckNow(cache, now, currentVersion)) return
 
     // 失败也要节流：写 lastCheckedAt，保留既有 latest 缓存（§4.1）
     const markChecked = () =>
-      store.write({ ...cache, lastCheckedAt: now, hubRoot: hub.hubRoot })
+      store.write({ ...cache, lastCheckedAt: now, hubRoot: hub.hubRoot, currentVersion })
 
     const manifestUrl = new URL(
       'tools.json',
@@ -374,13 +397,7 @@ export async function checkYwCoderUpdate(deps: CheckDeps = {}): Promise<void> {
         latestVersion: latestVersion as string,
         packageFilename,
       }
-      store.write({
-        lastCheckedAt: now,
-        hubRoot: hub.hubRoot,
-        latestVersion: info.latestVersion,
-        packageFilename: info.packageFilename,
-      })
-      emitUpdate(info)
+      recordYwCoderUpdateCheck(hub.hubRoot, currentVersion, info, { store, now })
       return
     }
 
@@ -392,7 +409,7 @@ export async function checkYwCoderUpdate(deps: CheckDeps = {}): Promise<void> {
     }
 
     // 无更新 / 条目缺失 / version 非法 / 本机平台无包：清掉 latest 缓存（§6）
-    store.write({ lastCheckedAt: now, hubRoot: hub.hubRoot })
+    recordYwCoderUpdateCheck(hub.hubRoot, currentVersion, null, { store, now })
   } catch (e) {
     // 兜底：任何意外（如 globalConfig 写失败）不得影响启动
     logForDebugging(`ywUpdateCheck: 意外失败：${e}`)

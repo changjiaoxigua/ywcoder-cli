@@ -240,7 +240,7 @@ test('5a：shouldCheckNow：无缓存 / lastCheckedAt 非法 → 检查；24h �
 
 test('5b：距上次检查 < 24h → 不发请求；≥ 24h → 发请求', async () => {
   // 真实缓存一定带 hubRoot（写入路径见 7a/8b）；不带 hubRoot 的缓存按换源作废（5d）
-  const recent = makeStore({ lastCheckedAt: NOW - 1000, hubRoot: 'http://h/yw-devhub/' })
+  const recent = makeStore({ lastCheckedAt: NOW - 1000, hubRoot: 'http://h/yw-devhub/', currentVersion: '1.3.0' })
   const depsRecent = makeDeps({ store: recent.store })
   await checkYwCoderUpdate(depsRecent)
   assert.equal(depsRecent.httpCalls(), 0)
@@ -249,6 +249,7 @@ test('5b：距上次检查 < 24h → 不发请求；≥ 24h → 发请求', asyn
   const stale = makeStore({
     lastCheckedAt: NOW - CHECK_INTERVAL_MS,
     hubRoot: 'http://h/yw-devhub/',
+    currentVersion: '1.3.0',
   })
   const depsStale = makeDeps({ store: stale.store })
   await checkYwCoderUpdate(depsStale)
@@ -268,12 +269,31 @@ test('5c：拉取失败同样写 lastCheckedAt：24h 内不重试（§4.1）', a
   await checkYwCoderUpdate(deps)
   assert.equal(calls, 1)
   assert.deepEqual(writes, [
-    { lastCheckedAt: NOW, hubRoot: 'http://h/yw-devhub/' },
+    { lastCheckedAt: NOW, hubRoot: 'http://h/yw-devhub/', currentVersion: '1.3.0' },
   ])
 
   // 紧接着的第二次启动：节流命中，不再请求
   await checkYwCoderUpdate(deps)
   assert.equal(calls, 1)
+})
+
+test('旧格式缓存或客户端升级后立即检查，后续启动仍遵循节流', async () => {
+  for (const currentVersion of [undefined, '1.2.0']) {
+    const { store, current } = makeStore({
+      lastCheckedAt: NOW - 1000,
+      hubRoot: 'http://h/yw-devhub/',
+      currentVersion,
+    })
+    const deps = makeDeps({ store })
+    await checkYwCoderUpdate(deps)
+    assert.equal(deps.httpCalls(), 1)
+    assert.equal(current()?.latestVersion, '1.4.0')
+    assert.equal(current()?.currentVersion, '1.3.0')
+
+    await checkYwCoderUpdate(deps)
+    assert.equal(deps.httpCalls(), 1)
+  }
+  resetYwUpdateCheckForTest()
 })
 
 // 审查 P1：hubRoot 不一致 = 换源，旧源的节流时间不继承（否则新 hub 最长
@@ -370,6 +390,7 @@ test('7a：有更新 → 写 hubRoot + latestVersion + packageFilename，并触�
     assert.deepEqual(current(), {
       lastCheckedAt: NOW,
       hubRoot: 'http://h/yw-devhub/',
+      currentVersion: '1.3.0',
       latestVersion: '1.4.0',
       packageFilename: 'ywcoder-1.4.0-win-x64.zip',
     })
@@ -433,6 +454,7 @@ test('7b：无更新（清单版本更旧）→ 清掉 latest 缓存，不触发
     assert.deepEqual(current(), {
       lastCheckedAt: NOW,
       hubRoot: 'http://h/yw-devhub/',
+      currentVersion: '9.9.9',
     })
     assert.equal(received.length, 0)
   } finally {
@@ -451,6 +473,7 @@ test('7c：本机平台无包（darwin + 现网清单）→ 不缓存 latestVers
     assert.deepEqual(current(), {
       lastCheckedAt: NOW,
       hubRoot: 'http://h/yw-devhub/',
+      currentVersion: '1.3.0',
     })
     assert.equal(received.length, 0)
   } finally {
@@ -477,6 +500,7 @@ test('7d：失败只写 lastCheckedAt，保留既有 latest 缓存', async () =>
   assert.deepEqual(current(), {
     lastCheckedAt: NOW,
     hubRoot: 'http://h/yw-devhub/',
+    currentVersion: '1.3.0',
     latestVersion: '1.4.0',
     packageFilename: 'old.zip',
   })
@@ -517,7 +541,7 @@ test('7f：hub 切换 + 请求失败 → 只写新源 lastCheckedAt/hubRoot，�
       },
     }),
   )
-  assert.deepEqual(current(), { lastCheckedAt: NOW, hubRoot: 'http://h/yw-devhub/' })
+  assert.deepEqual(current(), { lastCheckedAt: NOW, hubRoot: 'http://h/yw-devhub/', currentVersion: '1.3.0' })
   assert.equal(writes.length, 1)
 })
 
@@ -561,6 +585,7 @@ test('8b：302（不跟随重定向）/ 超限 / 非法 JSON → 静默，不写
     assert.deepEqual(current(), {
       lastCheckedAt: NOW,
       hubRoot: 'http://h/yw-devhub/',
+      currentVersion: '1.3.0',
     })
   }
 
@@ -572,6 +597,7 @@ test('8b：302（不跟随重定向）/ 超限 / 非法 JSON → 静默，不写
   assert.deepEqual(current(), {
     lastCheckedAt: NOW,
     hubRoot: 'http://h/yw-devhub/',
+    currentVersion: '1.3.0',
   })
 })
 
@@ -692,6 +718,7 @@ test('10：现网 tools.json 快照：正确提取条目；1.1.0 低于当前版
     assert.deepEqual(current(), {
       lastCheckedAt: NOW,
       hubRoot: 'http://h/yw-devhub/',
+      currentVersion: '1.3.0',
     })
   } finally {
     off()
