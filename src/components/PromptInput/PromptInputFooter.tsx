@@ -26,6 +26,7 @@ import { Notifications } from './Notifications.js';
 import { PromptInputFooterLeftSide } from './PromptInputFooterLeftSide.js';
 import { PromptInputFooterSuggestions, type SuggestionItem } from './PromptInputFooterSuggestions.js';
 import { PromptInputHelpMenu } from './PromptInputHelpMenu.js';
+import { YwUpdateNotice } from './YwUpdateNotice.js';
 declare const MACRO: { DISPLAY_VERSION?: string };
 type Props = {
   apiKeyStatus: VerificationStatus;
@@ -146,12 +147,12 @@ function PromptInputFooter({
           <PromptInputFooterLeftSide exitMessage={exitMessage} vimMode={vimMode} mode={mode} toolPermissionContext={toolPermissionContext} suppressHint={suppressHint} isLoading={isLoading} tasksSelected={pillSelected} teamsSelected={teamsSelected} teammateFooterIndex={teammateFooterIndex} tmuxSelected={tmuxSelected} isPasting={isPasting} isSearching={isSearching} historyQuery={historyQuery} setHistoryQuery={setHistoryQuery} historyFailedMatch={historyFailedMatch} onOpenTasksDialog={onOpenTasksDialog} />
         </Box>
         <Box flexShrink={1} gap={1}>
-          <YwUpdateIndicator />
           {isFullscreen ? null : <Notifications apiKeyStatus={apiKeyStatus} autoUpdaterResult={autoUpdaterResult} debug={debug} isAutoUpdating={isAutoUpdating} verbose={verbose} messages={messages} onAutoUpdaterResult={onAutoUpdaterResult} onChangeIsUpdating={onChangeIsUpdating} ideSelection={ideSelection} mcpClients={mcpClients} isInputWrapped={isInputWrapped} isNarrow={isNarrow} />}
           {"external" === 'ant' && isUndercover() && <Text dimColor>undercover</Text>}
           <BridgeStatusIndicator bridgeSelected={bridgeSelected} />
         </Box>
       </Box>
+      <YwUpdateIndicator />
       {"external" === 'ant' && <CoordinatorTaskPanel />}
     </>;
 }
@@ -172,7 +173,7 @@ function YwUpdateIndicator(): React.ReactNode {
     }
     return onYwCoderUpdateAvailable(setUpdate);
   }, []);
-  return update ? <Text color="yellow">可更新至 {update.latestVersion} · ywcoder update</Text> : null;
+  return update ? <YwUpdateNotice latestVersion={update.latestVersion} /> : null;
 }
 
 type BridgeStatusProps = {
