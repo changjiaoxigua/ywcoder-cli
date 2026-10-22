@@ -21,6 +21,7 @@ import {
   getSessionId,
 } from '../../bootstrap/state.js'
 import { getOauthConfig } from '../../constants/oauth.js'
+import { withAgentIdentityHeaders } from '../../utils/agentIdentityHeaders.js'
 import { isDebugToStdErr, logForDebugging } from '../../utils/debug.js'
 import {
   getAWSRegion,
@@ -109,7 +110,7 @@ export async function getAnthropicClient({
   const remoteSessionId = getYwCoderEnv('REMOTE_SESSION_ID')
   const clientApp = process.env.CLAUDE_AGENT_SDK_CLIENT_APP
   const customHeaders = getCustomHeaders()
-  const defaultHeaders: { [key: string]: string } = {
+  let defaultHeaders: { [key: string]: string } = {
     'x-app': 'cli',
     'User-Agent': getUserAgent(),
     'X-YwCoder-Session-Id': getSessionId(),
@@ -142,6 +143,8 @@ export async function getAnthropicClient({
   if (!isYwCoderSubscriber()) {
     await configureApiKeyHeaders(defaultHeaders, getIsNonInteractiveSession())
   }
+
+  defaultHeaders = withAgentIdentityHeaders(defaultHeaders)
 
   const resolvedFetch = buildFetch(fetchOverride, source)
 

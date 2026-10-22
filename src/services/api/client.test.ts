@@ -25,6 +25,9 @@ const originalEnv = {
   OPENAI_MODEL: process.env.OPENAI_MODEL,
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   ANTHROPIC_AUTH_TOKEN: process.env.ANTHROPIC_AUTH_TOKEN,
+  YWCODER_INTRANET: process.env.YWCODER_INTRANET,
+  CLAUDE_CODE_INTRANET: process.env.CLAUDE_CODE_INTRANET,
+  ANTHROPIC_CUSTOM_HEADERS: process.env.ANTHROPIC_CUSTOM_HEADERS,
 }
 
 beforeEach(() => {
@@ -44,6 +47,9 @@ beforeEach(() => {
   delete process.env.OPENAI_MODEL
   delete process.env.ANTHROPIC_API_KEY
   delete process.env.ANTHROPIC_AUTH_TOKEN
+  process.env.YWCODER_INTRANET = '0'
+  delete process.env.CLAUDE_CODE_INTRANET
+  delete process.env.ANTHROPIC_CUSTOM_HEADERS
 })
 
 afterEach(() => {
@@ -58,6 +64,12 @@ afterEach(() => {
   process.env.OPENAI_MODEL = originalEnv.OPENAI_MODEL
   process.env.ANTHROPIC_API_KEY = originalEnv.ANTHROPIC_API_KEY
   process.env.ANTHROPIC_AUTH_TOKEN = originalEnv.ANTHROPIC_AUTH_TOKEN
+  if (originalEnv.YWCODER_INTRANET === undefined) delete process.env.YWCODER_INTRANET
+  else process.env.YWCODER_INTRANET = originalEnv.YWCODER_INTRANET
+  if (originalEnv.CLAUDE_CODE_INTRANET === undefined) delete process.env.CLAUDE_CODE_INTRANET
+  else process.env.CLAUDE_CODE_INTRANET = originalEnv.CLAUDE_CODE_INTRANET
+  if (originalEnv.ANTHROPIC_CUSTOM_HEADERS === undefined) delete process.env.ANTHROPIC_CUSTOM_HEADERS
+  else process.env.ANTHROPIC_CUSTOM_HEADERS = originalEnv.ANTHROPIC_CUSTOM_HEADERS
   globalThis.fetch = originalFetch
 })
 
@@ -122,9 +134,38 @@ test('routes Gemini provider requests through the OpenAI-compatible shim', async
   expect(capturedHeaders?.get('user-agent')).not.toContain('claude')
   expect(capturedHeaders?.get('x-ywcoder-session-id')).toBeTruthy()
   expect(capturedHeaders?.get('x-claude-code-session-id')).toBeNull()
+  expect(capturedHeaders?.get('x-agent-name')).toBeNull()
+  expect(capturedHeaders?.get('x-agent-version')).toBeNull()
   expect(capturedBody?.model).toBe('gemini-2.0-flash')
   expect(response).toMatchObject({
     role: 'assistant',
     model: 'gemini-2.0-flash',
   })
+})
+
+test('内网模式的 Gemini 请求使用客户端规范身份头', async () => {
+  process.env.YWCODER_INTRANET = '1'
+  process.env.ANTHROPIC_CUSTOM_HEADERS = 'x-agent-name: custom\nx-Agent-Version: 99.0.0'
+  let capturedHeaders: Headers | undefined
+
+  globalThis.fetch = (async (_input, init) => {
+    capturedHeaders = new Headers(init?.headers)
+    return new Response(JSON.stringify({
+      id: 'chatcmpl-identity',
+      model: 'gemini-2.0-flash',
+      choices: [{ message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    }), { headers: { 'Content-Type': 'application/json' } })
+  }) as FetchType
+
+  const client = (await getAnthropicClient({ maxRetries: 0 })) as unknown as ShimClient
+  await client.beta.messages.create({
+    model: 'gemini-2.0-flash',
+    messages: [{ role: 'user', content: 'hello' }],
+    max_tokens: 8,
+    stream: false,
+  })
+
+  expect(capturedHeaders?.get('x-agent-name')).toBe('ywcoder')
+  expect(capturedHeaders?.get('x-agent-version')).toBe('test-version')
 })

@@ -14,6 +14,7 @@ import {
   resolveProviderRequest,
 } from '../../services/api/providerConfig.js'
 import { buildTool, type ToolDef } from '../../Tool.js'
+import { withAgentIdentityHeaders } from '../../utils/agentIdentityHeaders.js'
 import { lazySchema } from '../../utils/lazySchema.js'
 import { logError } from '../../utils/log.js'
 import { createUserMessage } from '../../utils/messages.js'
@@ -427,12 +428,12 @@ async function runCodexWebSearch(
 
   const response = await fetch(`${request.baseUrl}/responses`, {
     method: 'POST',
-    headers: {
+    headers: withAgentIdentityHeaders({
       'Content-Type': 'application/json',
       Authorization: `Bearer ${credentials.apiKey}`,
       'chatgpt-account-id': credentials.accountId,
       originator: 'ywcoder',
-    },
+    }),
     body: JSON.stringify(body),
     signal,
   })
