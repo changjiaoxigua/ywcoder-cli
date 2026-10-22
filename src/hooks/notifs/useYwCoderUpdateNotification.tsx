@@ -16,7 +16,7 @@ import {
 declare const MACRO: { VERSION: string; DISPLAY_VERSION?: string }
 
 function currentDisplayVersion(): string {
-  return typeof MACRO !== 'undefined' ? (MACRO.DISPLAY_VERSION ?? '') : ''
+  return MACRO.DISPLAY_VERSION ?? ''
 }
 
 /** 单行提醒文案（§4.2）：新旧版本 + 本机平台安装包文件名 */

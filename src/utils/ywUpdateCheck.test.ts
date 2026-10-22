@@ -382,6 +382,25 @@ test('7a：有更新 → 写 hubRoot + latestVersion + packageFilename，并触�
   }
 })
 
+test('启动检查未注入当前版本时读取构建版本', async () => {
+  const originalMacro = (globalThis as Record<string, unknown>).MACRO
+  ;(globalThis as Record<string, unknown>).MACRO = {
+    VERSION: '99.0.0',
+    DISPLAY_VERSION: '1.3.2',
+  }
+  resetYwUpdateCheckForTest()
+  try {
+    const { store, current } = makeStore()
+    const deps = makeDeps({ store })
+    delete deps.currentVersion
+    await checkYwCoderUpdate(deps)
+    assert.equal(current()?.latestVersion, '1.4.0')
+  } finally {
+    ;(globalThis as Record<string, unknown>).MACRO = originalMacro
+    resetYwUpdateCheckForTest()
+  }
+})
+
 test('通知栏与输入栏订阅者都能收到更新', async () => {
   resetYwUpdateCheckForTest()
   const received: string[] = []

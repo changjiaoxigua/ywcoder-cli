@@ -6,7 +6,7 @@ import { downloadUpdateForManualInstall, fetchUpdateRelease, installUpdatePackag
 declare const MACRO: { DISPLAY_VERSION?: string }
 
 export async function ywUpdate(options: { check?: boolean; yes?: boolean }): Promise<void> {
-  const current = typeof MACRO !== 'undefined' ? MACRO.DISPLAY_VERSION : undefined
+  const current = MACRO.DISPLAY_VERSION
   if (!current) throw new Error('当前构建缺少可比较的版本号。')
 
   const release = await fetchUpdateRelease(current)

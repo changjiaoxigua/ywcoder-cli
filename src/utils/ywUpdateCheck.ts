@@ -28,7 +28,7 @@ import {
 // 常量（§3.2 / §4）
 // ---------------------------------------------------------------------------
 
-// 构建期注入（scripts/build.ts）；bun test 下未定义，入口函数有 typeof 守卫
+// 构建期注入（scripts/build.ts）；单测通过 currentVersion 注入或设置测试宏。
 declare const MACRO: { VERSION: string; DISPLAY_VERSION?: string }
 
 /** 清单请求超时：启动期请求必须快速失败（01 文档 C3） */
@@ -297,8 +297,8 @@ export type CheckDeps = {
 }
 
 function defaultCurrentVersion(): string {
-  // bun test 下 MACRO 未注入；本地 dev build 有 DISPLAY_VERSION 但本检查无意义，由调用方决定
-  return typeof MACRO !== 'undefined' ? (MACRO.DISPLAY_VERSION ?? '') : ''
+  // 只读取构建期注入的成员；判断整个 MACRO 对象会在打包后误判为未定义。
+  return MACRO.DISPLAY_VERSION ?? ''
 }
 
 /**
