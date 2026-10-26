@@ -51,11 +51,11 @@ Example `tools.json` entry for an administrator:
 ```json
 {
   "id": "ywcoder-cli",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "packages": [
     {
       "platform": "Linux",
-      "filename": "tools/YwCoder-Cli/ywcoder-1.3.2-linux-universal.tgz",
+      "filename": "tools/YwCoder-Cli/ywcoder-1.3.3-linux-universal.tgz",
       "size": 12345678,
       "sha256": "<64-character SHA-256 digest>"
     }
