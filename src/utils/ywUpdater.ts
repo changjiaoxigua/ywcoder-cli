@@ -38,6 +38,17 @@ export function isExpectedPackageIdentity(identity: unknown, expectedVersion: st
     value.version === expectedVersion.split(/[+-]/, 1)[0]
 }
 
+/** 基础版本清单兼容 CI 的 dev 显示后缀；清单指定预发行版本时仍精确核对。 */
+export function isExpectedInstalledVersion(output: string, expectedVersion: string): boolean {
+  const match = output.trim().match(/^(\S+) \(YwCoder(?:,|\))/)
+  const actualVersion = match?.[1]
+  if (!isValidVersion(actualVersion) || !isValidVersion(expectedVersion)) return false
+  const actual = actualVersion.split('+', 1)[0]!
+  const expected = expectedVersion.split('+', 1)[0]!
+  return actual === expected ||
+    (!expected.includes('-') && actual.startsWith(`${expected}-dev.`))
+}
+
 /** 路径必须是 hub 内的相对路径；清单不能指定其他主机或父目录。 */
 export function resolveUpdatePackage(
   packages: unknown,
@@ -179,8 +190,9 @@ export async function installUpdatePackage(pkg: UpdatePackage, expectedVersion: 
       throw new Error(`安装失败（退出码 ${result.exitCode}）。已校验安装包保留在：${path}。请用有权限的终端按原安装方式重试。`)
     }
     const verifiedVersion = await execa('ywcoder', ['--version'], { reject: false })
-    if (verifiedVersion.exitCode !== 0 || !verifiedVersion.stdout.startsWith(`${expectedVersion} (`)) {
-      throw new Error(`安装后版本验证失败。已校验安装包保留在：${path}`)
+    if (verifiedVersion.exitCode !== 0 || !isExpectedInstalledVersion(verifiedVersion.stdout, expectedVersion)) {
+      const actual = verifiedVersion.stdout.trim().split('\n', 1)[0] || `无版本输出，退出码 ${verifiedVersion.exitCode}`
+      throw new Error(`安装后版本验证失败（清单版本 ${expectedVersion}，实际输出 ${actual}）。已校验安装包保留在：${path}`)
     }
     installed = true
   } finally {

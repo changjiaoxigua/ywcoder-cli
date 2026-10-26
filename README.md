@@ -67,6 +67,11 @@ The manifest is a top-level array containing this entry. Publish the package
 before raising its manifest version. Use a trusted internal hub: a checksum in
 the same manifest detects transfer errors, but does not authenticate an HTTP hub.
 
+For development packages, use the full displayed version in the manifest, such
+as `1.3.3-dev.0728f36`; the npm package metadata keeps the base version `1.3.3`.
+This prevents the same development build from repeatedly appearing as an update
+to a stable version with the same base number.
+
 Inside YwCoder:
 
 - run `/provider` for guided provider setup and saved profiles
